@@ -48,6 +48,7 @@ import com.spotify.heroic.metric.WriteResult;
 import com.spotify.heroic.rpc.nativerpc.NativeRpcProtocol.GroupedQuery;
 import com.spotify.heroic.rpc.nativerpc.NativeRpcProtocol.RpcKeySuggest;
 import com.spotify.heroic.rpc.nativerpc.NativeRpcProtocol.RpcQuery;
+import com.spotify.heroic.rpc.nativerpc.NativeRpcProtocol.RpcSuggestTagKey;
 import com.spotify.heroic.rpc.nativerpc.NativeRpcProtocol.RpcSuggestTagValue;
 import com.spotify.heroic.rpc.nativerpc.NativeRpcProtocol.RpcSuggestTagValues;
 import com.spotify.heroic.rpc.nativerpc.NativeRpcProtocol.RpcTagSuggest;
@@ -55,6 +56,7 @@ import com.spotify.heroic.rpc.nativerpc.NativeRpcProtocol.RpcWriteSeries;
 import com.spotify.heroic.suggest.KeySuggest;
 import com.spotify.heroic.suggest.SuggestManager;
 import com.spotify.heroic.suggest.TagKeyCount;
+import com.spotify.heroic.suggest.TagKeySuggest;
 import com.spotify.heroic.suggest.TagSuggest;
 import com.spotify.heroic.suggest.TagValueSuggest;
 import com.spotify.heroic.suggest.TagValuesSuggest;
@@ -241,6 +243,17 @@ public class NativeRpcProtocolServer implements LifeCycle {
                         final RpcSuggestTagValues query = grouped.getQuery();
                         return suggest.useGroup(grouped.getGroup()).tagValuesSuggest(
                                 query.getFilter(), query.getExclude(), query.getGroupLimit());
+                    }
+                });
+
+        container.register(NativeRpcProtocol.SUGGEST_TAG_KEY,
+                new RpcEndpoint<GroupedQuery<RpcSuggestTagKey>, TagKeySuggest>() {
+                    @Override
+                    public AsyncFuture<TagKeySuggest> handle(
+                            final GroupedQuery<RpcSuggestTagKey> grouped) throws Exception {
+                        final RpcSuggestTagKey query = grouped.getQuery();
+                        return suggest.useGroup(grouped.getGroup()).tagKeySuggest(query.getFilter(),
+                                query.getOptions(), query.getKey());
                     }
                 });
 

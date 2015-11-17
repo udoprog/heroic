@@ -50,12 +50,26 @@ public class SuggestBackendGroup implements SuggestBackend {
     }
 
     @Override
+    public AsyncFramework async() {
+        return async;
+    }
+
+    @Override
     public AsyncFuture<TagValuesSuggest> tagValuesSuggest(final RangeFilter filter,
             final List<String> exclude, final int groupLimit) {
         return async
                 .collect(run(b -> b.tagValuesSuggest(filter, exclude, groupLimit)),
                         TagValuesSuggest.reduce(filter.getLimit(), groupLimit))
                 .onDone(reporter.reportTagValuesSuggest());
+    }
+
+    @Override
+    public AsyncFuture<TagKeySuggest> tagKeySuggest(final RangeFilter filter,
+            final MatchOptions options, final String key) {
+        return async
+                .collect(run(b -> b.tagKeySuggest(filter, options, key)),
+                        TagKeySuggest.reduce(filter.getLimit()))
+                .onDone(reporter.reportTagValueSuggest());
     }
 
     @Override

@@ -42,6 +42,7 @@ import com.spotify.heroic.metric.WriteResult;
 import com.spotify.heroic.suggest.KeySuggest;
 import com.spotify.heroic.suggest.MatchOptions;
 import com.spotify.heroic.suggest.TagKeyCount;
+import com.spotify.heroic.suggest.TagKeySuggest;
 import com.spotify.heroic.suggest.TagSuggest;
 import com.spotify.heroic.suggest.TagValueSuggest;
 import com.spotify.heroic.suggest.TagValuesSuggest;
@@ -119,6 +120,12 @@ public class TracingClusterNodeGroup implements ClusterNode.Group {
     public AsyncFuture<TagValuesSuggest> tagValuesSuggest(RangeFilter filter, List<String> exclude,
             int groupLimit) {
         return delegate.tagValuesSuggest(filter, exclude, groupLimit);
+    }
+
+    @Override
+    public AsyncFuture<TagKeySuggest> tagKeySuggest(RangeFilter filter, MatchOptions options,
+            String key) {
+        return delegate.tagKeySuggest(filter, options, key);
     }
 
     @Override

@@ -46,6 +46,7 @@ import com.spotify.heroic.metric.WriteResult;
 import com.spotify.heroic.suggest.KeySuggest;
 import com.spotify.heroic.suggest.MatchOptions;
 import com.spotify.heroic.suggest.TagKeyCount;
+import com.spotify.heroic.suggest.TagKeySuggest;
 import com.spotify.heroic.suggest.TagSuggest;
 import com.spotify.heroic.suggest.TagValueSuggest;
 import com.spotify.heroic.suggest.TagValuesSuggest;
@@ -189,6 +190,17 @@ public class CoreClusterNodeGroup implements ClusterNodeGroup {
         }
 
         return async.collect(futures, TagValuesSuggest.reduce(filter.getLimit(), groupLimit));
+    }
+
+    @Override
+    public AsyncFuture<TagKeySuggest> tagKeySuggest(RangeFilter filter, MatchOptions options, String value) {
+        final List<AsyncFuture<TagKeySuggest>> futures = new ArrayList<>(entries.size());
+
+        for (final ClusterNode.Group g : entries) {
+            futures.add(g.tagKeySuggest(filter, options, value).catchFailed(TagKeySuggest.nodeError(g)));
+        }
+
+        return async.collect(futures, TagKeySuggest.reduce(filter.getLimit()));
     }
 
     @Override

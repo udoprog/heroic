@@ -173,6 +173,18 @@ public class MetadataResource {
     }
 
     @POST
+    @Path("tag-key-suggest")
+    public void tagKeySuggest(@Suspended final AsyncResponse response,
+            final MetadataTagKeySuggest body) {
+        final MetadataTagKeySuggest request =
+                ofNullable(body).orElseGet(MetadataTagKeySuggest::createDefault);
+        final RangeFilter filter =
+                toRangeFilter(request::getFilter, request::getRange, request::getLimit);
+        httpAsync.bind(response,
+                cluster.useDefaultGroup().tagKeySuggest(filter, request.getMatch(), request.getValue()));
+    }
+
+    @POST
     @Path("tag-value-suggest")
     public void tagValueSuggest(@Suspended final AsyncResponse response,
             final MetadataTagValueSuggest body) {

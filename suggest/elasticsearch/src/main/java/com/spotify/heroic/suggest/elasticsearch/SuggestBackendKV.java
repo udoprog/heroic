@@ -95,6 +95,7 @@ import com.spotify.heroic.suggest.KeySuggest;
 import com.spotify.heroic.suggest.MatchOptions;
 import com.spotify.heroic.suggest.SuggestBackend;
 import com.spotify.heroic.suggest.TagKeyCount;
+import com.spotify.heroic.suggest.TagKeySuggest;
 import com.spotify.heroic.suggest.TagSuggest;
 import com.spotify.heroic.suggest.TagSuggest.Suggestion;
 import com.spotify.heroic.suggest.TagValueSuggest;
@@ -158,6 +159,11 @@ public class SuggestBackendKV implements SuggestBackend, LifeCycle, Grouped {
         this.writeCache = writeCache;
         this.groups = groups;
         this.configure = configure;
+    }
+
+    @Override
+    public AsyncFramework async() {
+        return async;
     }
 
     @Override
@@ -318,6 +324,55 @@ public class SuggestBackendKV implements SuggestBackend, LifeCycle, Grouped {
     }
 
     @Override
+    public AsyncFuture<TagKeySuggest> tagKeySuggest(final RangeFilter filter, final MatchOptions options,
+            final String key) {
+        return doto(new ManagedAction<Connection, TagKeySuggest>() {
+            @Override
+            public AsyncFuture<TagKeySuggest> action(final Connection c) throws Exception {
+                final BoolQueryBuilder bool = boolQuery();
+
+                configureKeyQuery(bool, key);
+
+                QueryBuilder query = bool.hasClauses() ? bool : matchAllQuery();
+
+                if (!(filter.getFilter() instanceof Filter.True)) {
+                    query = filteredQuery(query, filter(filter.getFilter()));
+                }
+
+                final SearchRequestBuilder request = c.search(filter.getRange(), TAG_TYPE)
+                        .setSearchType(SearchType.COUNT).setQuery(query);
+
+                {
+                    final TermsBuilder terms = AggregationBuilders.terms("values")
+                            .field(TAG_SKEY_RAW).size(filter.getLimit() + 1)
+                            .order(Order.term(true));
+                    request.addAggregation(terms);
+                }
+
+                return bind(request.execute(), new Transform<SearchResponse, TagKeySuggest>() {
+                    @Override
+                    public TagKeySuggest transform(SearchResponse response) {
+                        final List<String> suggestions = new ArrayList<>();
+
+                        final Terms terms = (Terms) response.getAggregations().get("values");
+
+                        final List<Bucket> buckets = terms.getBuckets();
+
+                        for (final Terms.Bucket bucket : buckets.subList(0,
+                                Math.min(buckets.size(), filter.getLimit()))) {
+                            suggestions.add(bucket.getKey());
+                        }
+
+                        boolean limited = buckets.size() > filter.getLimit();
+
+                        return new TagKeySuggest(new ArrayList<>(suggestions), limited);
+                    }
+                });
+            }
+        });
+    }
+
+    @Override
     public AsyncFuture<TagKeyCount> tagKeyCount(final RangeFilter filter) {
         return doto(new ManagedAction<Connection, TagKeyCount>() {
             @Override
@@ -367,14 +422,7 @@ public class SuggestBackendKV implements SuggestBackend, LifeCycle, Grouped {
             public AsyncFuture<TagSuggest> action(final Connection c) throws Exception {
                 final BoolQueryBuilder bool = boolQuery();
 
-                if (key != null && !key.isEmpty()) {
-                    final String l = key.toLowerCase();
-                    final BoolQueryBuilder sub = boolQuery();
-                    sub.should(termQuery(TAG_SKEY, l));
-                    sub.should(termQuery(TAG_SKEY_PREFIX, l).boost(1.5f));
-                    sub.should(termQuery(TAG_SKEY_RAW, l).boost(2.0f));
-                    bool.must(sub);
-                }
+                configureKeyQuery(bool, key);
 
                 if (value != null && !value.isEmpty()) {
                     final String l = value.toLowerCase();
@@ -564,6 +612,23 @@ public class SuggestBackendKV implements SuggestBackend, LifeCycle, Grouped {
                 return async.collect(writes, WriteResult.merger());
             }
         });
+    }
+
+    /**
+     * Configures an analyzed match for keys if the string is defined.
+     */
+    private void configureKeyQuery(final BoolQueryBuilder bool, final String value) {
+        if (value == null || value.isEmpty()) {
+            return;
+        }
+
+        final String lower = value.toLowerCase();
+
+        final BoolQueryBuilder sub = boolQuery();
+        sub.should(termQuery(TAG_SKEY, lower));
+        sub.should(termQuery(TAG_SKEY_PREFIX, lower).boost(1.5f));
+        sub.should(termQuery(TAG_SKEY_RAW, lower).boost(2.0f));
+        bool.must(sub);
     }
 
     /**

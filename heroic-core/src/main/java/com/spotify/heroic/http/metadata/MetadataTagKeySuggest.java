@@ -27,26 +27,33 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.spotify.heroic.QueryDateRange;
 import com.spotify.heroic.filter.Filter;
+import com.spotify.heroic.suggest.MatchOptions;
 
 import lombok.Data;
 
 @Data
 public class MetadataTagKeySuggest {
     private static final int DEFAULT_LIMIT = 10;
+    private static final String DEFAULT_VALUE = "";
 
     private final Optional<Filter> filter;
     private final Optional<QueryDateRange> range;
+    private final MatchOptions match;
     private final int limit;
+    private final String value;
 
     @JsonCreator
     public MetadataTagKeySuggest(@JsonProperty("filter") Filter filter,
-            @JsonProperty("range") QueryDateRange range, @JsonProperty("limit") Integer limit) {
+            @JsonProperty("range") QueryDateRange range, @JsonProperty("match") MatchOptions match,
+            @JsonProperty("limit") Integer limit, @JsonProperty("value") String value) {
         this.filter = Optional.ofNullable(filter);
         this.range = Optional.ofNullable(range);
+        this.match = Optional.ofNullable(match).orElseGet(MatchOptions.builder()::build);
         this.limit = Optional.ofNullable(limit).orElse(DEFAULT_LIMIT);
+        this.value = Optional.ofNullable(value).orElse(DEFAULT_VALUE);
     }
 
     public static MetadataTagKeySuggest createDefault() {
-        return new MetadataTagKeySuggest(null, null, null);
+        return new MetadataTagKeySuggest(null, null, null, null, null);
     }
 }

@@ -55,6 +55,7 @@ import com.spotify.heroic.metric.WriteResult;
 import com.spotify.heroic.suggest.KeySuggest;
 import com.spotify.heroic.suggest.MatchOptions;
 import com.spotify.heroic.suggest.TagKeyCount;
+import com.spotify.heroic.suggest.TagKeySuggest;
 import com.spotify.heroic.suggest.TagSuggest;
 import com.spotify.heroic.suggest.TagValueSuggest;
 import com.spotify.heroic.suggest.TagValuesSuggest;
@@ -83,6 +84,7 @@ public class NativeRpcProtocol implements RpcProtocol {
     public static final String SUGGEST_KEY = "suggest:key";
     public static final String SUGGEST_TAG = "suggest:tag";
     public static final String SUGGEST_TAG_VALUES = "suggest:tagValues";
+    public static final String SUGGEST_TAG_KEY = "suggest:tagKey";
     public static final String SUGGEST_TAG_VALUE = "suggest:tagValue";
 
     @Inject
@@ -222,6 +224,13 @@ public class NativeRpcProtocol implements RpcProtocol {
             }
 
             @Override
+            public AsyncFuture<TagKeySuggest> tagKeySuggest(RangeFilter filter,
+                    MatchOptions options, String key) {
+                return request(SUGGEST_TAG_KEY, new RpcSuggestTagKey(filter, options, key),
+                        TagKeySuggest.class);
+            }
+
+            @Override
             public AsyncFuture<TagValueSuggest> tagValueSuggest(RangeFilter filter, String key) {
                 return request(SUGGEST_TAG_VALUE, new RpcSuggestTagValue(filter, key),
                         TagValueSuggest.class);
@@ -240,8 +249,7 @@ public class NativeRpcProtocol implements RpcProtocol {
         private final T query;
 
         @JsonCreator
-        public GroupedQuery(@JsonProperty("group") String group,
-                @JsonProperty("query") T query) {
+        public GroupedQuery(@JsonProperty("group") String group, @JsonProperty("query") T query) {
             this.group = group;
             this.query = query;
         }
@@ -276,6 +284,7 @@ public class NativeRpcProtocol implements RpcProtocol {
         private final String key;
         private final String value;
 
+        @JsonCreator
         public RpcTagSuggest(@JsonProperty("range") final RangeFilter filter,
                 @JsonProperty("match") final MatchOptions match,
                 @JsonProperty("key") final String key, @JsonProperty("value") final String value) {
@@ -292,6 +301,7 @@ public class NativeRpcProtocol implements RpcProtocol {
         private final List<String> exclude;
         private final int groupLimit;
 
+        @JsonCreator
         public RpcSuggestTagValues(@JsonProperty("range") final RangeFilter filter,
                 @JsonProperty("exclude") final List<String> exclude,
                 @JsonProperty("groupLimit") final Integer groupLimit) {
@@ -302,10 +312,27 @@ public class NativeRpcProtocol implements RpcProtocol {
     }
 
     @Data
+    public static class RpcSuggestTagKey {
+        private final RangeFilter filter;
+        private final MatchOptions options;
+        private final String key;
+
+        @JsonCreator
+        public RpcSuggestTagKey(@JsonProperty("range") final RangeFilter filter,
+                @JsonProperty("options") MatchOptions options,
+                @JsonProperty("key") final String key) {
+            this.filter = filter;
+            this.options = checkNotNull(options, "options");
+            this.key = checkNotNull(key, "key must not be null");
+        }
+    }
+
+    @Data
     public static class RpcSuggestTagValue {
         private final RangeFilter filter;
         private final String key;
 
+        @JsonCreator
         public RpcSuggestTagValue(@JsonProperty("range") final RangeFilter filter,
                 @JsonProperty("key") final String key) {
             this.filter = filter;
@@ -319,6 +346,7 @@ public class NativeRpcProtocol implements RpcProtocol {
         private final MatchOptions match;
         private final String key;
 
+        @JsonCreator
         public RpcKeySuggest(@JsonProperty("range") final RangeFilter filter,
                 @JsonProperty("match") final MatchOptions match,
                 @JsonProperty("key") final String key) {
@@ -333,6 +361,7 @@ public class NativeRpcProtocol implements RpcProtocol {
         private final DateRange range;
         private final Series series;
 
+        @JsonCreator
         public RpcWriteSeries(@JsonProperty("range") final DateRange range,
                 @JsonProperty("series") final Series series) {
             this.range = checkNotNull(range);

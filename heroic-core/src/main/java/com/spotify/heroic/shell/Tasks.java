@@ -67,6 +67,7 @@ import com.spotify.heroic.shell.task.Statistics;
 import com.spotify.heroic.shell.task.SuggestKey;
 import com.spotify.heroic.shell.task.SuggestPerformance;
 import com.spotify.heroic.shell.task.SuggestTag;
+import com.spotify.heroic.shell.task.SuggestTagKey;
 import com.spotify.heroic.shell.task.SuggestTagKeyCount;
 import com.spotify.heroic.shell.task.SuggestTagValue;
 import com.spotify.heroic.shell.task.SuggestTagValues;
@@ -100,6 +101,7 @@ public final class Tasks {
         available.add(shellTask(SuggestTag.class));
         available.add(shellTask(SuggestKey.class));
         available.add(shellTask(SuggestTagValue.class));
+        available.add(shellTask(SuggestTagKey.class));
         available.add(shellTask(SuggestTagValues.class));
         available.add(shellTask(SuggestTagKeyCount.class));
         available.add(shellTask(SuggestPerformance.class));

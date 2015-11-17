@@ -48,6 +48,7 @@ import com.spotify.heroic.suggest.MatchOptions;
 import com.spotify.heroic.suggest.SuggestBackend;
 import com.spotify.heroic.suggest.SuggestManager;
 import com.spotify.heroic.suggest.TagKeyCount;
+import com.spotify.heroic.suggest.TagKeySuggest;
 import com.spotify.heroic.suggest.TagSuggest;
 import com.spotify.heroic.suggest.TagValueSuggest;
 import com.spotify.heroic.suggest.TagValuesSuggest;
@@ -151,6 +152,12 @@ public class LocalClusterNode implements ClusterNode {
         public AsyncFuture<TagValuesSuggest> tagValuesSuggest(RangeFilter filter,
                 List<String> exclude, int groupLimit) {
             return suggest().tagValuesSuggest(filter, exclude, groupLimit);
+        }
+
+        @Override
+        public AsyncFuture<TagKeySuggest> tagKeySuggest(RangeFilter filter, MatchOptions options,
+                String key) {
+            return suggest().tagKeySuggest(filter, options, key);
         }
 
         @Override

@@ -30,10 +30,13 @@ import com.spotify.heroic.common.RangeFilter;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.metric.WriteResult;
 
+import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 
 public interface SuggestBackend extends Grouped, Initializing {
     AsyncFuture<Void> configure();
+
+    AsyncFramework async();
 
     /**
      * Return a set of suggestions for the most relevant tag values (given the number of tags
@@ -55,4 +58,8 @@ public interface SuggestBackend extends Grouped, Initializing {
     AsyncFuture<TagValueSuggest> tagValueSuggest(RangeFilter filter, String key);
 
     AsyncFuture<WriteResult> write(Series series, DateRange range);
+
+    default AsyncFuture<TagKeySuggest> tagKeySuggest(RangeFilter filter, MatchOptions options, String value) {
+        return async().resolved(TagKeySuggest.empty());
+    }
 }

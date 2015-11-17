@@ -41,6 +41,7 @@ import com.spotify.heroic.metric.WriteResult;
 import com.spotify.heroic.suggest.KeySuggest;
 import com.spotify.heroic.suggest.MatchOptions;
 import com.spotify.heroic.suggest.TagKeyCount;
+import com.spotify.heroic.suggest.TagKeySuggest;
 import com.spotify.heroic.suggest.TagSuggest;
 import com.spotify.heroic.suggest.TagValueSuggest;
 import com.spotify.heroic.suggest.TagValuesSuggest;
@@ -79,6 +80,9 @@ public interface ClusterNode {
 
         AsyncFuture<TagValuesSuggest> tagValuesSuggest(RangeFilter filter, List<String> exclude,
                 int groupLimit);
+
+        AsyncFuture<TagKeySuggest> tagKeySuggest(RangeFilter filter, MatchOptions options,
+                String value);
 
         AsyncFuture<TagValueSuggest> tagValueSuggest(RangeFilter filter, String key);
 

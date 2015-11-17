@@ -163,6 +163,11 @@ public class SuggestBackendV1 implements SuggestBackend, LifeCycle, Grouped {
     }
 
     @Override
+    public AsyncFramework async() {
+        return async;
+    }
+
+    @Override
     public AsyncFuture<Void> configure() {
         return doto(c -> c.configure());
     }
