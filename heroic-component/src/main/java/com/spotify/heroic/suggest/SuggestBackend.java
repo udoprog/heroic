@@ -55,11 +55,13 @@ public interface SuggestBackend extends Grouped, Initializing {
 
     AsyncFuture<KeySuggest> keySuggest(RangeFilter filter, MatchOptions options, String key);
 
-    AsyncFuture<TagValueSuggest> tagValueSuggest(RangeFilter filter, String key);
+    AsyncFuture<TagValueSuggest> tagValueSuggest(RangeFilter filter, MatchOptions options,
+            String key, String value);
 
     AsyncFuture<WriteResult> write(Series series, DateRange range);
 
-    default AsyncFuture<TagKeySuggest> tagKeySuggest(RangeFilter filter, MatchOptions options, String value) {
+    default AsyncFuture<TagKeySuggest> tagKeySuggest(RangeFilter filter, MatchOptions options,
+            String value) {
         return async().resolved(TagKeySuggest.empty());
     }
 }

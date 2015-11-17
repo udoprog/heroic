@@ -231,9 +231,10 @@ public class NativeRpcProtocol implements RpcProtocol {
             }
 
             @Override
-            public AsyncFuture<TagValueSuggest> tagValueSuggest(RangeFilter filter, String key) {
-                return request(SUGGEST_TAG_VALUE, new RpcSuggestTagValue(filter, key),
-                        TagValueSuggest.class);
+            public AsyncFuture<TagValueSuggest> tagValueSuggest(RangeFilter filter,
+                    MatchOptions options, String key, String value) {
+                return request(SUGGEST_TAG_VALUE,
+                        new RpcSuggestTagValue(filter, options, key, value), TagValueSuggest.class);
             }
 
             private <T, R> AsyncFuture<R> request(String endpoint, T body, Class<R> expected) {
@@ -330,13 +331,18 @@ public class NativeRpcProtocol implements RpcProtocol {
     @Data
     public static class RpcSuggestTagValue {
         private final RangeFilter filter;
+        private final MatchOptions match;
         private final String key;
+        private final String value;
 
         @JsonCreator
         public RpcSuggestTagValue(@JsonProperty("range") final RangeFilter filter,
-                @JsonProperty("key") final String key) {
+                @JsonProperty("match") final MatchOptions match,
+                @JsonProperty("key") final String key, @JsonProperty("value") final String value) {
             this.filter = filter;
+            this.match = checkNotNull(match, "match must not be null");
             this.key = checkNotNull(key, "key must not be null");
+            this.value = checkNotNull(value, "value must not be null");
         }
     }
 

@@ -39,6 +39,7 @@ import com.spotify.heroic.shell.TaskName;
 import com.spotify.heroic.shell.TaskParameters;
 import com.spotify.heroic.shell.TaskUsage;
 import com.spotify.heroic.shell.Tasks;
+import com.spotify.heroic.suggest.MatchOptions;
 import com.spotify.heroic.suggest.SuggestManager;
 
 import eu.toolchain.async.AsyncFuture;
@@ -72,7 +73,9 @@ public class SuggestTagValue implements ShellTask {
 
         final RangeFilter filter = Tasks.setupRangeFilter(filters, parser, params);
 
-        return suggest.useGroup(params.group).tagValueSuggest(filter, params.key)
+        final MatchOptions options = MatchOptions.builder().build();
+
+        return suggest.useGroup(params.group).tagValueSuggest(filter, options, params.key, params.value)
                 .directTransform(result -> {
                     int i = 0;
 
@@ -91,7 +94,10 @@ public class SuggestTagValue implements ShellTask {
         private String group;
 
         @Option(name = "-k", aliases = { "--key" }, usage = "Provide key context for suggestion")
-        private String key = null;
+        private String key = "";
+
+        @Option(name = "-v", aliases = { "--value" }, usage = "Provide value for suggestion")
+        private String value = null;
 
         @Option(name = "--limit", aliases = { "--limit" },
                 usage = "Limit the number of printed entries")

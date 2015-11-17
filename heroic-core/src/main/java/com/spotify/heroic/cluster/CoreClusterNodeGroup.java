@@ -193,22 +193,26 @@ public class CoreClusterNodeGroup implements ClusterNodeGroup {
     }
 
     @Override
-    public AsyncFuture<TagKeySuggest> tagKeySuggest(RangeFilter filter, MatchOptions options, String value) {
+    public AsyncFuture<TagKeySuggest> tagKeySuggest(RangeFilter filter, MatchOptions options,
+            String value) {
         final List<AsyncFuture<TagKeySuggest>> futures = new ArrayList<>(entries.size());
 
         for (final ClusterNode.Group g : entries) {
-            futures.add(g.tagKeySuggest(filter, options, value).catchFailed(TagKeySuggest.nodeError(g)));
+            futures.add(g.tagKeySuggest(filter, options, value)
+                    .catchFailed(TagKeySuggest.nodeError(g)));
         }
 
         return async.collect(futures, TagKeySuggest.reduce(filter.getLimit()));
     }
 
     @Override
-    public AsyncFuture<TagValueSuggest> tagValueSuggest(RangeFilter filter, String key) {
+    public AsyncFuture<TagValueSuggest> tagValueSuggest(RangeFilter filter, MatchOptions options,
+            String key, String value) {
         final List<AsyncFuture<TagValueSuggest>> futures = new ArrayList<>(entries.size());
 
         for (final ClusterNode.Group g : entries) {
-            futures.add(g.tagValueSuggest(filter, key).catchFailed(TagValueSuggest.nodeError(g)));
+            futures.add(g.tagValueSuggest(filter, options, key, value)
+                    .catchFailed(TagValueSuggest.nodeError(g)));
         }
 
         return async.collect(futures, TagValueSuggest.reduce(filter.getLimit()));

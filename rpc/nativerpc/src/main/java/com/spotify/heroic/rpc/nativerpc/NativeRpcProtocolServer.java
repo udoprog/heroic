@@ -114,14 +114,12 @@ public class NativeRpcProtocolServer implements LifeCycle {
     private final NativeRpcContainer container = new NativeRpcContainer();
 
     {
-        container.register("metadata",
-                new RpcEndpoint<RpcEmptyBody, NodeMetadata>() {
-                    @Override
-                    public AsyncFuture<NodeMetadata> handle(final RpcEmptyBody request)
-                            throws Exception {
-                        return async.resolved(localMetadata);
-                    }
-                });
+        container.register("metadata", new RpcEndpoint<RpcEmptyBody, NodeMetadata>() {
+            @Override
+            public AsyncFuture<NodeMetadata> handle(final RpcEmptyBody request) throws Exception {
+                return async.resolved(localMetadata);
+            }
+        });
 
         container.register(NativeRpcProtocol.METRICS_QUERY,
                 new RpcEndpoint<GroupedQuery<RpcQuery>, ResultGroups>() {
@@ -263,8 +261,9 @@ public class NativeRpcProtocolServer implements LifeCycle {
                     public AsyncFuture<TagValueSuggest> handle(
                             final GroupedQuery<RpcSuggestTagValue> grouped) throws Exception {
                         final RpcSuggestTagValue query = grouped.getQuery();
-                        return suggest.useGroup(grouped.getGroup())
-                                .tagValueSuggest(query.getFilter(), query.getKey());
+                        return suggest.useGroup(grouped.getGroup()).tagValueSuggest(
+                                query.getFilter(), query.getMatch(), query.getKey(),
+                                query.getValue());
                     }
                 });
     }

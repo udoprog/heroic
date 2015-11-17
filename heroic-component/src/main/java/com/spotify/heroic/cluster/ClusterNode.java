@@ -84,7 +84,8 @@ public interface ClusterNode {
         AsyncFuture<TagKeySuggest> tagKeySuggest(RangeFilter filter, MatchOptions options,
                 String value);
 
-        AsyncFuture<TagValueSuggest> tagValueSuggest(RangeFilter filter, String key);
+        AsyncFuture<TagValueSuggest> tagValueSuggest(RangeFilter filter, MatchOptions options,
+                String key, String value);
 
         AsyncFuture<WriteResult> writeSeries(DateRange range, Series series);
 

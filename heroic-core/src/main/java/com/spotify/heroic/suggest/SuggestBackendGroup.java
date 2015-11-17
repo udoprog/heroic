@@ -74,9 +74,9 @@ public class SuggestBackendGroup implements SuggestBackend {
 
     @Override
     public AsyncFuture<TagValueSuggest> tagValueSuggest(final RangeFilter filter,
-            final String key) {
+            final MatchOptions options, final String key, final String value) {
         return async
-                .collect(run(b -> b.tagValueSuggest(filter, key)),
+                .collect(run(b -> b.tagValueSuggest(filter, options, key, value)),
                         TagValueSuggest.reduce(filter.getLimit()))
                 .onDone(reporter.reportTagValueSuggest());
     }

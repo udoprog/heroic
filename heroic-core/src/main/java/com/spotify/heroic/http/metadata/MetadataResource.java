@@ -193,7 +193,7 @@ public class MetadataResource {
         final RangeFilter filter =
                 toRangeFilter(request::getFilter, request::getRange, request::getLimit);
         httpAsync.bind(response,
-                cluster.useDefaultGroup().tagValueSuggest(filter, request.getKey()));
+                cluster.useDefaultGroup().tagValueSuggest(filter, request.getMatch(), request.getKey(), request.getValue()));
     }
 
     @POST

@@ -273,16 +273,18 @@ public class SuggestBackendKV implements SuggestBackend, LifeCycle, Grouped {
     }
 
     @Override
-    public AsyncFuture<TagValueSuggest> tagValueSuggest(final RangeFilter filter,
-            final String key) {
+    public AsyncFuture<TagValueSuggest> tagValueSuggest(final RangeFilter filter, final MatchOptions options,
+            final String key, final String value) {
         return doto(new ManagedAction<Connection, TagValueSuggest>() {
             @Override
             public AsyncFuture<TagValueSuggest> action(final Connection c) throws Exception {
                 final BoolQueryBuilder bool = boolQuery();
 
-                if (key != null && !key.isEmpty()) {
+                if (key != null) {
                     bool.must(termQuery(TAG_SKEY_RAW, key));
                 }
+
+                configureTagValueQuery(bool, value);
 
                 QueryBuilder query = bool.hasClauses() ? bool : matchAllQuery();
 
@@ -331,7 +333,7 @@ public class SuggestBackendKV implements SuggestBackend, LifeCycle, Grouped {
             public AsyncFuture<TagKeySuggest> action(final Connection c) throws Exception {
                 final BoolQueryBuilder bool = boolQuery();
 
-                configureKeyQuery(bool, key);
+                configureTagKeyQuery(bool, key);
 
                 QueryBuilder query = bool.hasClauses() ? bool : matchAllQuery();
 
@@ -422,16 +424,8 @@ public class SuggestBackendKV implements SuggestBackend, LifeCycle, Grouped {
             public AsyncFuture<TagSuggest> action(final Connection c) throws Exception {
                 final BoolQueryBuilder bool = boolQuery();
 
-                configureKeyQuery(bool, key);
-
-                if (value != null && !value.isEmpty()) {
-                    final String l = value.toLowerCase();
-                    final BoolQueryBuilder sub = boolQuery();
-                    sub.should(termQuery(TAG_SVAL, l));
-                    sub.should(termQuery(TAG_SVAL_PREFIX, l).boost(1.5f));
-                    sub.should(termQuery(TAG_SVAL_RAW, l).boost(2.0f));
-                    bool.must(sub);
-                }
+                configureTagKeyQuery(bool, key);
+                configureTagValueQuery(bool, value);
 
                 QueryBuilder query = bool.hasClauses() ? bool : matchAllQuery();
 
@@ -617,7 +611,7 @@ public class SuggestBackendKV implements SuggestBackend, LifeCycle, Grouped {
     /**
      * Configures an analyzed match for keys if the string is defined.
      */
-    private void configureKeyQuery(final BoolQueryBuilder bool, final String value) {
+    private void configureTagKeyQuery(final BoolQueryBuilder bool, final String value) {
         if (value == null || value.isEmpty()) {
             return;
         }
@@ -628,6 +622,19 @@ public class SuggestBackendKV implements SuggestBackend, LifeCycle, Grouped {
         sub.should(termQuery(TAG_SKEY, lower));
         sub.should(termQuery(TAG_SKEY_PREFIX, lower).boost(1.5f));
         sub.should(termQuery(TAG_SKEY_RAW, lower).boost(2.0f));
+        bool.must(sub);
+    }
+
+    private void configureTagValueQuery(final BoolQueryBuilder bool, final String value) {
+        if (value == null || value.isEmpty()) {
+            return;
+        }
+
+        final String l = value.toLowerCase();
+        final BoolQueryBuilder sub = boolQuery();
+        sub.should(termQuery(TAG_SVAL, l));
+        sub.should(termQuery(TAG_SVAL_PREFIX, l).boost(1.5f));
+        sub.should(termQuery(TAG_SVAL_RAW, l).boost(2.0f));
         bool.must(sub);
     }
 

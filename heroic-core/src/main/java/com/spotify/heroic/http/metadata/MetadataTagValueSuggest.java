@@ -28,6 +28,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import com.spotify.heroic.QueryDateRange;
 import com.spotify.heroic.filter.Filter;
+import com.spotify.heroic.suggest.MatchOptions;
 
 import lombok.AccessLevel;
 import lombok.Data;
@@ -37,6 +38,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor(access = AccessLevel.NONE)
 public class MetadataTagValueSuggest {
     private static final int DEFAULT_LIMIT = 10;
+    private static final String DEFAULT_VALUE = "";
 
     /**
      * Filter the suggestions being returned.
@@ -53,23 +55,32 @@ public class MetadataTagValueSuggest {
      */
     private final Optional<QueryDateRange> range;
 
+    private final MatchOptions match;
+
     /**
      * Exclude the given tags from the result.
      */
     private final String key;
 
+    /**
+     * Basis for suggestion.
+     */
+    private final String value;
+
     @JsonCreator
     public MetadataTagValueSuggest(@JsonProperty("filter") Optional<Filter> filter,
             @JsonProperty("range") Optional<QueryDateRange> range,
-            @JsonProperty("limit") Optional<Integer> limit, @JsonProperty("key") String key) {
+            @JsonProperty("limit") Optional<Integer> limit, @JsonProperty("match") MatchOptions match, @JsonProperty("key") String key, @JsonProperty("value") String value) {
         this.filter = filter;
         this.range = range;
         this.limit = limit.orElse(DEFAULT_LIMIT);
+        this.match = Optional.ofNullable(match).orElseGet(MatchOptions.builder()::build);
         this.key = Preconditions.checkNotNull(key, "key must not be null");
+        this.value = Optional.ofNullable(value).orElse(DEFAULT_VALUE);
     }
 
     public static MetadataTagValueSuggest createDefault() {
-        return new MetadataTagValueSuggest(Optional.empty(), Optional.empty(), Optional.empty(),
-                "");
+        return new MetadataTagValueSuggest(Optional.empty(), Optional.empty(), Optional.empty(), null,
+                "", null);
     }
 }

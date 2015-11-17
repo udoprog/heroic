@@ -161,8 +161,9 @@ public class LocalClusterNode implements ClusterNode {
         }
 
         @Override
-        public AsyncFuture<TagValueSuggest> tagValueSuggest(RangeFilter filter, String key) {
-            return suggest().tagValueSuggest(filter, key);
+        public AsyncFuture<TagValueSuggest> tagValueSuggest(RangeFilter filter,
+                MatchOptions options, String key, String value) {
+            return suggest().tagValueSuggest(filter, options, key, value);
         }
 
         @Override

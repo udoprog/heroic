@@ -124,7 +124,7 @@ import eu.toolchain.async.ResolvableFuture;
 import eu.toolchain.async.Transform;
 import lombok.ToString;
 
-@ToString(of = {"connection"})
+@ToString(of = { "connection" })
 public class SuggestBackendV1 implements SuggestBackend, LifeCycle, Grouped {
     private static final StandardAnalyzer analyzer = new StandardAnalyzer();
     public static final TimeValue TIMEOUT = TimeValue.timeValueMillis(10000);
@@ -133,10 +133,10 @@ public class SuggestBackendV1 implements SuggestBackend, LifeCycle, Grouped {
     private static final Utils.FilterContext SERIES_CTX = Utils.context();
     private static final Utils.FilterContext TAG_CTX = Utils.context(Utils.TAG_SERIES);
 
-    private static final String[] KEY_SUGGEST_SOURCES = new String[] {Utils.SERIES_KEY_RAW};
+    private static final String[] KEY_SUGGEST_SOURCES = new String[] { Utils.SERIES_KEY_RAW };
 
     private static final String[] TAG_SUGGEST_SOURCES =
-            new String[] {Utils.TAG_KEY, Utils.TAG_VALUE};
+            new String[] { Utils.TAG_KEY, Utils.TAG_VALUE };
 
     private final AsyncFramework async;
     private final Managed<Connection> connection;
@@ -279,7 +279,7 @@ public class SuggestBackendV1 implements SuggestBackend, LifeCycle, Grouped {
 
     @Override
     public AsyncFuture<TagValueSuggest> tagValueSuggest(final RangeFilter filter,
-            final String key) {
+            final MatchOptions options, final String key, final String value) {
         return doto(new ManagedAction<Connection, TagValueSuggest>() {
             @Override
             public AsyncFuture<TagValueSuggest> action(final Connection c) throws Exception {

@@ -129,8 +129,9 @@ public class TracingClusterNodeGroup implements ClusterNode.Group {
     }
 
     @Override
-    public AsyncFuture<TagValueSuggest> tagValueSuggest(RangeFilter filter, String key) {
-        return delegate.tagValueSuggest(filter, key);
+    public AsyncFuture<TagValueSuggest> tagValueSuggest(RangeFilter filter, MatchOptions options,
+            String key, String value) {
+        return delegate.tagValueSuggest(filter, options, key, value);
     }
 
     @Override
