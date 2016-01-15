@@ -21,14 +21,22 @@
 
 package com.spotify.heroic.coalesce;
 
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.spotify.heroic.coalesce.tasks.HttpPingCoalesceTask;
+import com.google.inject.Inject;
+import com.spotify.heroic.HeroicConfigurationContext;
+import com.spotify.heroic.HeroicModule;
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
-@JsonSubTypes({@JsonSubTypes.Type(HttpPingCoalesceTask.class)})
-public interface CoalesceTask {
-    String getId();
+public class Module implements HeroicModule {
+    @Override
+    public HeroicModule.Entry setup() {
+        return new Entry() {
+            @Inject
+            private HeroicConfigurationContext config;
 
-    String getVersion();
+            @Override
+            public void setup() {
+                config.registerType("coalesce", CoalesceModule.Builder.class);
+                config.resource(CoalesceResource.class);
+            }
+        };
+    }
 }

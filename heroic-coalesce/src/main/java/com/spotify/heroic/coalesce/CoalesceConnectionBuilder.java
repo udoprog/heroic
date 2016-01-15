@@ -23,12 +23,13 @@ package com.spotify.heroic.coalesce;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.spotify.heroic.coalesce.tasks.HttpPingCoalesceTask;
+import com.spotify.heroic.coalesce.zookeeper.ZookeeperCoalesceConnectionBuilder;
+
+import eu.toolchain.async.AsyncFramework;
+import eu.toolchain.async.AsyncFuture;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
-@JsonSubTypes({@JsonSubTypes.Type(HttpPingCoalesceTask.class)})
-public interface CoalesceTask {
-    String getId();
-
-    String getVersion();
+@JsonSubTypes({@JsonSubTypes.Type(ZookeeperCoalesceConnectionBuilder.class)})
+public interface CoalesceConnectionBuilder {
+    AsyncFuture<CoalesceConnection> build(final AsyncFramework async);
 }

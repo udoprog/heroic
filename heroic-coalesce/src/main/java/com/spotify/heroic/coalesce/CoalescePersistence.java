@@ -21,14 +21,17 @@
 
 package com.spotify.heroic.coalesce;
 
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.spotify.heroic.coalesce.tasks.HttpPingCoalesceTask;
+import java.util.Optional;
+import java.util.Set;
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
-@JsonSubTypes({@JsonSubTypes.Type(HttpPingCoalesceTask.class)})
-public interface CoalesceTask {
-    String getId();
+import eu.toolchain.async.AsyncFuture;
 
-    String getVersion();
+public interface CoalescePersistence {
+    AsyncFuture<Set<String>> getTaskIds();
+
+    AsyncFuture<Optional<CoalesceTask>> getTask(String id);
+
+    AsyncFuture<Void> addTask(CoalesceTask task);
+
+    AsyncFuture<Void> deleteTask(String id);
 }

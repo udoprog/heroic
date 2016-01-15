@@ -25,33 +25,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Optional.empty;
 import static java.util.Optional.of;
 
-import java.io.IOException;
-import java.lang.Thread.UncaughtExceptionHandler;
-import java.net.InetSocketAddress;
-import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map.Entry;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
-
-import org.apache.commons.lang3.tuple.Pair;
-
 import com.fasterxml.jackson.core.JsonLocation;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -78,6 +51,34 @@ import com.spotify.heroic.scheduler.Scheduler;
 import com.spotify.heroic.shell.ShellServerModule;
 import com.spotify.heroic.statistics.HeroicReporter;
 import com.spotify.heroic.statistics.noop.NoopHeroicReporter;
+
+import org.apache.commons.lang3.tuple.Pair;
+
+import java.io.IOException;
+import java.lang.Thread.UncaughtExceptionHandler;
+import java.net.InetSocketAddress;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import eu.toolchain.async.AsyncFramework;
@@ -508,9 +509,13 @@ public class HeroicCore implements HeroicConfiguration, HeroicReporterConfigurat
         modules.add(new AbstractModule() {
             @Override
             protected void configure() {
-                for (final Module m : setupConsumers(config, reporter, binder())) {
-                    install(m);
-                }
+                multibindings(config.getConsumers(), ConsumerModule::id, ConsumerModule::buildId,
+                        (c, id) -> k -> c.module(k, reporter.newConsumer(id)), binder(),
+                        Consumer.class).forEach(m -> install(m));
+
+                multibindings(config.getServices(), ServiceComponentModule::id,
+                        ServiceComponentModule::buildId, (s, id) -> k -> s.module(k, id), binder(),
+                        ServiceComponent.class).forEach(m -> install(m));
             }
         });
 
@@ -541,19 +546,21 @@ public class HeroicCore implements HeroicConfiguration, HeroicReporterConfigurat
         return new InetSocketAddress(host, port);
     }
 
-    private static List<Module> setupConsumers(final HeroicConfig config,
-            final HeroicReporter reporter, Binder binder) {
-        final Multibinder<Consumer> bindings = Multibinder.newSetBinder(binder, Consumer.class);
+    private static <T, S> List<Module> multibindings(final List<S> services,
+            final Function<S, Optional<String>> id, final BiFunction<S, Integer, String> buildId,
+            final BiFunction<S, String, Function<Key<T>, Module>> module, Binder binder,
+            Class<T> type) {
+        final Multibinder<T> bindings = Multibinder.newSetBinder(binder, type);
 
         final List<Module> modules = new ArrayList<>();
 
         final AtomicInteger index = new AtomicInteger();
 
-        for (final ConsumerModule consumer : config.getConsumers()) {
-            final String id =
-                    consumer.id().orElseGet(() -> consumer.buildId(index.getAndIncrement()));
-            final Key<Consumer> key = Key.get(Consumer.class, Names.named(id));
-            modules.add(consumer.module(key, reporter.newConsumer(id)));
+        for (final S service : services) {
+            final String i = id.apply(service)
+                    .orElseGet(() -> buildId.apply(service, index.getAndIncrement()));
+            final Key<T> key = Key.get(type, Names.named(i));
+            modules.add(module.apply(service, i).apply(key));
             bindings.addBinding().to(key);
         }
 

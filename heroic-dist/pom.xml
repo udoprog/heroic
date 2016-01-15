@@ -51,11 +51,6 @@
       <artifactId>heroic-shell</artifactId>
     </dependency>
 
-    <dependency>
-      <groupId>com.spotify.heroic</groupId>
-      <artifactId>heroic-coalesce</artifactId>
-    </dependency>
-
     <!-- argument parsing -->
     <dependency>
       <groupId>args4j</groupId>

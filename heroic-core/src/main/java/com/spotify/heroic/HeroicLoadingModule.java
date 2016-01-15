@@ -21,16 +21,12 @@
 
 package com.spotify.heroic;
 
-import java.util.concurrent.ExecutorService;
-
-import javax.inject.Named;
-import javax.inject.Singleton;
-
 import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -69,6 +65,13 @@ import com.spotify.heroic.metric.MetricModule;
 import com.spotify.heroic.scheduler.DefaultScheduler;
 import com.spotify.heroic.scheduler.Scheduler;
 import com.spotify.heroic.suggest.SuggestModule;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+
+import javax.inject.Named;
+import javax.inject.Singleton;
 
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.TinyAsync;
@@ -166,6 +169,7 @@ public class HeroicLoadingModule extends AbstractModule {
         m.addMixIn(MetadataModule.class, TypeNameMixin.class);
         m.addMixIn(SuggestModule.class, TypeNameMixin.class);
         m.addMixIn(MetricModule.class, TypeNameMixin.class);
+        m.addMixIn(ServiceComponentModule.Builder.class, TypeNameMixin.class);
 
         m.registerModule(serialization());
         m.registerModule(new Jdk8Module());
@@ -173,12 +177,24 @@ public class HeroicLoadingModule extends AbstractModule {
         return m;
     }
 
+    @Provides
+    @Singleton
+    private ScheduledExecutorService scheduledExecutorService() {
+        return new ScheduledThreadPoolExecutor(10,
+                new ThreadFactoryBuilder().setNameFormat("heroic-scheduler#%d").build());
+    }
+
+    @Provides
+    @Singleton
+    private Scheduler scheduler(final ScheduledExecutorService scheduler) {
+        return new DefaultScheduler(scheduler);
+    }
+
     @Override
     protected void configure() {
         bind(FilterJsonSerializer.class).toInstance(new FilterJsonSerializerImpl());
         bind(FilterJsonDeserializer.class).toInstance(new FilterJsonDeserializerImpl());
 
-        bind(Scheduler.class).toInstance(new DefaultScheduler());
         bind(HeroicInternalLifeCycle.class).toInstance(lifeCycle);
         bind(FilterFactory.class).to(CoreFilterFactory.class).in(Scopes.SINGLETON);
         bind(FilterModifier.class).to(CoreFilterModifier.class).in(Scopes.SINGLETON);

@@ -19,16 +19,24 @@
  * under the License.
  */
 
-package com.spotify.heroic.coalesce;
+package com.spotify.heroic.coalesce.persistence;
 
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.spotify.heroic.coalesce.tasks.HttpPingCoalesceTask;
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.google.inject.AbstractModule;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
+import com.spotify.heroic.coalesce.CoalescePersistence;
+import com.spotify.heroic.coalesce.CoalescePersistenceModule;
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
-@JsonSubTypes({@JsonSubTypes.Type(HttpPingCoalesceTask.class)})
-public interface CoalesceTask {
-    String getId();
-
-    String getVersion();
+@JsonTypeName("fake")
+public class FakePersistenceModule implements CoalescePersistenceModule {
+    @Override
+    public Module module() {
+        return new AbstractModule() {
+            @Override
+            protected void configure() {
+                bind(CoalescePersistence.class).to(FakePersistence.class).in(Scopes.SINGLETON);
+            }
+        };
+    }
 }

@@ -24,6 +24,12 @@
       <artifactId>heroic-core</artifactId>
     </dependency>
 
+    <!-- services -->
+    <dependency>
+      <groupId>com.spotify.heroic.coalesce</groupId>
+      <artifactId>heroic-coalesce</artifactId>
+    </dependency>
+
     <!-- metric backends -->
     <dependency>
       <groupId>com.spotify.heroic.metric</groupId>

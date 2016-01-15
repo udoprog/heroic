@@ -28,12 +28,10 @@ import static java.util.Optional.empty;
 import static java.util.Optional.of;
 import static java.util.Optional.ofNullable;
 
-import java.util.List;
-import java.util.Optional;
-
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.spotify.heroic.aggregationcache.AggregationCacheModule;
 import com.spotify.heroic.cluster.ClusterManagerModule;
 import com.spotify.heroic.consumer.ConsumerModule;
@@ -42,6 +40,9 @@ import com.spotify.heroic.metadata.MetadataManagerModule;
 import com.spotify.heroic.metric.MetricManagerModule;
 import com.spotify.heroic.shell.ShellServerModule;
 import com.spotify.heroic.suggest.SuggestManagerModule;
+
+import java.util.List;
+import java.util.Optional;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -67,6 +68,7 @@ public class HeroicConfig {
     private final IngestionModule ingestion;
     private final List<ConsumerModule> consumers;
     private final Optional<ShellServerModule> shellServer;
+    private final List<ServiceComponentModule> services;
 
     public static Builder builder() {
         return new Builder();
@@ -88,6 +90,7 @@ public class HeroicConfig {
         private Optional<IngestionModule.Builder> ingestion = empty();
         private Optional<List<ConsumerModule.Builder>> consumers = empty();
         private Optional<ShellServerModule.Builder> shellServer = empty();
+        private Optional<List<ServiceComponentModule.Builder>> services = empty();
 
         @JsonCreator
         public Builder(@JsonProperty("host") String host, @JsonProperty("port") Integer port,
@@ -101,7 +104,8 @@ public class HeroicConfig {
                 @JsonProperty("cache") AggregationCacheModule.Builder cache,
                 @JsonProperty("ingestion") IngestionModule.Builder ingestion,
                 @JsonProperty("consumers") List<ConsumerModule.Builder> consumers,
-                @JsonProperty("shellServer") ShellServerModule.Builder shellServer) {
+                @JsonProperty("shellServer") ShellServerModule.Builder shellServer,
+                @JsonProperty("services") List<ServiceComponentModule.Builder> services) {
             this.host = ofNullable(host);
             this.port = ofNullable(port);
             this.disableMetrics = ofNullable(disableMetrics);
@@ -115,6 +119,7 @@ public class HeroicConfig {
             this.ingestion = ofNullable(ingestion);
             this.consumers = ofNullable(consumers);
             this.shellServer = ofNullable(shellServer);
+            this.services = ofNullable(services);
         }
 
         public Builder disableMetrics(boolean disableMetrics) {
@@ -172,6 +177,11 @@ public class HeroicConfig {
             return this;
         }
 
+        public Builder services(List<ServiceComponentModule.Builder> services) {
+            this.services = of(services);
+            return this;
+        }
+
         public Builder merge(Builder o) {
             // @formatter:off
             return new Builder(
@@ -187,7 +197,8 @@ public class HeroicConfig {
                 mergeOptional(cache, o.cache, (a, b) -> a.merge(b)),
                 mergeOptional(ingestion, o.ingestion, (a, b) -> a.merge(b)),
                 mergeOptionalList(consumers, o.consumers),
-                mergeOptional(shellServer, o.shellServer, (a, b) -> a.merge(b))
+                mergeOptional(shellServer, o.shellServer, (a, b) -> a.merge(b)),
+                mergeOptional(services, o.services, (a, b) -> ImmutableList.copyOf(Iterables.concat(a, b)))
             );
             // @formatter:on
         }
@@ -209,7 +220,10 @@ public class HeroicConfig {
                 consumers.map(cl -> {
                     return ImmutableList.copyOf(cl.stream().map(c -> c.build()).iterator());
                 }).orElseGet(ImmutableList::of),
-                shellServer.map(ShellServerModule.Builder::build)
+                shellServer.map(ShellServerModule.Builder::build),
+                services.map(sl -> {
+                    return ImmutableList.copyOf(sl.stream().map(s -> s.build()).iterator());
+                }).orElseGet(ImmutableList::of)
             );
             // @formatter:on
         }

@@ -19,16 +19,42 @@
  * under the License.
  */
 
-package com.spotify.heroic.coalesce;
+package com.spotify.heroic.coalesce.zookeeper;
 
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.spotify.heroic.coalesce.tasks.HttpPingCoalesceTask;
+import lombok.Data;
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
-@JsonSubTypes({@JsonSubTypes.Type(HttpPingCoalesceTask.class)})
-public interface CoalesceTask {
-    String getId();
+@Data
+public class ZookeeperNames {
+    public static final String TASKS = "tasks";
+    public static final String DISCOVERY = "discovery";
+    public static final String COORDINATOR = "coordinator";
 
-    String getVersion();
+    public static String tasks() {
+        return "/" + TASKS;
+    }
+
+    public static Node node(final String id) {
+        return new Node(id);
+    }
+
+    public static String discovery() {
+        return "/" + DISCOVERY;
+    }
+
+    public static String coordinator() {
+        return "/" + COORDINATOR;
+    }
+
+    @Data
+    public static class Node {
+        private final String id;
+
+        public String tasks() {
+            return "/" + TASKS + "/" + id;
+        }
+
+        public String task(String taskId) {
+            return tasks() + "/" + taskId;
+        }
+    }
 }

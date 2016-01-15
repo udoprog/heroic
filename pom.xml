@@ -94,6 +94,11 @@
         <version>${project.version}</version>
       </dependency>
       <dependency>
+        <groupId>com.spotify.heroic.coalesce</groupId>
+        <artifactId>heroic-coalesce</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
         <groupId>com.spotify.heroic</groupId>
         <artifactId>heroic-shell</artifactId>
         <version>${project.version}</version>

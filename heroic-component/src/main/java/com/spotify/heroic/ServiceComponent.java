@@ -19,16 +19,10 @@
  * under the License.
  */
 
-package com.spotify.heroic.coalesce;
+package com.spotify.heroic;
 
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.spotify.heroic.coalesce.tasks.HttpPingCoalesceTask;
+import com.spotify.heroic.common.LifeCycle;
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
-@JsonSubTypes({@JsonSubTypes.Type(HttpPingCoalesceTask.class)})
-public interface CoalesceTask {
-    String getId();
+public interface ServiceComponent extends LifeCycle {
 
-    String getVersion();
 }

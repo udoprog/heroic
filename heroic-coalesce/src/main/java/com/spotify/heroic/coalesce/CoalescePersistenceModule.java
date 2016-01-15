@@ -23,12 +23,10 @@ package com.spotify.heroic.coalesce;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.spotify.heroic.coalesce.tasks.HttpPingCoalesceTask;
+import com.spotify.heroic.coalesce.persistence.FakePersistenceModule;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
-@JsonSubTypes({@JsonSubTypes.Type(HttpPingCoalesceTask.class)})
-public interface CoalesceTask {
-    String getId();
-
-    String getVersion();
+@JsonSubTypes({@JsonSubTypes.Type(FakePersistenceModule.class)})
+public interface CoalescePersistenceModule {
+    com.google.inject.Module module();
 }

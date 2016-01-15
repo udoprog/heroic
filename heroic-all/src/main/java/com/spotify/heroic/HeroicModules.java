@@ -43,6 +43,8 @@ import com.spotify.heroic.profile.MemoryProfile;
 public class HeroicModules {
     // @formatter:off
     public static final List<HeroicModule> ALL_MODULES = ImmutableList.<HeroicModule>of(
+        new com.spotify.heroic.coalesce.Module(),
+
         new com.spotify.heroic.metric.astyanax.Module(),
         new com.spotify.heroic.metric.datastax.Module(),
         new com.spotify.heroic.metric.generated.Module(),

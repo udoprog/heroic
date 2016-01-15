@@ -19,16 +19,27 @@
  * under the License.
  */
 
-package com.spotify.heroic.coalesce;
+package com.spotify.heroic.coalesce.tasks;
 
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.spotify.heroic.coalesce.tasks.HttpPingCoalesceTask;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.spotify.heroic.coalesce.CoalesceTask;
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
-@JsonSubTypes({@JsonSubTypes.Type(HttpPingCoalesceTask.class)})
-public interface CoalesceTask {
-    String getId();
+import lombok.Data;
 
-    String getVersion();
+@JsonTypeName("http-ping")
+@Data
+public class HttpPingCoalesceTask implements CoalesceTask {
+    private final String id;
+    private final String version;
+    private final String target;
+
+    @JsonCreator
+    public HttpPingCoalesceTask(@JsonProperty("id") String id,
+            @JsonProperty("version") String version, @JsonProperty("target") final String target) {
+        this.id = id;
+        this.version = version;
+        this.target = target;
+    }
 }
