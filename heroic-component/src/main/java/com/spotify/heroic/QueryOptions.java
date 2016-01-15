@@ -23,11 +23,10 @@ package com.spotify.heroic;
 
 import static java.util.Optional.ofNullable;
 
-import java.util.Optional;
-
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.spotify.heroic.metric.QueryTrace;
+
+import java.util.Optional;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -45,8 +44,8 @@ public class QueryOptions {
     /**
      * Indicates if tracing is enabled.
      *
-     * Traces queries will include a {@link QueryTrace} object that indicates detailed timings of
-     * the query.
+     * Traces queries will include a {@link com.spotify.heroic.metric.QueryTrace} object that
+     * indicates detailed timings of the query.
      *
      * @return {@code true} if tracing is enabled.
      */

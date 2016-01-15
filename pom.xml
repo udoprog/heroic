@@ -544,8 +544,6 @@
         <configuration>
           <configLocation>checkstyle.xml</configLocation>
           <consoleOutput>true</consoleOutput>
-          <failOnViolation>true</failOnViolation>
-          <failsOnError>true</failsOnError>
           <maxAllowedViolations>0</maxAllowedViolations>
           <propertyExpansion>basedir=${user.dir}</propertyExpansion>
         </configuration>
