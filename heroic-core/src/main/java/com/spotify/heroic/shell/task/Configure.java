@@ -21,12 +21,8 @@
 
 package com.spotify.heroic.shell.task;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.kohsuke.args4j.Option;
-
 import com.google.inject.Inject;
+import com.spotify.heroic.analytics.MetricAnalytics;
 import com.spotify.heroic.metadata.MetadataManager;
 import com.spotify.heroic.metric.MetricManager;
 import com.spotify.heroic.shell.AbstractShellTaskParams;
@@ -36,6 +32,11 @@ import com.spotify.heroic.shell.TaskName;
 import com.spotify.heroic.shell.TaskParameters;
 import com.spotify.heroic.shell.TaskUsage;
 import com.spotify.heroic.suggest.SuggestManager;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.kohsuke.args4j.Option;
 
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
@@ -52,6 +53,8 @@ public class Configure implements ShellTask {
     private MetadataManager metadata;
     @Inject
     private SuggestManager suggest;
+    @Inject
+    private MetricAnalytics analytics;
 
     @Override
     public TaskParameters params() {
@@ -68,12 +71,16 @@ public class Configure implements ShellTask {
         futures.add(metadata.useGroup(params.group).configure());
         futures.add(suggest.useGroup(params.group).configure());
 
+        if (params.group == null) {
+            futures.add(analytics.configure());
+        }
+
         return async.collectAndDiscard(futures);
     }
 
     @ToString
     private static class Parameters extends AbstractShellTaskParams {
-        @Option(name = "-g", aliases = { "--group" }, usage = "Backend group to use",
+        @Option(name = "-g", aliases = {"--group"}, usage = "Backend group to use",
                 metaVar = "<group>")
         private String group = null;
     }

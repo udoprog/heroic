@@ -51,8 +51,6 @@ import com.spotify.heroic.shell.ShellServerModule;
 import com.spotify.heroic.statistics.HeroicReporter;
 import com.spotify.heroic.statistics.noop.NoopHeroicReporter;
 
-import org.apache.commons.lang3.tuple.Pair;
-
 import java.io.IOException;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.net.InetSocketAddress;
@@ -77,6 +75,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+
+import org.apache.commons.lang3.tuple.Pair;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import eu.toolchain.async.AsyncFramework;
@@ -512,6 +512,8 @@ public class HeroicCore implements HeroicConfiguration, HeroicReporterConfigurat
                 }
             }
         });
+
+        modules.add(config.getAnalytics().module());
 
         // make new injector child of early injector so they can access everything in it.
         return early.createChildInjector(modules);

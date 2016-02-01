@@ -31,6 +31,7 @@ import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.spotify.heroic.aggregation.Aggregation;
 import com.spotify.heroic.aggregation.AggregationInstance;
 import com.spotify.heroic.aggregationcache.AggregationCacheBackendModule;
+import com.spotify.heroic.analytics.AnalyticsModule;
 import com.spotify.heroic.cluster.ClusterDiscoveryModule;
 import com.spotify.heroic.cluster.RpcProtocolModule;
 import com.spotify.heroic.common.Duration;
@@ -76,6 +77,7 @@ public final class HeroicMappers {
         m.addMixIn(MetadataModule.class, TypeNameMixin.class);
         m.addMixIn(SuggestModule.class, TypeNameMixin.class);
         m.addMixIn(MetricModule.class, TypeNameMixin.class);
+        m.addMixIn(AnalyticsModule.class, TypeNameMixin.class);
 
         m.registerModule(commonSerializers());
 
