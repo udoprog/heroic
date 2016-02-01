@@ -21,12 +21,6 @@
 
 package com.spotify.heroic;
 
-import java.io.OutputStreamWriter;
-import java.io.PrintStream;
-import java.io.PrintWriter;
-import java.util.List;
-import java.util.Map;
-
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -40,12 +34,20 @@ import com.spotify.heroic.profile.GeneratedProfile;
 import com.spotify.heroic.profile.KafkaConsumerProfile;
 import com.spotify.heroic.profile.MemoryProfile;
 
+import java.io.OutputStreamWriter;
+import java.io.PrintStream;
+import java.io.PrintWriter;
+import java.util.List;
+import java.util.Map;
+
 public class HeroicModules {
     // @formatter:off
     public static final List<HeroicModule> ALL_MODULES = ImmutableList.<HeroicModule>of(
         new com.spotify.heroic.metric.astyanax.Module(),
         new com.spotify.heroic.metric.datastax.Module(),
         new com.spotify.heroic.metric.generated.Module(),
+
+        new com.spotify.heroic.analytics.bigtable.Module(),
         new com.spotify.heroic.metric.bigtable.Module(),
 
         new com.spotify.heroic.metadata.elasticsearch.Module(),
