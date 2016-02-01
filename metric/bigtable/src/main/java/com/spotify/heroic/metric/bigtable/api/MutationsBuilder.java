@@ -21,37 +21,33 @@
 
 package com.spotify.heroic.metric.bigtable.api;
 
-import java.io.IOException;
+import com.google.bigtable.v1.Mutation;
+import com.google.common.collect.ImmutableList;
+import com.google.protobuf.ByteString;
+
+import java.util.ArrayList;
 import java.util.List;
 
-public interface BigtableTableAdminClient {
-    /**
-     * Create the specified table.
-     */
-    public void createTable(BigtableTable table) throws IOException;
+import lombok.Data;
 
-    /**
-     * Create the specified column family.
-     */
-    public void createColumnFamily(String table, BigtableColumnFamily family) throws IOException;
+@Data
+public class MutationsBuilder {
+    final List<Mutation> mutations = new ArrayList<>();
 
-    /**
-     * Get details about a table.
-     */
-    public BigtableTable getTable(String name) throws IOException;
+    public MutationsBuilder setCell(String family, ByteString columnQualifier,
+            ByteString value) {
+        final Mutation.SetCell.Builder setCell = Mutation.SetCell.newBuilder().setFamilyName(family)
+                .setColumnQualifier(columnQualifier).setValue(value);
 
-    /**
-     * High-level API that iterates through all tables, and fetches details.
-     */
-    public List<BigtableTable> listTablesDetails() throws IOException;
+        mutations.add(Mutation.newBuilder().setSetCell(setCell).build());
+        return this;
+    }
 
-    /**
-     * Create a builder for column families.
-     */
-    public BigtableColumnFamilyBuilder columnFamily(String name);
+    public Mutations build() {
+        return new Mutations(ImmutableList.copyOf(mutations));
+    }
 
-    /**
-     * Create a builder for tables.
-     */
-    public BigtableTableBuilder table(String name);
+    public int size() {
+        return mutations.size();
+    }
 }

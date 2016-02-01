@@ -21,12 +21,33 @@
 
 package com.spotify.heroic.metric.bigtable.api;
 
+import com.google.protobuf.ByteString;
+
+import java.util.Optional;
+
 import lombok.Data;
 
-import com.google.bigtable.v1.RowFilter;
-
 @Data
-public class BigtableRowFilter {
+public class RowRange {
+    private final Optional<ByteString> start;
+    private final Optional<ByteString> end;
 
-    final RowFilter filter;
+    /**
+     * Build a new row range.
+     *
+     * @param start Start key to start at (inclusive).
+     * @param end End key to stop at (exclusive).
+     * @return A row range with the given parameters.
+     */
+    static RowRange rowRange(Optional<ByteString> start, Optional<ByteString> end) {
+        return new RowRange(start, end);
+    }
+
+    public com.google.bigtable.v1.RowRange toPb() {
+        final com.google.bigtable.v1.RowRange.Builder builder =
+                com.google.bigtable.v1.RowRange.newBuilder();
+        start.ifPresent(builder::setStartKey);
+        end.ifPresent(builder::setEndKey);
+        return builder.build();
+    }
 }

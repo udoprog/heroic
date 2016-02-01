@@ -21,26 +21,28 @@
 
 package com.spotify.heroic.metric.bigtable.api;
 
+import com.google.bigtable.v1.ReadModifyWriteRule;
+import com.google.common.collect.ImmutableList;
+
 import java.util.ArrayList;
 import java.util.List;
 
-import lombok.RequiredArgsConstructor;
-import lombok.ToString;
+import lombok.Data;
 
-import com.google.common.collect.ImmutableList;
+@Data
+public class ReadModifyWriteRulesBuilder {
+    final List<ReadModifyWriteRule> rules = new ArrayList<>();
 
-@RequiredArgsConstructor
-@ToString
-public class BigtableTableBuilder {
-    final String name;
-    final List<BigtableColumnFamily> columnFamilies = new ArrayList<>();
-
-    public BigtableTableBuilder columnFamily(BigtableColumnFamily columnFamily) {
-        columnFamilies.add(columnFamily);
+    public ReadModifyWriteRulesBuilder increment(final long value) {
+        rules.add(ReadModifyWriteRule.newBuilder().setIncrementAmount(value).build());
         return this;
     }
 
-    public BigtableTable build() {
-        return new BigtableTable(name, ImmutableList.copyOf(columnFamilies));
+    public ReadModifyWriteRules build() {
+        return new ReadModifyWriteRules(ImmutableList.copyOf(rules));
+    }
+
+    public int size() {
+        return rules.size();
     }
 }

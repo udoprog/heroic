@@ -21,13 +21,24 @@
 
 package com.spotify.heroic.metric.bigtable.api;
 
+import com.google.protobuf.ByteString;
+import com.spotify.heroic.async.AsyncObservable;
+
 import java.util.List;
 
-import lombok.Data;
+import eu.toolchain.async.AsyncFuture;
 
-import com.google.bigtable.v1.Mutation;
+public interface DataClient {
+    AsyncFuture<Void> mutateRow(String tableName, ByteString rowKey, Mutations mutations);
 
-@Data
-public class BigtableMutations {
-    final List<Mutation> mutations;
+    MutationsBuilder mutations();
+
+    ReadModifyWriteRulesBuilder readModifyWriteRules();
+
+    AsyncFuture<List<Row>> readRows(String tableName, ByteString rowKey, RowFilter filter);
+
+    AsyncFuture<Row> readModifyWriteRow(String tableName, ByteString rowKey,
+            ReadModifyWriteRules rules);
+
+    AsyncObservable<Row> rows(RowRange rowRange, RowFilter rowFilter);
 }
