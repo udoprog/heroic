@@ -21,7 +21,6 @@
 
 package com.spotify.heroic.shell.task;
 
-import com.google.inject.Inject;
 import com.spotify.heroic.async.AsyncObserver;
 import com.spotify.heroic.common.RangeFilter;
 import com.spotify.heroic.common.Series;
@@ -36,12 +35,14 @@ import com.spotify.heroic.shell.TaskParameters;
 import com.spotify.heroic.shell.TaskUsage;
 import com.spotify.heroic.shell.Tasks;
 
+import org.kohsuke.args4j.Argument;
+import org.kohsuke.args4j.Option;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.kohsuke.args4j.Argument;
-import org.kohsuke.args4j.Option;
+import javax.inject.Inject;
 
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
@@ -55,17 +56,19 @@ public class MetadataMigrate implements ShellTask {
     public static final int DOT_LIMIT = 10000;
     public static final int LINE_LIMIT = 20;
 
-    @Inject
-    private MetadataManager metadata;
+    private final MetadataManager metadata;
+    private final QueryParser parser;
+    private final FilterFactory filters;
+    private final AsyncFramework async;
 
     @Inject
-    private QueryParser parser;
-
-    @Inject
-    private FilterFactory filters;
-
-    @Inject
-    private AsyncFramework async;
+    public MetadataMigrate(MetadataManager metadata, QueryParser parser, FilterFactory filters,
+            AsyncFramework async) {
+        this.metadata = metadata;
+        this.parser = parser;
+        this.filters = filters;
+        this.async = async;
+    }
 
     @Override
     public TaskParameters params() {

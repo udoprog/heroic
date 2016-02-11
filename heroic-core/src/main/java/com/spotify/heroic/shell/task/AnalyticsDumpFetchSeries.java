@@ -22,8 +22,6 @@
 package com.spotify.heroic.shell.task;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import com.spotify.heroic.analytics.MetricAnalytics;
 import com.spotify.heroic.async.AsyncObserver;
 import com.spotify.heroic.shell.AbstractShellTaskParams;
@@ -33,10 +31,13 @@ import com.spotify.heroic.shell.TaskName;
 import com.spotify.heroic.shell.TaskParameters;
 import com.spotify.heroic.shell.TaskUsage;
 
+import org.kohsuke.args4j.Option;
+
 import java.time.LocalDate;
 import java.util.Optional;
 
-import org.kohsuke.args4j.Option;
+import javax.inject.Inject;
+import javax.inject.Named;
 
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
@@ -47,15 +48,17 @@ import lombok.ToString;
 @TaskUsage("Dump all fetch series values")
 @TaskName("analytics-dump-fetch-series")
 public class AnalyticsDumpFetchSeries implements ShellTask {
-    @Inject
-    MetricAnalytics metricAnalytics;
+    private final MetricAnalytics metricAnalytics;
+    private final ObjectMapper mapper;
+    private final AsyncFramework async;
 
     @Inject
-    @Named("application/json")
-    ObjectMapper mapper;
-
-    @Inject
-    AsyncFramework async;
+    public AnalyticsDumpFetchSeries(MetricAnalytics metricAnalytics,
+            @Named("application/json") ObjectMapper mapper, AsyncFramework async) {
+        this.metricAnalytics = metricAnalytics;
+        this.mapper = mapper;
+        this.async = async;
+    }
 
     @Override
     public TaskParameters params() {

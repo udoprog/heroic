@@ -21,15 +21,16 @@
 
 package com.spotify.heroic.cluster;
 
-import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
-
-import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.PrivateModule;
 import com.google.inject.Singleton;
+
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.inject.Inject;
 
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
@@ -56,8 +57,12 @@ public interface ClusterDiscoveryModule {
     @Data
     @Singleton
     class Null implements ClusterDiscovery {
+        private final AsyncFramework async;
+
         @Inject
-        private AsyncFramework async;
+        public Null(AsyncFramework async) {
+            this.async = async;
+        }
 
         @Override
         public AsyncFuture<List<URI>> find() {

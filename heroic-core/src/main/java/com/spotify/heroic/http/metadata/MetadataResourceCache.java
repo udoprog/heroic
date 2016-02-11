@@ -21,11 +21,6 @@
 
 package com.spotify.heroic.http.metadata;
 
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-
-import javax.inject.Inject;
-
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -34,13 +29,22 @@ import com.spotify.heroic.common.RangeFilter;
 import com.spotify.heroic.metadata.FindKeys;
 import com.spotify.heroic.metadata.FindTags;
 
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+
+import javax.inject.Inject;
+
 import eu.toolchain.async.AsyncFuture;
 import eu.toolchain.async.FutureDone;
 import lombok.Data;
 
 public class MetadataResourceCache {
+    private final ClusterManager cluster;
+
     @Inject
-    private ClusterManager cluster;
+    public MetadataResourceCache(final ClusterManager cluster) {
+        this.cluster = cluster;
+    }
 
     private final LoadingCache<Entry, AsyncFuture<FindTags>> findTags =
             CacheBuilder.newBuilder().maximumSize(10000).expireAfterWrite(30, TimeUnit.MINUTES)

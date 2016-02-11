@@ -23,13 +23,13 @@ package com.spotify.heroic.shell.task;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import java.util.Optional;
-
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.metric.BackendKey;
 import com.spotify.heroic.metric.MetricType;
+
+import java.util.Optional;
 
 import lombok.Data;
 

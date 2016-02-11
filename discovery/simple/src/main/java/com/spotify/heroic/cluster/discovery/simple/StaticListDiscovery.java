@@ -39,11 +39,11 @@ import eu.toolchain.async.AsyncFuture;
 @ToString
 public class StaticListDiscovery implements ClusterDiscovery {
     @Inject
-    private AsyncFramework async;
+    AsyncFramework async;
 
     @Inject
     @Named("nodes")
-    private List<URI> nodes;
+    List<URI> nodes;
 
     @Override
     public AsyncFuture<List<URI>> find() {

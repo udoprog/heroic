@@ -19,13 +19,23 @@
  * under the License.
  */
 
-package com.spotify.heroic;
+package com.spotify.heroic.guice;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.AbstractModule;
-import com.google.inject.Inject;
+import javax.inject.Inject;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.name.Names;
+import com.spotify.heroic.CoreQueryManager;
+import com.spotify.heroic.HeroicCore;
+import com.spotify.heroic.HeroicCoreInstance;
+import com.spotify.heroic.HeroicMappers;
+import com.spotify.heroic.HeroicServer;
+import com.spotify.heroic.HeroicShellTasks;
+import com.spotify.heroic.HeroicStartupPinger;
+import com.spotify.heroic.QueryManager;
 import com.spotify.heroic.aggregation.AggregationRegistry;
 import com.spotify.heroic.common.CollectingTypeListener;
 import com.spotify.heroic.common.IsSubclassOf;
@@ -40,7 +50,10 @@ import com.spotify.heroic.shell.ShellTaskDefinition;
 import com.spotify.heroic.shell.Tasks;
 import com.spotify.heroic.statistics.HeroicReporter;
 
+import org.apache.commons.lang3.tuple.Pair;
+
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -66,7 +79,7 @@ public class HeroicPrimaryModule extends AbstractModule {
 
     private final boolean setupService;
     private final HeroicReporter reporter;
-    private final Optional<HeroicStartupPinger> pinger;
+    private final Optional<Pair<URI, String>> pinger;
 
     private final String service;
     private final String version;
@@ -184,9 +197,11 @@ public class HeroicPrimaryModule extends AbstractModule {
             bind(HeroicServer.class).in(Scopes.SINGLETON);
         }
 
-        if (pinger.isPresent()) {
-            bind(HeroicStartupPinger.class).toInstance(pinger.get());
-        }
+        pinger.ifPresent(p -> {
+            bind(Key.get(URI.class, Names.named("pingURI"))).toInstance(p.getLeft());
+            bind(Key.get(String.class, Names.named("pingId"))).toInstance(p.getRight());
+            bind(HeroicStartupPinger.class);
+        });
 
         bindListener(new IsSubclassOf(LifeCycle.class),
                 new CollectingTypeListener<LifeCycle>(lifeCycles));

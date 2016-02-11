@@ -33,13 +33,16 @@ import javax.inject.Inject;
 import javax.inject.Named;
 
 public class CoreHeroicConfigurationContext implements HeroicConfigurationContext {
-    @Inject
-    @Named("application/heroic-config")
-    private ObjectMapper mapper;
+    private final ObjectMapper mapper;
 
     private final ConcurrentArrayQueue<Class<?>> resources = new ConcurrentArrayQueue<>();
-
     private final Object lock = new Object();
+
+    @Inject
+    public CoreHeroicConfigurationContext(
+            @Named("application/heroic-config") final ObjectMapper mapper) {
+        this.mapper = mapper;
+    }
 
     @Override
     public void registerType(String name, Class<?> type) {

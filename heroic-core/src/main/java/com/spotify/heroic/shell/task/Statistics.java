@@ -21,7 +21,6 @@
 
 package com.spotify.heroic.shell.task;
 
-import com.google.inject.Inject;
 import com.spotify.heroic.consumer.Consumer;
 import com.spotify.heroic.ingestion.IngestionManager;
 import com.spotify.heroic.metadata.MetadataBackend;
@@ -40,6 +39,8 @@ import com.spotify.heroic.suggest.SuggestManager;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import javax.inject.Inject;
+
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import lombok.ToString;
@@ -47,23 +48,23 @@ import lombok.ToString;
 @TaskUsage("Get local statistics")
 @TaskName("statistics")
 public class Statistics implements ShellTask {
-    @Inject
-    private AsyncFramework async;
+    private final AsyncFramework async;
+    private final Set<Consumer> consumers;
+    private final IngestionManager ingestion;
+    private final MetricManager metrics;
+    private final MetadataManager metadata;
+    private final SuggestManager suggest;
 
     @Inject
-    private Set<Consumer> consumers;
-
-    @Inject
-    private IngestionManager ingestion;
-
-    @Inject
-    private MetricManager metrics;
-
-    @Inject
-    private MetadataManager metadata;
-
-    @Inject
-    private SuggestManager suggest;
+    public Statistics(AsyncFramework async, Set<Consumer> consumers, IngestionManager ingestion,
+            MetricManager metrics, MetadataManager metadata, SuggestManager suggest) {
+        this.async = async;
+        this.consumers = consumers;
+        this.ingestion = ingestion;
+        this.metrics = metrics;
+        this.metadata = metadata;
+        this.suggest = suggest;
+    }
 
     @Override
     public TaskParameters params() {

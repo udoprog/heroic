@@ -32,7 +32,7 @@ import com.google.inject.Key;
 import com.google.inject.PrivateModule;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.google.inject.name.Named;
+import javax.inject.Named;
 import com.spotify.heroic.ExtraParameters;
 import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.common.Groups;

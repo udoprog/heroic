@@ -21,12 +21,6 @@
 
 package com.spotify.heroic.shell.task;
 
-import org.kohsuke.args4j.Argument;
-import org.kohsuke.args4j.Option;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import com.spotify.heroic.metric.BackendKey;
 import com.spotify.heroic.metric.MetricManager;
 import com.spotify.heroic.shell.AbstractShellTaskParams;
@@ -36,18 +30,23 @@ import com.spotify.heroic.shell.TaskName;
 import com.spotify.heroic.shell.TaskParameters;
 import com.spotify.heroic.shell.TaskUsage;
 
+import org.kohsuke.args4j.Argument;
+import org.kohsuke.args4j.Option;
+
+import javax.inject.Inject;
+
 import eu.toolchain.async.AsyncFuture;
 import lombok.ToString;
 
 @TaskUsage("Deserialize the given backend key")
 @TaskName("deserialize-key")
 public class DeserializeKey implements ShellTask {
-    @Inject
-    private MetricManager metrics;
+    private final MetricManager metrics;
 
     @Inject
-    @Named("application/json")
-    private ObjectMapper mapper;
+    public DeserializeKey(MetricManager metrics) {
+        this.metrics = metrics;
+    }
 
     @Override
     public TaskParameters params() {

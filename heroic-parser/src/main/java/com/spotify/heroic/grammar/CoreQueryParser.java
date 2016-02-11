@@ -35,7 +35,7 @@ import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 
 import com.google.common.base.Joiner;
-import com.google.inject.Inject;
+import javax.inject.Inject;
 import com.spotify.heroic.Query;
 import com.spotify.heroic.QueryDateRange;
 import com.spotify.heroic.aggregation.Aggregation;

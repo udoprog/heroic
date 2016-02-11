@@ -23,7 +23,7 @@ package com.spotify.heroic.cluster;
 
 import java.util.List;
 
-import com.google.inject.Inject;
+import javax.inject.Inject;
 import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.aggregation.AggregationInstance;
 import com.spotify.heroic.common.DateRange;

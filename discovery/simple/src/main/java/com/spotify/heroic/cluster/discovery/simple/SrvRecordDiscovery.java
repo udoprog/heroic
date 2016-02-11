@@ -51,19 +51,19 @@ public class SrvRecordDiscovery implements ClusterDiscovery {
     public static final int DEFAULT_PORT = 1394;
 
     @Inject
-    private AsyncFramework async;
+    AsyncFramework async;
 
     @Inject
     @Named("records")
-    private List<String> records;
+    List<String> records;
 
     @Inject
     @Named("protocol")
-    private Optional<String> protocol;
+    Optional<String> protocol;
 
     @Inject
     @Named("port")
-    private Optional<Integer> port;
+    Optional<Integer> port;
 
     @Override
     public AsyncFuture<List<URI>> find() {

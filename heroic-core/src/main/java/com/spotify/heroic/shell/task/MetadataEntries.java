@@ -22,8 +22,6 @@
 package com.spotify.heroic.shell.task;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import com.spotify.heroic.async.AsyncObserver;
 import com.spotify.heroic.common.RangeFilter;
 import com.spotify.heroic.common.Series;
@@ -38,12 +36,15 @@ import com.spotify.heroic.shell.TaskParameters;
 import com.spotify.heroic.shell.TaskUsage;
 import com.spotify.heroic.shell.Tasks;
 
+import org.kohsuke.args4j.Argument;
+import org.kohsuke.args4j.Option;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-import org.kohsuke.args4j.Argument;
-import org.kohsuke.args4j.Option;
+import javax.inject.Inject;
+import javax.inject.Named;
 
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
@@ -57,21 +58,21 @@ import lombok.extern.slf4j.Slf4j;
 @TaskName("metadata-entries")
 @Slf4j
 public class MetadataEntries implements ShellTask {
-    @Inject
-    private MetadataManager metadata;
+    private final MetadataManager metadata;
+    private final QueryParser parser;
+    private final FilterFactory filters;
+    private final ObjectMapper mapper;
+    private final AsyncFramework async;
 
     @Inject
-    private QueryParser parser;
-
-    @Inject
-    private FilterFactory filters;
-
-    @Inject
-    @Named("application/json")
-    private ObjectMapper mapper;
-
-    @Inject
-    private AsyncFramework async;
+    public MetadataEntries(MetadataManager metadata, QueryParser parser, FilterFactory filters,
+            @Named("application/json") ObjectMapper mapper, AsyncFramework async) {
+        this.metadata = metadata;
+        this.parser = parser;
+        this.filters = filters;
+        this.mapper = mapper;
+        this.async = async;
+    }
 
     @Override
     public TaskParameters params() {

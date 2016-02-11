@@ -24,12 +24,13 @@ package com.spotify.heroic.http.query;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Inject;
 import com.spotify.heroic.Query;
 import com.spotify.heroic.QueryBuilder;
 import com.spotify.heroic.QueryManager;
 import com.spotify.heroic.common.JavaxRestFramework;
 import com.spotify.heroic.metric.QueryResult;
+
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -39,6 +40,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
+import javax.inject.Inject;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.NotFoundException;
@@ -51,8 +53,6 @@ import javax.ws.rs.container.AsyncResponse;
 import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.MediaType;
 
-import org.apache.commons.lang3.tuple.Pair;
-
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import lombok.Data;
@@ -61,14 +61,16 @@ import lombok.Data;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class QueryResource {
-    @Inject
-    private JavaxRestFramework httpAsync;
+    private final JavaxRestFramework httpAsync;
+    private final QueryManager query;
+    private final AsyncFramework async;
 
     @Inject
-    private QueryManager query;
-
-    @Inject
-    private AsyncFramework async;
+    public QueryResource(JavaxRestFramework httpAsync, QueryManager query, AsyncFramework async) {
+        this.httpAsync = httpAsync;
+        this.query = query;
+        this.async = async;
+    }
 
     private final Cache<UUID, StreamQuery> streamQueries = CacheBuilder.newBuilder()
             .expireAfterWrite(10, TimeUnit.MINUTES).<UUID, StreamQuery> build();

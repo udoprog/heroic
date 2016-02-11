@@ -21,22 +21,9 @@
 
 package com.spotify.heroic.shell.task;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.nio.charset.Charset;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.atomic.AtomicLong;
-
-import org.kohsuke.args4j.Option;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.metric.BackendKey;
 import com.spotify.heroic.metric.MetricBackendGroup;
@@ -48,6 +35,20 @@ import com.spotify.heroic.shell.TaskName;
 import com.spotify.heroic.shell.TaskParameters;
 import com.spotify.heroic.shell.TaskUsage;
 
+import org.kohsuke.args4j.Option;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.Charset;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicLong;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import eu.toolchain.async.StreamCollector;
@@ -58,15 +59,17 @@ import lombok.ToString;
 public class CountData implements ShellTask {
     private static final Charset UTF8 = Charsets.UTF_8;
 
-    @Inject
-    private MetricManager metrics;
+    private final MetricManager metrics;
+    private final ObjectMapper mapper;
+    private final AsyncFramework async;
 
     @Inject
-    @Named("application/json")
-    private ObjectMapper mapper;
-
-    @Inject
-    private AsyncFramework async;
+    public CountData(MetricManager metrics, @Named("application/json") ObjectMapper mapper,
+            AsyncFramework async) {
+        this.metrics = metrics;
+        this.mapper = mapper;
+        this.async = async;
+    }
 
     @Override
     public TaskParameters params() {

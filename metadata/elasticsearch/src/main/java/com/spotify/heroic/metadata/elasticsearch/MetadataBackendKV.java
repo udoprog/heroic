@@ -30,7 +30,7 @@ import static org.elasticsearch.index.query.FilterBuilders.termFilter;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
-import com.google.inject.name.Named;
+import javax.inject.Named;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Groups;
 import com.spotify.heroic.common.LifeCycle;

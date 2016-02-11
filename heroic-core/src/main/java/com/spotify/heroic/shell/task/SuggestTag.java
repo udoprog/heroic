@@ -21,15 +21,7 @@
 
 package com.spotify.heroic.shell.task;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.kohsuke.args4j.Argument;
-import org.kohsuke.args4j.Option;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import com.spotify.heroic.common.RangeFilter;
 import com.spotify.heroic.filter.FilterFactory;
 import com.spotify.heroic.grammar.QueryParser;
@@ -43,6 +35,15 @@ import com.spotify.heroic.suggest.MatchOptions;
 import com.spotify.heroic.suggest.SuggestManager;
 import com.spotify.heroic.suggest.TagSuggest;
 
+import org.kohsuke.args4j.Argument;
+import org.kohsuke.args4j.Option;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+
 import eu.toolchain.async.AsyncFuture;
 import lombok.Getter;
 import lombok.ToString;
@@ -50,18 +51,19 @@ import lombok.ToString;
 @TaskUsage("Get tag suggestions")
 @TaskName("suggest-tag")
 public class SuggestTag implements ShellTask {
-    @Inject
-    private SuggestManager suggest;
+    private final SuggestManager suggest;
+    private final FilterFactory filters;
+    private final QueryParser parser;
+    private final ObjectMapper mapper;
 
     @Inject
-    private FilterFactory filters;
-
-    @Inject
-    private QueryParser parser;
-
-    @Inject
-    @Named("application/json")
-    private ObjectMapper mapper;
+    public SuggestTag(SuggestManager suggest, FilterFactory filters, QueryParser parser,
+            @Named("application/json") ObjectMapper mapper) {
+        this.suggest = suggest;
+        this.filters = filters;
+        this.parser = parser;
+        this.mapper = mapper;
+    }
 
     @Override
     public TaskParameters params() {
@@ -91,18 +93,17 @@ public class SuggestTag implements ShellTask {
 
     @ToString
     private static class Parameters extends Tasks.QueryParamsBase {
-        @Option(name = "-g", aliases = { "--group" }, usage = "Backend group to use",
+        @Option(name = "-g", aliases = {"--group"}, usage = "Backend group to use",
                 metaVar = "<group>")
         private String group;
 
-        @Option(name = "-k", aliases = { "--key" }, usage = "Provide key context for suggestion")
+        @Option(name = "-k", aliases = {"--key"}, usage = "Provide key context for suggestion")
         private String key = null;
 
-        @Option(name = "-v", aliases = { "--value" },
-                usage = "Provide value context for suggestion")
+        @Option(name = "-v", aliases = {"--value"}, usage = "Provide value context for suggestion")
         private String value = null;
 
-        @Option(name = "--limit", aliases = { "--limit" },
+        @Option(name = "--limit", aliases = {"--limit"},
                 usage = "Limit the number of printed entries")
         @Getter
         private int limit = 10;

@@ -21,7 +21,6 @@
 
 package com.spotify.heroic.shell.task;
 
-import com.google.inject.Inject;
 import com.spotify.heroic.analytics.MetricAnalytics;
 import com.spotify.heroic.metadata.MetadataManager;
 import com.spotify.heroic.metric.MetricManager;
@@ -33,10 +32,12 @@ import com.spotify.heroic.shell.TaskParameters;
 import com.spotify.heroic.shell.TaskUsage;
 import com.spotify.heroic.suggest.SuggestManager;
 
+import org.kohsuke.args4j.Option;
+
 import java.util.ArrayList;
 import java.util.List;
 
-import org.kohsuke.args4j.Option;
+import javax.inject.Inject;
 
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
@@ -45,16 +46,21 @@ import lombok.ToString;
 @TaskUsage("Configure the given group of metric backends")
 @TaskName("configure")
 public class Configure implements ShellTask {
+    private final AsyncFramework async;
+    private final MetricManager metrics;
+    private final MetadataManager metadata;
+    private final SuggestManager suggest;
+    private final MetricAnalytics analytics;
+
     @Inject
-    private AsyncFramework async;
-    @Inject
-    private MetricManager metrics;
-    @Inject
-    private MetadataManager metadata;
-    @Inject
-    private SuggestManager suggest;
-    @Inject
-    private MetricAnalytics analytics;
+    public Configure(AsyncFramework async, MetricManager metrics, MetadataManager metadata,
+            SuggestManager suggest, MetricAnalytics analytics) {
+        this.async = async;
+        this.metrics = metrics;
+        this.metadata = metadata;
+        this.suggest = suggest;
+        this.analytics = analytics;
+    }
 
     @Override
     public TaskParameters params() {

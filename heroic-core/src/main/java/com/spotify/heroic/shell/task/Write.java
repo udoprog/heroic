@@ -24,8 +24,6 @@ package com.spotify.heroic.shell.task;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.ingestion.IngestionGroup;
 import com.spotify.heroic.ingestion.IngestionManager;
@@ -51,6 +49,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import javax.inject.Inject;
+import javax.inject.Named;
+
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import eu.toolchain.async.Transform;
@@ -63,15 +64,17 @@ public class Write implements ShellTask {
             new TypeReference<Map<String, Object>>() {
             };
 
-    @Inject
-    private IngestionManager ingestion;
+    private final IngestionManager ingestion;
+    private final AsyncFramework async;
+    private final ObjectMapper json;
 
     @Inject
-    private AsyncFramework async;
-
-    @Inject
-    @Named("application/json")
-    private ObjectMapper json;
+    public Write(IngestionManager ingestion, AsyncFramework async,
+            @Named("application/json") ObjectMapper json) {
+        this.ingestion = ingestion;
+        this.async = async;
+        this.json = json;
+    }
 
     @Override
     public TaskParameters params() {

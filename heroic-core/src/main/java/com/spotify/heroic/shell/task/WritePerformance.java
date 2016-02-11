@@ -21,25 +21,9 @@
 
 package com.spotify.heroic.shell.task;
 
-import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Date;
-import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import org.kohsuke.args4j.Option;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
@@ -56,6 +40,21 @@ import com.spotify.heroic.shell.TaskName;
 import com.spotify.heroic.shell.TaskParameters;
 import com.spotify.heroic.shell.TaskUsage;
 
+import org.kohsuke.args4j.Option;
+
+import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import javax.inject.Inject;
+
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import eu.toolchain.async.StreamCollector;
@@ -65,15 +64,14 @@ import lombok.ToString;
 @TaskUsage("Perform performance testing")
 @TaskName("write-performance")
 public class WritePerformance implements ShellTask {
-    @Inject
-    private MetricManager metrics;
+    private final MetricManager metrics;
+    private final AsyncFramework async;
 
     @Inject
-    @Named("application/json")
-    private ObjectMapper mapper;
-
-    @Inject
-    private AsyncFramework async;
+    public WritePerformance(MetricManager metrics, AsyncFramework async) {
+        this.metrics = metrics;
+        this.async = async;
+    }
 
     @Override
     public TaskParameters params() {
@@ -380,7 +378,7 @@ public class WritePerformance implements ShellTask {
                 metaVar = "<number>")
         private int writes = 10;
 
-        @Option(name = "-B", aliases = { "--batch" }, usage = "Write using batch API")
+        @Option(name = "-B", aliases = {"--batch"}, usage = "Write using batch API")
         private boolean batch = false;
 
         @Option(name = "--parallelism",

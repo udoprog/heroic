@@ -66,11 +66,6 @@ import com.spotify.heroic.shell.task.SuggestTagValues;
 import com.spotify.heroic.shell.task.Write;
 import com.spotify.heroic.shell.task.WritePerformance;
 
-import java.lang.reflect.Constructor;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
 import org.apache.commons.lang3.StringUtils;
 import org.joda.time.Chronology;
 import org.joda.time.DateTime;
@@ -79,6 +74,10 @@ import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.DateTimeParserBucket;
 import org.kohsuke.args4j.Option;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import lombok.Getter;
 
@@ -157,7 +156,7 @@ public final class Tasks {
 
             @Override
             public ShellTask setup(final HeroicCoreInstance core) throws Exception {
-                return core.inject(newInstance(task));
+                return core.injectInstance(task);
             };
         };
     }
@@ -214,24 +213,6 @@ public final class Tasks {
         }
 
         return names;
-    }
-
-    public static ShellTask newInstance(Class<? extends ShellTask> taskType) throws Exception {
-        final Constructor<? extends ShellTask> constructor;
-
-        try {
-            constructor = taskType.getConstructor();
-        } catch (ReflectiveOperationException e) {
-            throw new Exception("Task '" + taskType.getCanonicalName()
-                    + "' does not have an accessible, empty constructor", e);
-        }
-
-        try {
-            return constructor.newInstance();
-        } catch (ReflectiveOperationException e) {
-            throw new Exception("Failed to invoke constructor of '" + taskType.getCanonicalName(),
-                    e);
-        }
     }
 
     public static Filter setupFilter(FilterFactory filters, QueryParser parser,

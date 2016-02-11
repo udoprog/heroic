@@ -53,19 +53,19 @@ public class RandomGenerator implements Generator {
 
     @Inject
     @Named("min")
-    private double min;
+    double min;
 
     @Inject
     @Named("max")
-    private double max;
+    double max;
 
     @Inject
     @Named("range")
-    private double range;
+    double range;
 
     @Inject
     @Named("step")
-    private long step;
+    long step;
 
     @Override
     public List<Point> generatePoints(Series series, DateRange range, FetchQuotaWatcher watcher) {

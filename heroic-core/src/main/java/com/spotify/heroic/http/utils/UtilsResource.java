@@ -21,19 +21,23 @@
 
 package com.spotify.heroic.http.utils;
 
+import com.spotify.heroic.HeroicInternalLifeCycle;
+
+import javax.inject.Inject;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.container.AsyncResponse;
 import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Response;
 
-import com.google.inject.Inject;
-import com.spotify.heroic.HeroicInternalLifeCycle;
-
 @Path("utils")
 public class UtilsResource {
+    private final HeroicInternalLifeCycle lifecycle;
+
     @Inject
-    private HeroicInternalLifeCycle lifecycle;
+    public UtilsResource(final HeroicInternalLifeCycle lifecycle) {
+        this.lifecycle = lifecycle;
+    }
 
     @GET
     @Path("wait")

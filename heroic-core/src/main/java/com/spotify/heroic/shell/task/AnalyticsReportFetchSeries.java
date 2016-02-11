@@ -22,8 +22,6 @@
 package com.spotify.heroic.shell.task;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import com.spotify.heroic.analytics.MetricAnalytics;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.shell.AbstractShellTaskParams;
@@ -33,10 +31,13 @@ import com.spotify.heroic.shell.TaskName;
 import com.spotify.heroic.shell.TaskParameters;
 import com.spotify.heroic.shell.TaskUsage;
 
+import org.kohsuke.args4j.Option;
+
 import java.time.LocalDate;
 import java.util.Optional;
 
-import org.kohsuke.args4j.Option;
+import javax.inject.Inject;
+import javax.inject.Named;
 
 import eu.toolchain.async.AsyncFuture;
 import lombok.ToString;
@@ -44,12 +45,15 @@ import lombok.ToString;
 @TaskUsage("Report that a series has been fetched")
 @TaskName("analytics-report-fetch-series")
 public class AnalyticsReportFetchSeries implements ShellTask {
-    @Inject
-    private MetricAnalytics metricAnalytics;
+    private final MetricAnalytics metricAnalytics;
+    private final ObjectMapper mapper;
 
     @Inject
-    @Named("application/json")
-    private ObjectMapper mapper;
+    public AnalyticsReportFetchSeries(MetricAnalytics metricAnalytics,
+            @Named("application/json") ObjectMapper mapper) {
+        this.metricAnalytics = metricAnalytics;
+        this.mapper = mapper;
+    }
 
     @Override
     public TaskParameters params() {

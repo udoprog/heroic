@@ -26,7 +26,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.inject.name.Named;
+import javax.inject.Named;
 import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.aggregation.AggregationInstance;
 import com.spotify.heroic.cluster.ClusterNode;
@@ -88,25 +88,25 @@ public class NativeRpcProtocol implements RpcProtocol {
     public static final String SUGGEST_TAG_VALUE = "suggest:tagValue";
 
     @Inject
-    private AsyncFramework async;
+    AsyncFramework async;
 
     @Inject
     @Named("worker")
-    private EventLoopGroup workerGroup;
+    EventLoopGroup workerGroup;
 
     @Inject
     @Named("application/json+internal")
-    private ObjectMapper mapper;
+    ObjectMapper mapper;
 
     @Inject
-    private Timer timer;
+    Timer timer;
 
     @Inject
-    private NativeEncoding encoding;
+    NativeEncoding encoding;
 
     @Inject
     @Named("bindFuture")
-    private ResolvableFuture<InetSocketAddress> bindFuture;
+    ResolvableFuture<InetSocketAddress> bindFuture;
 
     private final int defaultPort;
     private final int maxFrameSize;

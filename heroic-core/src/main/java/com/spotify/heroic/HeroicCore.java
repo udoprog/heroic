@@ -47,6 +47,9 @@ import com.spotify.heroic.common.LifeCycle;
 import com.spotify.heroic.common.Optionals;
 import com.spotify.heroic.consumer.Consumer;
 import com.spotify.heroic.consumer.ConsumerModule;
+import com.spotify.heroic.guice.HeroicEarlyModule;
+import com.spotify.heroic.guice.HeroicLoadingModule;
+import com.spotify.heroic.guice.HeroicPrimaryModule;
 import com.spotify.heroic.scheduler.Scheduler;
 import com.spotify.heroic.shell.ShellServerModule;
 import com.spotify.heroic.statistics.HeroicReporter;
@@ -106,9 +109,9 @@ public class HeroicCore implements HeroicConfiguration, HeroicReporterConfigurat
     static final boolean DEFAULT_SKIP_LIFECYCLES = false;
     static final boolean DEFAULT_SETUP_SHELL_SERVER = true;
 
-    static final String APPLICATION_JSON_INTERNAL = "application/json+internal";
-    static final String APPLICATION_JSON = "application/json";
-    static final String APPLICATION_HEROIC_CONFIG = "application/heroic-config";
+    public static final String APPLICATION_JSON_INTERNAL = "application/json+internal";
+    public static final String APPLICATION_JSON = "application/json";
+    public static final String APPLICATION_HEROIC_CONFIG = "application/heroic-config";
 
     static final UncaughtExceptionHandler uncaughtExceptionHandler =
             new UncaughtExceptionHandler() {
@@ -469,10 +472,10 @@ public class HeroicCore implements HeroicConfiguration, HeroicReporterConfigurat
 
         final InetSocketAddress bindAddress = setupBindAddress(config);
 
-        final Optional<HeroicStartupPinger> pinger;
+        final Optional<Pair<URI, String>> pinger;
 
         if (startupPing.isPresent() && startupId.isPresent()) {
-            pinger = of(new HeroicStartupPinger(startupPing.get(), startupId.get()));
+            pinger = of(Pair.of(startupPing.get(), startupId.get()));
         } else {
             pinger = empty();
         }

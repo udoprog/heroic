@@ -21,13 +21,6 @@
 
 package com.spotify.heroic.shell.task;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.kohsuke.args4j.Argument;
-import org.kohsuke.args4j.Option;
-
-import com.google.inject.Inject;
 import com.spotify.heroic.common.RangeFilter;
 import com.spotify.heroic.filter.FilterFactory;
 import com.spotify.heroic.grammar.QueryParser;
@@ -41,6 +34,14 @@ import com.spotify.heroic.shell.TaskParameters;
 import com.spotify.heroic.shell.TaskUsage;
 import com.spotify.heroic.shell.Tasks;
 
+import org.kohsuke.args4j.Argument;
+import org.kohsuke.args4j.Option;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.inject.Inject;
+
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import eu.toolchain.async.LazyTransform;
@@ -50,17 +51,19 @@ import lombok.ToString;
 @TaskUsage("Delete metadata matching the given query")
 @TaskName("metadata-delete")
 public class MetadataDelete implements ShellTask {
-    @Inject
-    private AsyncFramework async;
+    private final AsyncFramework async;
+    private final MetadataManager metadata;
+    private final QueryParser parser;
+    private final FilterFactory filters;
 
     @Inject
-    private MetadataManager metadata;
-
-    @Inject
-    private QueryParser parser;
-
-    @Inject
-    private FilterFactory filters;
+    public MetadataDelete(AsyncFramework async, MetadataManager metadata, QueryParser parser,
+            FilterFactory filters) {
+        this.async = async;
+        this.metadata = metadata;
+        this.parser = parser;
+        this.filters = filters;
+    }
 
     @Override
     public TaskParameters params() {
@@ -92,7 +95,7 @@ public class MetadataDelete implements ShellTask {
 
     @ToString
     private static class Parameters extends Tasks.QueryParamsBase {
-        @Option(name = "-g", aliases = { "--group" }, usage = "Backend group to use",
+        @Option(name = "-g", aliases = {"--group"}, usage = "Backend group to use",
                 metaVar = "<group>")
         private String group;
 

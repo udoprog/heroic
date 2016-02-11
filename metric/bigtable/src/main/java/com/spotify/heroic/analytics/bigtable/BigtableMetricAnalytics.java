@@ -22,8 +22,8 @@
 package com.spotify.heroic.analytics.bigtable;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
+import javax.inject.Inject;
+import javax.inject.Named;
 import com.google.protobuf.ByteString;
 import com.spotify.heroic.analytics.MetricAnalytics;
 import com.spotify.heroic.analytics.SeriesHit;

@@ -19,11 +19,13 @@
  * under the License.
  */
 
-package com.spotify.heroic;
+package com.spotify.heroic.guice;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
-import com.google.inject.name.Named;
+import com.spotify.heroic.HeroicConfig;
+
+import javax.inject.Named;
 
 import java.util.function.Supplier;
 

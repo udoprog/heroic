@@ -23,14 +23,9 @@ package com.spotify.heroic.shell.task;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import org.kohsuke.args4j.Argument;
-import org.kohsuke.args4j.Option;
-
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.metric.BackendKey;
 import com.spotify.heroic.metric.MetricManager;
@@ -41,6 +36,12 @@ import com.spotify.heroic.shell.TaskName;
 import com.spotify.heroic.shell.TaskParameters;
 import com.spotify.heroic.shell.TaskUsage;
 
+import org.kohsuke.args4j.Argument;
+import org.kohsuke.args4j.Option;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+
 import eu.toolchain.async.AsyncFuture;
 import lombok.Data;
 import lombok.ToString;
@@ -48,12 +49,14 @@ import lombok.ToString;
 @TaskUsage("Serialize the given backend key")
 @TaskName("serialize-key")
 public class SerializeKey implements ShellTask {
-    @Inject
-    private MetricManager metrics;
+    private final MetricManager metrics;
+    private final ObjectMapper mapper;
 
     @Inject
-    @Named("application/json")
-    private ObjectMapper mapper;
+    public SerializeKey(MetricManager metrics, @Named("application/json") ObjectMapper mapper) {
+        this.metrics = metrics;
+        this.mapper = mapper;
+    }
 
     @Override
     public TaskParameters params() {

@@ -24,14 +24,18 @@ package com.spotify.heroic.filter;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.google.inject.Inject;
+import javax.inject.Inject;
 import com.spotify.heroic.filter.impl.HasTagFilterImpl;
 import com.spotify.heroic.filter.impl.MatchTagFilterImpl;
 import com.spotify.heroic.filter.impl.OrFilterImpl;
 
 public final class CoreFilterModifier implements FilterModifier {
+    private final FilterFactory filters;
+
     @Inject
-    private FilterFactory filters;
+    public CoreFilterModifier(final FilterFactory filters) {
+        this.filters = filters;
+    }
 
     @Override
     public Filter removeTag(Filter filter, String tag) {

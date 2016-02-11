@@ -32,7 +32,7 @@ import java.util.function.Supplier;
 
 import javax.inject.Inject;
 
-import com.google.inject.name.Named;
+import javax.inject.Named;
 import com.spotify.heroic.common.Statistics;
 import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.metadata.MetadataBackend;

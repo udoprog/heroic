@@ -21,9 +21,6 @@
 
 package com.spotify.heroic.shell.task;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import com.spotify.heroic.analytics.MetricAnalytics;
 import com.spotify.heroic.common.Grouped;
 import com.spotify.heroic.consumer.Consumer;
@@ -37,11 +34,13 @@ import com.spotify.heroic.shell.TaskParameters;
 import com.spotify.heroic.shell.TaskUsage;
 import com.spotify.heroic.suggest.SuggestManager;
 
+import org.kohsuke.args4j.Option;
+
 import java.io.PrintWriter;
 import java.util.List;
 import java.util.Set;
 
-import org.kohsuke.args4j.Option;
+import javax.inject.Inject;
 
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
@@ -50,27 +49,23 @@ import lombok.ToString;
 @TaskUsage("List available backend groups")
 @TaskName("backends")
 public class ListBackends implements ShellTask {
-    @Inject
-    private MetricManager metrics;
+    private final MetricManager metrics;
+    private final MetadataManager metadata;
+    private final SuggestManager suggest;
+    private final Set<Consumer> consumers;
+    private final MetricAnalytics metricAnalytics;
+    private final AsyncFramework async;
 
     @Inject
-    private MetadataManager metadata;
-
-    @Inject
-    private SuggestManager suggest;
-
-    @Inject
-    private Set<Consumer> consumers;
-
-    @Inject
-    private MetricAnalytics metricAnalytics;
-
-    @Inject
-    @Named("application/json")
-    private ObjectMapper mapper;
-
-    @Inject
-    private AsyncFramework async;
+    public ListBackends(MetricManager metrics, MetadataManager metadata, SuggestManager suggest,
+            Set<Consumer> consumers, MetricAnalytics metricAnalytics, AsyncFramework async) {
+        this.metrics = metrics;
+        this.metadata = metadata;
+        this.suggest = suggest;
+        this.consumers = consumers;
+        this.metricAnalytics = metricAnalytics;
+        this.async = async;
+    }
 
     @Override
     public TaskParameters params() {

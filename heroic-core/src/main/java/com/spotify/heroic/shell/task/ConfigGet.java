@@ -23,8 +23,6 @@ package com.spotify.heroic.shell.task;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import com.spotify.heroic.HeroicConfig;
 import com.spotify.heroic.shell.AbstractShellTaskParams;
 import com.spotify.heroic.shell.ShellIO;
@@ -33,6 +31,9 @@ import com.spotify.heroic.shell.TaskName;
 import com.spotify.heroic.shell.TaskParameters;
 import com.spotify.heroic.shell.TaskUsage;
 
+import javax.inject.Inject;
+import javax.inject.Named;
+
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import lombok.ToString;
@@ -40,15 +41,17 @@ import lombok.ToString;
 @TaskUsage("Print the current configuration")
 @TaskName("get")
 public class ConfigGet implements ShellTask {
-    @Inject
-    private HeroicConfig config;
+    private final HeroicConfig config;
+    private final ObjectMapper mapper;
+    private final AsyncFramework async;
 
     @Inject
-    @Named("application/json")
-    private ObjectMapper mapper;
-
-    @Inject
-    private AsyncFramework async;
+    public ConfigGet(HeroicConfig config, @Named("application/json") ObjectMapper mapper,
+            AsyncFramework async) {
+        this.config = config;
+        this.mapper = mapper;
+        this.async = async;
+    }
 
     @Override
     public TaskParameters params() {

@@ -19,12 +19,21 @@
  * under the License.
  */
 
-package com.spotify.heroic;
+package com.spotify.heroic.guice;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
-import com.google.inject.Scopes;
+import com.spotify.heroic.CoreHeroicConfigurationContext;
+import com.spotify.heroic.CoreHeroicContext;
+import com.spotify.heroic.ExtraParameters;
+import com.spotify.heroic.HeroicConfiguration;
+import com.spotify.heroic.HeroicConfigurationContext;
+import com.spotify.heroic.HeroicContext;
+import com.spotify.heroic.HeroicCore;
+import com.spotify.heroic.HeroicInternalLifeCycle;
+import com.spotify.heroic.HeroicMappers;
+import com.spotify.heroic.HeroicReporterConfiguration;
 import com.spotify.heroic.aggregation.AggregationFactory;
 import com.spotify.heroic.aggregation.AggregationRegistry;
 import com.spotify.heroic.aggregation.AggregationSerializer;
@@ -62,6 +71,18 @@ public class HeroicLoadingModule extends AbstractModule {
     private final HeroicConfiguration options;
     private final HeroicReporterConfiguration reporterConfig;
     private final ExtraParameters parameters;
+
+    @Provides
+    @Singleton
+    ExecutorService executorService() {
+        return executor;
+    }
+
+    @Provides
+    @Singleton
+    HeroicInternalLifeCycle lifeCycle() {
+        return lifeCycle;
+    }
 
     @Provides
     @Singleton
@@ -137,19 +158,43 @@ public class HeroicLoadingModule extends AbstractModule {
         return HeroicMappers.config();
     }
 
+    @Provides
+    @Singleton
+    FilterFactory filterFactory(CoreFilterFactory core) {
+        return core;
+    }
+
+    @Provides
+    @Singleton
+    FilterModifier filterModifier(CoreFilterModifier core) {
+        return core;
+    }
+
+    @Provides
+    @Singleton
+    HeroicContext heroicContext(CoreHeroicContext core) {
+        return core;
+    }
+
+    @Provides
+    @Singleton
+    HeroicConfigurationContext heroicContext(CoreHeroicConfigurationContext core) {
+        return core;
+    }
+
+    @Provides
+    @Singleton
+    Scheduler scheduler() {
+        return new DefaultScheduler();
+    }
+
+    @Provides
+    @Singleton
+    JavaxRestFramework javaxRestFramework(CoreJavaxRestFramework core) {
+        return core;
+    }
+
     @Override
     protected void configure() {
-        bind(Scheduler.class).toInstance(new DefaultScheduler());
-        bind(HeroicInternalLifeCycle.class).toInstance(lifeCycle);
-        bind(FilterFactory.class).to(CoreFilterFactory.class).in(Scopes.SINGLETON);
-        bind(FilterModifier.class).to(CoreFilterModifier.class).in(Scopes.SINGLETON);
-
-        bind(HeroicConfigurationContext.class).to(CoreHeroicConfigurationContext.class)
-                .in(Scopes.SINGLETON);
-
-        bind(HeroicContext.class).toInstance(new CoreHeroicContext());
-        bind(ExecutorService.class).toInstance(executor);
-
-        bind(JavaxRestFramework.class).toInstance(new CoreJavaxRestFramework());
     }
 }

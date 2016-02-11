@@ -23,26 +23,8 @@ package com.spotify.heroic.http.metadata;
 
 import static java.util.Optional.ofNullable;
 
-import java.io.IOException;
-import java.util.Optional;
-import java.util.concurrent.ExecutionException;
-import java.util.function.Supplier;
-
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.POST;
-import javax.ws.rs.PUT;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.container.AsyncResponse;
-import javax.ws.rs.container.Suspended;
-import javax.ws.rs.core.MediaType;
-
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import com.spotify.heroic.QueryDateRange;
 import com.spotify.heroic.cluster.ClusterManager;
 import com.spotify.heroic.common.DateRange;
@@ -53,27 +35,41 @@ import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.filter.FilterFactory;
 import com.spotify.heroic.metric.WriteResult;
 
+import java.io.IOException;
+import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
+
+import javax.inject.Inject;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
+import javax.ws.rs.POST;
+import javax.ws.rs.PUT;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.container.AsyncResponse;
+import javax.ws.rs.container.Suspended;
+import javax.ws.rs.core.MediaType;
+
 import eu.toolchain.async.AsyncFuture;
 
 @Path("/metadata")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class MetadataResource {
-    @Inject
-    private FilterFactory filters;
+    private final FilterFactory filters;
+    private final JavaxRestFramework httpAsync;
+    private final ClusterManager cluster;
+    private final MetadataResourceCache cache;
 
     @Inject
-    private JavaxRestFramework httpAsync;
-
-    @Inject
-    private ClusterManager cluster;
-
-    @Inject
-    private MetadataResourceCache cache;
-
-    @Inject
-    @Named("application/json")
-    private ObjectMapper mapper;
+    public MetadataResource(FilterFactory filters, JavaxRestFramework httpAsync,
+            ClusterManager cluster, MetadataResourceCache cache) {
+        this.filters = filters;
+        this.httpAsync = httpAsync;
+        this.cluster = cluster;
+        this.cache = cache;
+    }
 
     @POST
     @Path("/tags")

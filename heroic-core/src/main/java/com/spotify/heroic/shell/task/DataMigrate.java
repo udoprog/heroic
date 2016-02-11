@@ -21,19 +21,7 @@
 
 package com.spotify.heroic.shell.task;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
-
-import org.kohsuke.args4j.Argument;
-import org.kohsuke.args4j.Option;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.async.AsyncObservable;
 import com.spotify.heroic.async.AsyncObserver;
@@ -54,6 +42,19 @@ import com.spotify.heroic.shell.TaskParameters;
 import com.spotify.heroic.shell.TaskUsage;
 import com.spotify.heroic.shell.Tasks;
 
+import org.kohsuke.args4j.Argument;
+import org.kohsuke.args4j.Option;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import eu.toolchain.async.ResolvableFuture;
@@ -69,21 +70,21 @@ public class DataMigrate implements ShellTask {
     public static final long ALLOWED_ERRORS = 5;
     public static final long ALLOWED_FAILED_KEYS = 100;
 
-    @Inject
-    private FilterFactory filters;
+    private final FilterFactory filters;
+    private final QueryParser parser;
+    private final MetricManager metric;
+    private final AsyncFramework async;
+    private final ObjectMapper mapper;
 
     @Inject
-    private QueryParser parser;
-
-    @Inject
-    private MetricManager metric;
-
-    @Inject
-    private AsyncFramework async;
-
-    @Inject
-    @Named("application/json")
-    private ObjectMapper mapper;
+    public DataMigrate(FilterFactory filters, QueryParser parser, MetricManager metric,
+            AsyncFramework async, @Named("application/json") ObjectMapper mapper) {
+        this.filters = filters;
+        this.parser = parser;
+        this.metric = metric;
+        this.async = async;
+        this.mapper = mapper;
+    }
 
     @Override
     public TaskParameters params() {

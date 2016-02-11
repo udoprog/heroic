@@ -21,15 +21,8 @@
 
 package com.spotify.heroic.shell.task;
 
-import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
-
-import org.kohsuke.args4j.Option;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.async.AsyncObservable;
 import com.spotify.heroic.async.AsyncObserver;
@@ -45,6 +38,14 @@ import com.spotify.heroic.shell.TaskParameters;
 import com.spotify.heroic.shell.TaskUsage;
 import com.spotify.heroic.shell.Tasks;
 
+import org.kohsuke.args4j.Option;
+
+import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import eu.toolchain.async.ResolvableFuture;
@@ -55,15 +56,17 @@ import lombok.extern.slf4j.Slf4j;
 @TaskName("keys")
 @Slf4j
 public class Keys implements ShellTask {
-    @Inject
-    private AsyncFramework async;
+    private final AsyncFramework async;
+    private final MetricManager metrics;
+    private final ObjectMapper mapper;
 
     @Inject
-    private MetricManager metrics;
-
-    @Inject
-    @Named("application/json")
-    private ObjectMapper mapper;
+    public Keys(AsyncFramework async, MetricManager metrics,
+            @Named("application/json") ObjectMapper mapper) {
+        this.async = async;
+        this.metrics = metrics;
+        this.mapper = mapper;
+    }
 
     @Override
     public TaskParameters params() {

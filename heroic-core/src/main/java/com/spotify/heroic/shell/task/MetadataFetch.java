@@ -21,15 +21,7 @@
 
 package com.spotify.heroic.shell.task;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.kohsuke.args4j.Argument;
-import org.kohsuke.args4j.Option;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import com.spotify.heroic.common.RangeFilter;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.filter.FilterFactory;
@@ -42,6 +34,15 @@ import com.spotify.heroic.shell.TaskParameters;
 import com.spotify.heroic.shell.TaskUsage;
 import com.spotify.heroic.shell.Tasks;
 
+import org.kohsuke.args4j.Argument;
+import org.kohsuke.args4j.Option;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+
 import eu.toolchain.async.AsyncFuture;
 import lombok.Getter;
 import lombok.ToString;
@@ -49,18 +50,19 @@ import lombok.ToString;
 @TaskUsage("Fetch series matching the given query")
 @TaskName("metadata-fetch")
 public class MetadataFetch implements ShellTask {
-    @Inject
-    private MetadataManager metadata;
+    private final MetadataManager metadata;
+    private final FilterFactory filters;
+    private final QueryParser parser;
+    private final ObjectMapper mapper;
 
     @Inject
-    private FilterFactory filters;
-
-    @Inject
-    private QueryParser parser;
-
-    @Inject
-    @Named("application/json")
-    private ObjectMapper mapper;
+    public MetadataFetch(MetadataManager metadata, FilterFactory filters, QueryParser parser,
+            @Named("application/json") ObjectMapper mapper) {
+        this.metadata = metadata;
+        this.filters = filters;
+        this.parser = parser;
+        this.mapper = mapper;
+    }
 
     @Override
     public TaskParameters params() {
@@ -90,11 +92,11 @@ public class MetadataFetch implements ShellTask {
 
     @ToString
     private static class Parameters extends Tasks.QueryParamsBase {
-        @Option(name = "-g", aliases = { "--group" }, usage = "Backend group to use",
+        @Option(name = "-g", aliases = {"--group"}, usage = "Backend group to use",
                 metaVar = "<group>")
         private String group;
 
-        @Option(name = "--limit", aliases = { "--limit" },
+        @Option(name = "--limit", aliases = {"--limit"},
                 usage = "Limit the number of printed entries")
         @Getter
         private int limit = 10;

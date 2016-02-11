@@ -21,18 +21,8 @@
 
 package com.spotify.heroic.shell.task;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
-
-import org.kohsuke.args4j.Argument;
-import org.kohsuke.args4j.Option;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import com.spotify.heroic.QueryManager;
 import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.metric.MetricCollection;
@@ -45,18 +35,31 @@ import com.spotify.heroic.shell.TaskName;
 import com.spotify.heroic.shell.TaskParameters;
 import com.spotify.heroic.shell.TaskUsage;
 
+import org.kohsuke.args4j.Argument;
+import org.kohsuke.args4j.Option;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+
 import eu.toolchain.async.AsyncFuture;
 import lombok.ToString;
 
 @TaskUsage("Execute a query")
 @TaskName("query")
 public class Query implements ShellTask {
-    @Inject
-    private QueryManager query;
+    private final QueryManager query;
+    private final ObjectMapper mapper;
 
     @Inject
-    @Named("application/json")
-    private ObjectMapper mapper;
+    public Query(QueryManager query, @Named("application/json") ObjectMapper mapper) {
+        this.query = query;
+        this.mapper = mapper;
+    }
 
     @Override
     public TaskParameters params() {
@@ -100,7 +103,7 @@ public class Query implements ShellTask {
 
     @ToString
     private static class Parameters extends AbstractShellTaskParams {
-        @Option(name = "-g", aliases = { "--group" }, usage = "Backend group to use",
+        @Option(name = "-g", aliases = {"--group"}, usage = "Backend group to use",
                 metaVar = "<group>")
         private String group = null;
 

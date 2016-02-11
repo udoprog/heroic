@@ -21,7 +21,7 @@
 
 package com.spotify.heroic.analytics;
 
-import com.google.inject.Inject;
+import javax.inject.Inject;
 import com.spotify.heroic.async.AsyncObservable;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.metric.MetricBackend;

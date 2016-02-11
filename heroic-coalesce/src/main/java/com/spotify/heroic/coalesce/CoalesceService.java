@@ -33,7 +33,7 @@ import org.kohsuke.args4j.Option;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.base.Charsets;
-import com.google.inject.Inject;
+import javax.inject.Inject;
 import com.spotify.heroic.HeroicBootstrap;
 import com.spotify.heroic.HeroicCore;
 import com.spotify.heroic.HeroicCoreInstance;

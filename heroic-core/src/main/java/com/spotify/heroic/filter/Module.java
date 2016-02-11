@@ -22,8 +22,8 @@
 package com.spotify.heroic.filter;
 
 import com.google.common.collect.Lists;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
+import javax.inject.Inject;
+import javax.inject.Named;
 import com.spotify.heroic.HeroicModule;
 import com.spotify.heroic.filter.impl.AndFilterImpl;
 import com.spotify.heroic.filter.impl.FalseFilterImpl;

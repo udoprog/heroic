@@ -298,6 +298,7 @@
         <artifactId>guava</artifactId>
         <version>18.0</version>
       </dependency>
+
       <!-- used by com.spotify.heroic.http
            This provides the core query API.
            We are using these later versions to support AsyncResponse and SSE. -->

@@ -24,7 +24,6 @@ package com.spotify.heroic;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Injector;
 import com.spotify.heroic.common.LifeCycle;
 import com.spotify.heroic.http.CorsResponseFilter;
 import com.spotify.heroic.jetty.JettyJSONErrorHandler;
@@ -46,7 +45,6 @@ import org.eclipse.jetty.servlet.ServletHolder;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.servlet.ServletContainer;
 
-import java.lang.reflect.Constructor;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Optional;
@@ -69,41 +67,37 @@ import lombok.extern.slf4j.Slf4j;
 public class HeroicServer implements LifeCycle {
     public static final String DEFAULT_CORS_ALLOW_ORIGIN = "*";
 
-    @Inject
-    @Named("bindAddress")
-    private InetSocketAddress address;
+    private final InetSocketAddress address;
+    private final HeroicCoreInstance instance;
+    private final HeroicConfigurationContext config;
+    private final ObjectMapper mapper;
+    private final AsyncFramework async;
+    private final boolean enableCors;
+    private final Optional<String> corsAllowOrigin;
+    private final List<JettyServerConnector> connectors;
+    private final Supplier<Boolean> stopping;
 
-    @Inject
-    private Injector injector;
-
-    @Inject
-    private HeroicConfigurationContext config;
-
-    @Inject
-    @Named(MediaType.APPLICATION_JSON)
-    private ObjectMapper mapper;
-
-    @Inject
-    private AsyncFramework async;
-
-    @Inject
-    @Named("enableCors")
-    private boolean enableCors;
-
-    @Inject
-    @Named("corsAllowOrigin")
-    private Optional<String> corsAllowOrigin;
-
-    @Inject
-    private List<JettyServerConnector> connectors;
-
-    @Inject
-    @Named("stopping")
-    private Supplier<Boolean> stopping;
-
-    private volatile Server server;
-
+    private volatile Server server = null;
     private final Object lock = new Object();
+
+    @Inject
+    public HeroicServer(@Named("bindAddress") final InetSocketAddress address,
+            final HeroicCoreInstance instance, final HeroicConfigurationContext config,
+            @Named(MediaType.APPLICATION_JSON) final ObjectMapper mapper,
+            final AsyncFramework async, @Named("enableCors") final boolean enableCors,
+            @Named("corsAllowOrigin") final Optional<String> corsAllowOrigin,
+            final List<JettyServerConnector> connectors,
+            @Named("stopping") final Supplier<Boolean> stopping) {
+        this.address = address;
+        this.instance = instance;
+        this.config = config;
+        this.mapper = mapper;
+        this.async = async;
+        this.enableCors = enableCors;
+        this.corsAllowOrigin = corsAllowOrigin;
+        this.connectors = connectors;
+        this.stopping = stopping;
+    }
 
     @Override
     public AsyncFuture<Void> start() {
@@ -260,7 +254,7 @@ public class HeroicServer implements LifeCycle {
                 log.trace("Loading resource: {}", resource);
             }
 
-            c.register(setupResource(resource));
+            c.register(instance.injectInstance(resource));
         }
 
         // Resources.
@@ -273,27 +267,5 @@ public class HeroicServer implements LifeCycle {
 
         log.info("Loaded {} resource(s)", config.getResources().size());
         return c;
-    }
-
-    private Object setupResource(Class<?> resource) {
-        final Constructor<?> constructor;
-
-        try {
-            constructor = resource.getConstructor();
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalArgumentException(resource + ": does not have an empty constructor");
-        }
-
-        final Object instance;
-
-        try {
-            instance = constructor.newInstance();
-        } catch (ReflectiveOperationException e) {
-            throw new RuntimeException(resource + ": failed to call constructor", e);
-        }
-
-        injector.injectMembers(instance);
-
-        return instance;
     }
 }

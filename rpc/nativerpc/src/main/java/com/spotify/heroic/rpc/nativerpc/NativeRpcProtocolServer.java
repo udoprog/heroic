@@ -23,7 +23,7 @@ package com.spotify.heroic.rpc.nativerpc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
-import com.google.inject.name.Named;
+import javax.inject.Named;
 import com.spotify.heroic.cluster.NodeMetadata;
 import com.spotify.heroic.common.LifeCycle;
 import com.spotify.heroic.common.RangeFilter;
@@ -78,41 +78,41 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class NativeRpcProtocolServer implements LifeCycle {
     @Inject
-    private AsyncFramework async;
+    AsyncFramework async;
 
     @Inject
-    private MetricManager metrics;
+    MetricManager metrics;
 
     @Inject
-    private MetadataManager metadata;
+    MetadataManager metadata;
 
     @Inject
-    private SuggestManager suggest;
+    SuggestManager suggest;
 
     @Inject
-    private NodeMetadata localMetadata;
+    NodeMetadata localMetadata;
 
     @Inject
     @Named("application/json+internal")
-    private ObjectMapper mapper;
+    ObjectMapper mapper;
 
     @Inject
-    private Timer timer;
+    Timer timer;
 
     @Inject
     @Named("boss")
-    private EventLoopGroup bossGroup;
+    EventLoopGroup bossGroup;
 
     @Inject
     @Named("worker")
-    private EventLoopGroup workerGroup;
+    EventLoopGroup workerGroup;
 
     @Inject
-    private NativeEncoding encoding;
+    NativeEncoding encoding;
 
     @Inject
     @Named("bindFuture")
-    private ResolvableFuture<InetSocketAddress> bindFuture;
+    ResolvableFuture<InetSocketAddress> bindFuture;
 
     private final SocketAddress address;
     private final int maxFrameSize;

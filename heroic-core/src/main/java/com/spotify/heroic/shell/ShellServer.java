@@ -25,8 +25,8 @@ import java.io.IOException;
 import java.net.Socket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
+import javax.inject.Inject;
+import javax.inject.Named;
 import com.spotify.heroic.HeroicShellTasks;
 import com.spotify.heroic.common.LifeCycle;
 

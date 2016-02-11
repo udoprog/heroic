@@ -21,6 +21,24 @@
 
 package com.spotify.heroic.shell.task;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.spotify.heroic.QueryOptions;
+import com.spotify.heroic.metric.BackendKey;
+import com.spotify.heroic.metric.MetricBackendGroup;
+import com.spotify.heroic.metric.MetricManager;
+import com.spotify.heroic.shell.AbstractShellTaskParams;
+import com.spotify.heroic.shell.ShellIO;
+import com.spotify.heroic.shell.ShellTask;
+import com.spotify.heroic.shell.TaskName;
+import com.spotify.heroic.shell.TaskParameters;
+import com.spotify.heroic.shell.TaskUsage;
+
+import org.apache.commons.lang3.tuple.Pair;
+import org.kohsuke.args4j.Option;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -32,25 +50,8 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.commons.lang3.tuple.Pair;
-import org.kohsuke.args4j.Option;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Charsets;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
-import com.spotify.heroic.QueryOptions;
-import com.spotify.heroic.metric.BackendKey;
-import com.spotify.heroic.metric.MetricBackendGroup;
-import com.spotify.heroic.metric.MetricManager;
-import com.spotify.heroic.shell.AbstractShellTaskParams;
-import com.spotify.heroic.shell.ShellIO;
-import com.spotify.heroic.shell.ShellTask;
-import com.spotify.heroic.shell.TaskName;
-import com.spotify.heroic.shell.TaskParameters;
-import com.spotify.heroic.shell.TaskUsage;
+import javax.inject.Inject;
+import javax.inject.Named;
 
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
@@ -64,15 +65,17 @@ import lombok.ToString;
 public class DeleteKeys implements ShellTask {
     public static final Charset UTF8 = Charsets.UTF_8;
 
-    @Inject
-    private MetricManager metrics;
+    private final MetricManager metrics;
+    private final ObjectMapper mapper;
+    private final AsyncFramework async;
 
     @Inject
-    @Named("application/json")
-    private ObjectMapper mapper;
-
-    @Inject
-    private AsyncFramework async;
+    public DeleteKeys(MetricManager metrics, @Named("application/json") ObjectMapper mapper,
+            AsyncFramework async) {
+        this.metrics = metrics;
+        this.mapper = mapper;
+        this.async = async;
+    }
 
     @Override
     public TaskParameters params() {

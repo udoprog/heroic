@@ -21,6 +21,16 @@
 
 package com.spotify.heroic.shell.task;
 
+import com.google.common.base.Charsets;
+import com.spotify.heroic.shell.AbstractShellTaskParams;
+import com.spotify.heroic.shell.ShellIO;
+import com.spotify.heroic.shell.ShellTask;
+import com.spotify.heroic.shell.TaskName;
+import com.spotify.heroic.shell.TaskParameters;
+import com.spotify.heroic.shell.TaskUsage;
+
+import org.kohsuke.args4j.Option;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.InputStreamReader;
@@ -29,16 +39,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import org.kohsuke.args4j.Option;
-
-import com.google.common.base.Charsets;
-import com.google.inject.Inject;
-import com.spotify.heroic.shell.AbstractShellTaskParams;
-import com.spotify.heroic.shell.ShellIO;
-import com.spotify.heroic.shell.ShellTask;
-import com.spotify.heroic.shell.TaskName;
-import com.spotify.heroic.shell.TaskParameters;
-import com.spotify.heroic.shell.TaskUsage;
+import javax.inject.Inject;
 
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
@@ -49,8 +50,12 @@ import lombok.ToString;
 public class ReadWriteTest implements ShellTask {
     private static final Charset UTF8 = Charsets.UTF_8;
 
+    private final AsyncFramework async;
+
     @Inject
-    private AsyncFramework async;
+    public ReadWriteTest(AsyncFramework async) {
+        this.async = async;
+    }
 
     @Override
     public TaskParameters params() {

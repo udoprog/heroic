@@ -21,11 +21,19 @@
 
 package com.spotify.heroic.http.render;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spotify.heroic.Query;
+import com.spotify.heroic.QueryManager;
+import com.spotify.heroic.metric.QueryResult;
+
+import org.jfree.chart.JFreeChart;
+
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.util.Map;
 
 import javax.imageio.ImageIO;
+import javax.inject.Inject;
 import javax.inject.Named;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.GET;
@@ -35,26 +43,20 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import org.jfree.chart.JFreeChart;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.inject.Inject;
-import com.spotify.heroic.Query;
-import com.spotify.heroic.QueryManager;
-import com.spotify.heroic.metric.QueryResult;
-
 @Path("render")
 public class RenderResource {
     private static final int DEFAULT_WIDTH = 600;
-
     private static final int DEFAULT_HEIGHT = 400;
 
-    @Inject
-    @Named(MediaType.APPLICATION_JSON)
-    private ObjectMapper mapper;
+    private final ObjectMapper mapper;
+    private final QueryManager query;
 
     @Inject
-    private QueryManager query;
+    public RenderResource(@Named(MediaType.APPLICATION_JSON) ObjectMapper mapper,
+            QueryManager query) {
+        this.mapper = mapper;
+        this.query = query;
+    }
 
     @SuppressWarnings("unchecked")
     @GET

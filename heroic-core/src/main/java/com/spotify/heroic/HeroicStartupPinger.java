@@ -41,7 +41,6 @@ import javax.inject.Named;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import lombok.Data;
-import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
@@ -54,27 +53,30 @@ import lombok.extern.slf4j.Slf4j;
  * @author udoprog
  */
 @Slf4j
-@RequiredArgsConstructor
 @ToString(of = {"ping", "id"})
 public class HeroicStartupPinger implements LifeCycle {
-    @Inject
-    private HeroicServer server;
-
-    @Inject
-    @Named("application/json")
-    private ObjectMapper mapper;
-
-    @Inject
-    private HeroicInternalLifeCycle lifecycle;
-
-    @Inject
-    private AsyncFramework async;
-
-    @Inject
-    private ClusterManager cluster;
-
+    private final HeroicServer server;
+    private final ObjectMapper mapper;
+    private final HeroicInternalLifeCycle lifecycle;
+    private final AsyncFramework async;
+    private final ClusterManager cluster;
     private final URI ping;
     private final String id;
+
+    @Inject
+    public HeroicStartupPinger(final HeroicServer server,
+            @Named("application/json") final ObjectMapper mapper,
+            final HeroicInternalLifeCycle lifecycle, final AsyncFramework async,
+            final ClusterManager cluster, @Named("pingURI") final URI ping,
+            @Named("pingId") final String id) {
+        this.server = server;
+        this.mapper = mapper;
+        this.lifecycle = lifecycle;
+        this.async = async;
+        this.cluster = cluster;
+        this.ping = ping;
+        this.id = id;
+    }
 
     @Override
     public AsyncFuture<Void> start() {

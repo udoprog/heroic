@@ -22,14 +22,20 @@
 package com.spotify.heroic;
 
 import javax.inject.Inject;
+import javax.inject.Singleton;
 
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import eu.toolchain.async.ResolvableFuture;
 
+@Singleton
 public class CoreHeroicContext implements HeroicContext {
+    private final AsyncFramework async;
+
     @Inject
-    private AsyncFramework async;
+    public CoreHeroicContext(final AsyncFramework async) {
+        this.async = async;
+    }
 
     private final Object lock = new Object();
     private volatile ResolvableFuture<Void> startedFuture;

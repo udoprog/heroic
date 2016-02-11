@@ -21,7 +21,7 @@
 
 package com.spotify.heroic.http;
 
-import com.google.inject.Inject;
+import javax.inject.Inject;
 import com.spotify.heroic.HeroicConfigurationContext;
 import com.spotify.heroic.HeroicModule;
 import com.spotify.heroic.http.cluster.ClusterResource;

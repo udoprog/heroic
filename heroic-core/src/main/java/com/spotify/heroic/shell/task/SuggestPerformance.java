@@ -21,6 +21,28 @@
 
 package com.spotify.heroic.shell.task;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.spotify.heroic.common.DateRange;
+import com.spotify.heroic.common.RangeFilter;
+import com.spotify.heroic.filter.Filter;
+import com.spotify.heroic.grammar.QueryParser;
+import com.spotify.heroic.shell.AbstractShellTaskParams;
+import com.spotify.heroic.shell.ShellIO;
+import com.spotify.heroic.shell.ShellTask;
+import com.spotify.heroic.shell.TaskName;
+import com.spotify.heroic.shell.TaskParameters;
+import com.spotify.heroic.shell.TaskUsage;
+import com.spotify.heroic.suggest.MatchOptions;
+import com.spotify.heroic.suggest.SuggestBackend;
+import com.spotify.heroic.suggest.SuggestManager;
+import com.spotify.heroic.suggest.TagSuggest;
+
+import org.kohsuke.args4j.Option;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -40,29 +62,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPInputStream;
 
-import org.kohsuke.args4j.Option;
-
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
-import com.spotify.heroic.common.DateRange;
-import com.spotify.heroic.common.RangeFilter;
-import com.spotify.heroic.filter.Filter;
-import com.spotify.heroic.grammar.QueryParser;
-import com.spotify.heroic.shell.AbstractShellTaskParams;
-import com.spotify.heroic.shell.ShellIO;
-import com.spotify.heroic.shell.ShellTask;
-import com.spotify.heroic.shell.TaskName;
-import com.spotify.heroic.shell.TaskParameters;
-import com.spotify.heroic.shell.TaskUsage;
-import com.spotify.heroic.suggest.MatchOptions;
-import com.spotify.heroic.suggest.SuggestBackend;
-import com.spotify.heroic.suggest.SuggestManager;
-import com.spotify.heroic.suggest.TagSuggest;
+import javax.inject.Inject;
+import javax.inject.Named;
 
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
@@ -72,22 +73,23 @@ import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 @TaskUsage("Execute a set of suggest performance tests")
 @TaskName("suggest-performance")
+@Slf4j
 public class SuggestPerformance implements ShellTask {
-    @Inject
-    private SuggestManager suggest;
+    private final SuggestManager suggest;
+    private final QueryParser parser;
+    private final ObjectMapper mapper;
+    private final AsyncFramework async;
 
     @Inject
-    private QueryParser parser;
-
-    @Inject
-    @Named("application/json")
-    private ObjectMapper mapper;
-
-    @Inject
-    private AsyncFramework async;
+    public SuggestPerformance(SuggestManager suggest, QueryParser parser,
+            @Named("application/json") ObjectMapper mapper, AsyncFramework async) {
+        this.suggest = suggest;
+        this.parser = parser;
+        this.mapper = mapper;
+        this.async = async;
+    }
 
     @Override
     public TaskParameters params() {
@@ -253,7 +255,7 @@ public class SuggestPerformance implements ShellTask {
 
     @ToString
     private static class Parameters extends AbstractShellTaskParams {
-        @Option(name = "-g", aliases = { "--group" }, usage = "Backend group to use",
+        @Option(name = "-g", aliases = {"--group"}, usage = "Backend group to use",
                 metaVar = "<group>")
         private String group;
 

@@ -23,8 +23,6 @@ package com.spotify.heroic;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import com.spotify.heroic.aggregation.Aggregation;
 import com.spotify.heroic.aggregation.AggregationCombiner;
 import com.spotify.heroic.aggregation.AggregationContext;
@@ -54,6 +52,9 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.concurrent.TimeUnit;
 
+import javax.inject.Inject;
+import javax.inject.Named;
+
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import lombok.RequiredArgsConstructor;
@@ -64,24 +65,24 @@ public class CoreQueryManager implements QueryManager {
     public static final QueryTrace.Identifier QUERY =
             QueryTrace.identifier(CoreQueryManager.class, "query");
 
-    @Inject
-    @Named("features")
-    private Set<String> features;
+    private final Set<String> features;
+    private final AsyncFramework async;
+    private final ClusterManager cluster;
+    private final FilterFactory filters;
+    private final QueryParser parser;
+    private final QueryCache queryCache;
 
     @Inject
-    private AsyncFramework async;
-
-    @Inject
-    private ClusterManager cluster;
-
-    @Inject
-    private FilterFactory filters;
-
-    @Inject
-    private QueryParser parser;
-
-    @Inject
-    private QueryCache queryCache;
+    public CoreQueryManager(@Named("features") final Set<String> features,
+            final AsyncFramework async, final ClusterManager cluster, final FilterFactory filters,
+            final QueryParser parser, final QueryCache queryCache) {
+        this.features = features;
+        this.async = async;
+        this.cluster = cluster;
+        this.filters = filters;
+        this.parser = parser;
+        this.queryCache = queryCache;
+    }
 
     @Override
     public Group useGroup(String group) {

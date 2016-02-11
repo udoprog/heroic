@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.LongAdder;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Inject;
+import javax.inject.Inject;
 import com.spotify.heroic.common.Statistics;
 import com.spotify.heroic.consumer.Consumer;
 import com.spotify.heroic.ingestion.IngestionManager;
@@ -43,13 +43,13 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class KafkaConsumer implements Consumer {
     @Inject
-    private IngestionManager ingestion;
+    IngestionManager ingestion;
 
     @Inject
-    private AsyncFramework async;
+    AsyncFramework async;
 
     @Inject
-    private Managed<Connection> connection;
+    Managed<Connection> connection;
 
     private final AtomicInteger consuming;
     private final AtomicInteger total;

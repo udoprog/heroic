@@ -42,7 +42,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Inject;
+import javax.inject.Inject;
 import com.spotify.heroic.elasticsearch.index.IndexMapping;
 import com.spotify.heroic.elasticsearch.index.RotatingIndexMapping;
 import com.spotify.heroic.statistics.LocalMetadataBackendReporter;
@@ -64,10 +64,10 @@ public class ManagedConnectionFactory {
     public static final Map<String, Object> DEFAULT_SETTINGS = ImmutableMap.of();
 
     @Inject
-    private LocalMetadataBackendReporter reporter;
+    LocalMetadataBackendReporter reporter;
 
     @Inject
-    private AsyncFramework async;
+    AsyncFramework async;
 
     private final String clusterName;
     private final List<String> seeds;

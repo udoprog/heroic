@@ -21,17 +21,7 @@
 
 package com.spotify.heroic.shell.task;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.concurrent.TimeUnit;
-
-import org.kohsuke.args4j.Option;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
@@ -48,18 +38,31 @@ import com.spotify.heroic.shell.TaskParameters;
 import com.spotify.heroic.shell.TaskUsage;
 import com.spotify.heroic.shell.Tasks;
 
+import org.kohsuke.args4j.Option;
+
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.concurrent.TimeUnit;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+
 import eu.toolchain.async.AsyncFuture;
 import lombok.ToString;
 
 @TaskUsage("Fetch a range of data points")
 @TaskName("fetch")
 public class Fetch implements ShellTask {
-    @Inject
-    private MetricManager metrics;
+    private final MetricManager metrics;
+    private final ObjectMapper mapper;
 
     @Inject
-    @Named("application/json")
-    private ObjectMapper mapper;
+    public Fetch(MetricManager metrics, @Named("application/json") ObjectMapper mapper) {
+        this.metrics = metrics;
+        this.mapper = mapper;
+    }
 
     @Override
     public TaskParameters params() {
@@ -159,11 +162,10 @@ public class Fetch implements ShellTask {
 
     @ToString
     private static class Parameters extends AbstractShellTaskParams {
-        @Option(name = "-s", aliases = { "--series" }, usage = "Series to fetch",
-                metaVar = "<json>")
+        @Option(name = "-s", aliases = {"--series"}, usage = "Series to fetch", metaVar = "<json>")
         private String series;
 
-        @Option(name = "--source", aliases = { "--source" }, usage = "Source to fetch",
+        @Option(name = "--source", aliases = {"--source"}, usage = "Source to fetch",
                 metaVar = "<events|points>")
         private String source = MetricType.POINT.identifier();
 
@@ -177,7 +179,7 @@ public class Fetch implements ShellTask {
                 metaVar = "<int>")
         private int limit = 1000;
 
-        @Option(name = "-g", aliases = { "--group" }, usage = "Backend group to use",
+        @Option(name = "-g", aliases = {"--group"}, usage = "Backend group to use",
                 metaVar = "<group>")
         private String group = null;
 

@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Inject;
+import javax.inject.Inject;
 import com.spotify.heroic.common.Statistics;
 import com.spotify.heroic.consumer.Consumer;
 
@@ -39,10 +39,9 @@ import lombok.Data;
 @Data
 public class CollectdConsumer implements Consumer {
     @Inject
-    private AsyncFramework async;
-
+    AsyncFramework async;
     @Inject
-    private Managed<Server> connection;
+    Managed<Server> connection;
 
     private final AtomicInteger consuming;
     private final AtomicInteger total;

@@ -21,6 +21,23 @@
 
 package com.spotify.heroic;
 
+import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableList;
+import com.spotify.heroic.HeroicCore.Builder;
+import com.spotify.heroic.shell.AbstractShellTaskParams;
+import com.spotify.heroic.shell.CoreInterface;
+import com.spotify.heroic.shell.RemoteCoreInterface;
+import com.spotify.heroic.shell.ShellIO;
+import com.spotify.heroic.shell.ShellProtocol;
+import com.spotify.heroic.shell.ShellTask;
+import com.spotify.heroic.shell.TaskParameters;
+import com.spotify.heroic.shell.protocol.CommandDefinition;
+
+import org.apache.commons.lang3.StringUtils;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
+import org.kohsuke.args4j.Option;
+
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -38,24 +55,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Executors;
 
-import org.apache.commons.lang3.StringUtils;
-import org.kohsuke.args4j.CmdLineException;
-import org.kohsuke.args4j.CmdLineParser;
-import org.kohsuke.args4j.Option;
-
-import com.google.common.base.Charsets;
-import com.google.common.collect.ImmutableList;
-import com.google.inject.Inject;
-import com.spotify.heroic.HeroicCore.Builder;
-import com.spotify.heroic.shell.AbstractShellTaskParams;
-import com.spotify.heroic.shell.CoreInterface;
-import com.spotify.heroic.shell.RemoteCoreInterface;
-import com.spotify.heroic.shell.ShellIO;
-import com.spotify.heroic.shell.ShellProtocol;
-import com.spotify.heroic.shell.ShellTask;
-import com.spotify.heroic.shell.TaskParameters;
-import com.spotify.heroic.shell.Tasks;
-import com.spotify.heroic.shell.protocol.CommandDefinition;
+import javax.inject.Inject;
 
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
@@ -224,7 +224,13 @@ public class HeroicShell {
         log.info("Running standalone task {}", taskName);
 
         final Class<ShellTask> taskType = resolveShellTask(taskName);
-        final ShellTask task = Tasks.newInstance(taskType);
+
+        final HeroicCore core = builder.build();
+
+        log.info("Starting Heroic...");
+        final HeroicCoreInstance instance = core.start();
+
+        final ShellTask task = instance.injectInstance(taskType);
         final TaskParameters params = task.params();
 
         final CmdLineParser parser = new CmdLineParser(params);
@@ -244,14 +250,7 @@ public class HeroicShell {
             return;
         }
 
-        final HeroicCore core = builder.build();
-
-        log.info("Starting Heroic...");
-        final HeroicCoreInstance instance = core.start();
-
         try {
-            instance.inject(task);
-
             final PrintWriter o = standaloneOutput(params, System.out);
             final ShellIO io = new DirectShellIO(o);
 

@@ -21,22 +21,10 @@
 
 package com.spotify.heroic.shell.task;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.zip.GZIPInputStream;
-
-import org.kohsuke.args4j.Option;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Charsets;
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.RateLimiter;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.shell.AbstractShellTaskParams;
@@ -48,6 +36,19 @@ import com.spotify.heroic.shell.TaskUsage;
 import com.spotify.heroic.suggest.SuggestBackend;
 import com.spotify.heroic.suggest.SuggestManager;
 
+import org.kohsuke.args4j.Option;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.zip.GZIPInputStream;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import lombok.Getter;
@@ -58,15 +59,17 @@ import lombok.ToString;
 public class MetadataLoad implements ShellTask {
     protected static final long OUTPUT_STEP = 1000;
 
-    @Inject
-    private AsyncFramework async;
+    private final AsyncFramework async;
+    private final SuggestManager suggest;
+    private final ObjectMapper mapper;
 
     @Inject
-    private SuggestManager suggest;
-
-    @Inject
-    @Named("application/json")
-    private ObjectMapper mapper;
+    public MetadataLoad(AsyncFramework async, SuggestManager suggest,
+            @Named("application/json") ObjectMapper mapper) {
+        this.async = async;
+        this.suggest = suggest;
+        this.mapper = mapper;
+    }
 
     @Override
     public TaskParameters params() {

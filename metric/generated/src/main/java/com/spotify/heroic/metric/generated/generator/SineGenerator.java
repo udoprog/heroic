@@ -41,21 +41,21 @@ public class SineGenerator implements Generator {
 
     @Inject
     @Named("magnitude")
-    private double magnitude;
+    double magnitude;
 
     /**
      * How many milliseconds should be a full period (2 * PI).
      */
     @Inject
     @Named("period")
-    private long period;
+    long period;
 
     /**
      * Frequency of data points in hertz.
      */
     @Inject
     @Named("step")
-    private long step;
+    long step;
 
     @Override
     public List<Point> generatePoints(Series series, DateRange range, FetchQuotaWatcher watcher) {

@@ -21,13 +21,7 @@
 
 package com.spotify.heroic.shell.task;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.kohsuke.args4j.Argument;
-
 import com.google.common.base.Joiner;
-import com.google.inject.Inject;
 import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.grammar.QueryParser;
 import com.spotify.heroic.ingestion.IngestionManager;
@@ -38,17 +32,27 @@ import com.spotify.heroic.shell.TaskName;
 import com.spotify.heroic.shell.TaskParameters;
 import com.spotify.heroic.shell.TaskUsage;
 
+import org.kohsuke.args4j.Argument;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.inject.Inject;
+
 import eu.toolchain.async.AsyncFuture;
 import lombok.ToString;
 
 @TaskUsage("Configure the ingestion filter")
 @TaskName("ingestion-filter")
 public class IngestionFilter implements ShellTask {
-    @Inject
-    private QueryParser parser;
+    private final QueryParser parser;
+    private final IngestionManager ingestion;
 
     @Inject
-    private IngestionManager ingestion;
+    public IngestionFilter(QueryParser parser, IngestionManager ingestion) {
+        this.parser = parser;
+        this.ingestion = ingestion;
+    }
 
     static final Joiner filterJoiner = Joiner.on(" ");
 
