@@ -3,8 +3,12 @@
  */
 grammar HeroicQuery;
 
-queries
-    : (query QuerySeparator)* query EOF
+statements
+    : (statement StatementSeparator)* query EOF
+    ;
+
+statement
+    : Let Reference Eq query #LetStatement
     ;
 
 expressionOnly
@@ -63,10 +67,13 @@ keyValue
 
 expr
     : LParen expr RParen                                                  #ExpressionPrecedence
-    | expr Minus expr                                                     #ExpressionMinus
-    | expr Plus expr                                                      #ExpressionPlus
     | LBracket (expr (Comma expr)*)? RBracket                             #ExpressionList
     | LCurly (expr (Comma expr)*)? RCurly                                 #ExpressionList
+    | expr Div expr                                                       #ExpressionDiv
+    | expr Mul expr                                                       #ExpressionMul
+    | expr Plus expr                                                      #ExpressionPlus
+    | expr Minus expr                                                     #ExpressionMinus
+    | expr (Pipe expr)+                                                   #AggregationPipe
     | SNow                                                                #ExpressionNow
     | Duration                                                            #ExpressionDuration
     | Integer                                                             #ExpressionInteger
@@ -74,7 +81,7 @@ expr
     | string                                                              #ExpressionString
     | expr By expr                                                        #AggregationBy
     | expr By All                                                         #AggregationByAll
-    | expr (Pipe expr)+                                                   #AggregationPipe
+    | Reference                                                           #AggregationReference
     | Identifier (LParen (expr (Comma expr)*)? (Comma keyValue)* RParen)? #Aggregation
     ;
 
@@ -84,6 +91,8 @@ sourceRange
     ;
 
 // keywords (must come before SimpleString!)
+Let : 'let' ;
+
 All : '*' ;
 
 True : 'true' ;
@@ -108,6 +117,10 @@ Plus : '+' ;
 
 Minus : '-' ;
 
+Div : '/' ;
+
+Mul : '*' ;
+
 Eq : '=' ;
 
 Regex : '~' ;
@@ -122,7 +135,7 @@ Bang : '!' ;
 
 NotEq : '!=' ;
 
-QuerySeparator : ';' ;
+StatementSeparator : ';' ;
 
 Comma : ',' ;
 
@@ -139,6 +152,8 @@ LBracket : '[' ;
 RBracket : ']' ;
 
 Pipe : '|' ;
+
+Reference : '$' [a-zA-Z] [a-zA-Z0-9]* ;
 
 QuotedString : '"' StringCharacters? '"' ;
 
