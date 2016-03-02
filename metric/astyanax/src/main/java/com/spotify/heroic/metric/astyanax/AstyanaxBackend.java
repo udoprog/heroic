@@ -177,59 +177,6 @@ public class AstyanaxBackend extends AbstractMetricBackend implements LifeCycles
     }
 
     @Override
-    public AsyncFuture<FetchData> fetch(
-        MetricType source, Series series, final DateRange range, FetchQuotaWatcher watcher,
-        QueryOptions options
-    ) {
-        if (source == MetricType.POINT) {
-            return fetchDataPoints(series, range, watcher);
-        }
-
-        throw new NotImplementedException("unsupported source: " + source);
-    }
-
-    private AsyncFuture<FetchData> fetchDataPoints(
-        final Series series, DateRange range, final FetchQuotaWatcher watcher
-    ) {
-        return context.doto(ctx -> {
-            return async.resolved(prepareQueries(series, range)).lazyTransform(result -> {
-                final List<AsyncFuture<FetchData>> queries = new ArrayList<>();
-
-                for (final PreparedQuery q : result) {
-                    queries.add(async.call(new Callable<FetchData>() {
-                        @Override
-                        public FetchData call() throws Exception {
-                            final Stopwatch w = Stopwatch.createStarted();
-
-                            final RowQuery<MetricsRowKey, Integer> query = ctx.client
-                                .prepareQuery(METRICS_CF)
-                                .getRow(q.rowKey)
-                                .autoPaginate(true)
-                                .withColumnRange(q.columnRange);
-
-                            final List<Point> data =
-                                q.rowKey.buildPoints(query.execute().getResult());
-
-                            if (!watcher.readData(data.size())) {
-                                throw new IllegalArgumentException("data limit quota violated");
-                            }
-
-                            final QueryTrace trace =
-                                new QueryTrace(FETCH_SEGMENT, w.elapsed(TimeUnit.NANOSECONDS));
-                            final List<Long> times = ImmutableList.of(trace.getElapsed());
-                            final List<MetricCollection> groups =
-                                ImmutableList.of(MetricCollection.points(data));
-                            return new FetchData(series, times, groups, trace);
-                        }
-                    }, pools.read()).onDone(reporter.reportFetch()));
-                }
-
-                return async.collect(queries, FetchData.collect(FETCH, series));
-            });
-        });
-    }
-
-    @Override
     public Iterable<BackendEntry> listEntries() {
         final Borrowed<Context> ctx = context.borrow();
 
