@@ -23,6 +23,7 @@ package com.spotify.heroic.shell.task;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spotify.heroic.QueryOptions;
+import com.spotify.heroic.async.AsyncObserver;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.dagger.CoreComponent;
@@ -39,7 +40,9 @@ import com.spotify.heroic.shell.TaskParameters;
 import com.spotify.heroic.shell.TaskUsage;
 import com.spotify.heroic.shell.Tasks;
 import dagger.Component;
+import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
+import eu.toolchain.async.ResolvableFuture;
 import lombok.ToString;
 import org.kohsuke.args4j.Option;
 
@@ -56,11 +59,15 @@ import java.util.concurrent.TimeUnit;
 public class Fetch implements ShellTask {
     private final MetricManager metrics;
     private final ObjectMapper mapper;
+    private final AsyncFramework async;
 
     @Inject
-    public Fetch(MetricManager metrics, @Named("application/json") ObjectMapper mapper) {
+    public Fetch(
+        MetricManager metrics, @Named("application/json") ObjectMapper mapper, AsyncFramework async
+    ) {
         this.metrics = metrics;
         this.mapper = mapper;
+        this.async = async;
     }
 
     @Override
@@ -96,41 +103,48 @@ public class Fetch implements ShellTask {
 
         final QueryOptions options = QueryOptions.builder().tracing(params.tracing).build();
 
-        return readGroup.fetch(source, series, range, options).directTransform(result -> {
-            outer:
-            for (final MetricCollection g : result.getGroups()) {
-                int i = 0;
+        final ResolvableFuture<Void> future = async.future();
 
-                Calendar current = null;
-                Calendar last = null;
+        readGroup
+            .fetch(source, series, range, options)
+            .observe(AsyncObserver.bind(future, result -> {
+                outer:
+                for (final MetricCollection g : result.getGroups()) {
+                    int i = 0;
 
-                for (final Metric d : g.getData()) {
-                    current = Calendar.getInstance();
-                    current.setTime(new Date(d.getTimestamp()));
+                    Calendar current = null;
+                    Calendar last = null;
 
-                    if (flipped(last, current)) {
-                        io.out().println(flip.format(current.getTime()));
+                    for (final Metric d : g.getData()) {
+                        current = Calendar.getInstance();
+                        current.setTime(new Date(d.getTimestamp()));
+
+                        if (flipped(last, current)) {
+                            io.out().println(flip.format(current.getTime()));
+                        }
+
+                        io
+                            .out()
+                            .println(
+                                String.format("  %s: %s", point.format(new Date(d.getTimestamp())),
+                                    d));
+
+                        if (i++ >= limit) {
+                            break outer;
+                        }
+
+                        last = current;
                     }
-
-                    io
-                        .out()
-                        .println(
-                            String.format("  %s: %s", point.format(new Date(d.getTimestamp())), d));
-
-                    if (i++ >= limit) {
-                        break outer;
-                    }
-
-                    last = current;
                 }
-            }
 
-            io.out().println("TRACE:");
-            result.getTrace().formatTrace(io.out());
-            io.out().flush();
+                io.out().println("TRACE:");
+                result.getTrace().formatTrace(io.out());
+                io.out().flush();
 
-            return null;
-        });
+                return async.resolved();
+            }));
+
+        return future;
     }
 
     private boolean flipped(Calendar last, Calendar current) {

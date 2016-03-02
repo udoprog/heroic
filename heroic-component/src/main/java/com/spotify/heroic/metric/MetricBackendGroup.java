@@ -23,6 +23,7 @@ package com.spotify.heroic.metric;
 
 import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.aggregation.AggregationInstance;
+import com.spotify.heroic.async.AsyncObservable;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.filter.Filter;
@@ -50,9 +51,9 @@ public interface MetricBackendGroup extends MetricBackend {
      * Fetch metrics with a default (no-op) quota watcher. This method allows for the fetching of an
      * indefinite amount of metrics.
      *
-     * @see #MetricBackend#fetch(Class, Series, DateRange, QuotaWatcher)
+     * @see MetricBackend#fetch
      */
-    AsyncFuture<FetchData> fetch(
+    AsyncObservable<FetchData> fetch(
         MetricType type, Series series, DateRange range, QueryOptions options
     );
 }

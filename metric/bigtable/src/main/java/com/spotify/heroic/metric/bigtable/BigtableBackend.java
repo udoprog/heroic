@@ -30,6 +30,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.ByteString;
 import com.spotify.heroic.QueryOptions;
+import com.spotify.heroic.async.AsyncObservable;
+import com.spotify.heroic.async.AsyncObserver;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Groups;
 import com.spotify.heroic.common.Series;
@@ -61,6 +63,7 @@ import com.spotify.heroic.metrics.Meter;
 import com.spotify.heroic.statistics.MetricBackendReporter;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
+import eu.toolchain.async.Borrowed;
 import eu.toolchain.async.FutureDone;
 import eu.toolchain.async.Managed;
 import eu.toolchain.async.ManagedAction;
@@ -80,6 +83,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -306,48 +310,47 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
     }
 
     @Override
-    public AsyncFuture<FetchData> fetch(
+    public AsyncObservable<FetchData> fetch(
         final MetricType type, final Series series, final DateRange range,
         final FetchQuotaWatcher watcher, final QueryOptions options
     ) {
-        final List<PreparedQuery> prepared;
+        return observer -> {
+            final List<PreparedQuery> prepared = ranges(series, range, rowKeySerializer);
 
-        try {
-            prepared = ranges(series, range, rowKeySerializer);
-        } catch (final IOException e) {
-            return async.failed(e);
-        }
-
-        if (!watcher.mayReadData()) {
-            throw new IllegalArgumentException("query violated data limit");
-        }
-
-        return connection.doto(new ManagedAction<BigtableConnection, FetchData>() {
-            @Override
-            public AsyncFuture<FetchData> action(final BigtableConnection c) throws Exception {
-                switch (type) {
-                    case POINT:
-                        return fetchBatch(type, POINTS, series, prepared, c, options, (t, d) -> {
-                            final double value = deserializeValue(d);
-                            return new Point(t, value);
-                        });
-                    case EVENT:
-                        return fetchBatch(type, EVENTS, series, prepared, c, options, (t, d) -> {
-                            final Map<String, Object> payload;
-
-                            try {
-                                payload = mapper.readValue(d.toByteArray(), PAYLOAD_TYPE);
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
-
-                            return new Event(t, payload);
-                        });
-                    default:
-                        return async.failed(new Exception("Unsupported type: " + type));
-                }
+            if (!watcher.mayReadData()) {
+                throw new IllegalArgumentException("query violated data limit");
             }
-        });
+
+            final Borrowed<BigtableConnection> b = connection.borrow();
+
+            if (!b.isValid()) {
+                throw new IllegalStateException("Failed to borrow connection");
+            }
+
+            final BigtableConnection c = b.get();
+
+            switch (type) {
+                case POINT:
+                    fetchBatch(type, POINTS, series, prepared.iterator(), c, observer, (t, d) -> {
+                        final double value = deserializeValue(d);
+                        return new Point(t, value);
+                    });
+                case EVENT:
+                    fetchBatch(type, EVENTS, series, prepared.iterator(), c, observer, (t, d) -> {
+                        final Map<String, Object> payload;
+
+                        try {
+                            payload = mapper.readValue(d.toByteArray(), PAYLOAD_TYPE);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+
+                        return new Event(t, payload);
+                    });
+                default:
+                    throw new Exception("Unsupported type: " + type);
+            }
+        };
     }
 
     @Override
@@ -459,59 +462,54 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
             .directTransform(result -> WriteResult.of(System.nanoTime() - start));
     }
 
-    private <T extends Metric> AsyncFuture<FetchData> fetchBatch(
+    private <T extends Metric> void fetchBatch(
         final MetricType type, final String columnFamily, final Series series,
-        final List<PreparedQuery> prepared, final BigtableConnection c, final QueryOptions options,
-        final BiFunction<Long, ByteString, T> deserializer
+        final Iterator<PreparedQuery> prepared, final BigtableConnection c,
+        final AsyncObserver<FetchData> observer, final BiFunction<Long, ByteString, T> deserializer
     ) {
-        final List<AsyncFuture<FetchData>> queries = new ArrayList<>();
+        final PreparedQuery p = prepared.next();
 
-        final DataClient client = c.client();
+        final BigtableDataClient client = c.dataClient();
 
-        for (final PreparedQuery p : prepared) {
-            final AsyncFuture<List<Row>> readRows = client.readRows(METRICS, ReadRowsRequest
-                .builder()
-                .rowKey(p.keyBlob)
-                .filter(RowFilter
-                    .newColumnRangeBuilder(columnFamily)
-                    .startQualifierExclusive(p.startKey)
-                    .endQualifierInclusive(p.endKey)
-                    .build())
-                .build());
+        final AsyncFuture<List<Row>> readRows = client.readRows(METRICS, ReadRowsRequest
+            .builder()
+            .rowKey(p.keyBlob)
+            .filter(RowFilter
+                .newColumnRangeBuilder(columnFamily)
+                .startQualifierExclusive(p.startKey)
+                .endQualifierInclusive(p.endKey)
+                .build())
+            .build());
 
-            final Function<Column, T> transform = new Function<Column, T>() {
-                @Override
-                public T apply(Column cell) {
-                    final long timestamp = p.base + deserializeOffset(cell.getQualifier());
-                    return deserializer.apply(timestamp, cell.getValue());
-                }
-            };
+        final Function<Column, T> transform = (Column cell) -> {
+            final long timestamp = p.base + deserializeOffset(cell.getQualifier());
+            return deserializer.apply(timestamp, cell.getValue());
+        };
 
-            final Stopwatch w = Stopwatch.createStarted();
+        final Stopwatch w = Stopwatch.createStarted();
 
-            queries.add(readRows.directTransform(result -> {
-                final List<Iterable<T>> points = new ArrayList<>();
+        readRows.onDone(observer.bindResolved(result -> {
+            final List<Iterable<T>> points = new ArrayList<>();
 
-                for (final Row row : result) {
-                    row.getFamily(columnFamily).ifPresent(f -> {
-                        points.add(Iterables.transform(f.getColumns(), transform));
-                    });
-                }
+            for (final Row row : result) {
+                row.getFamily(columnFamily).ifPresent(f -> {
+                    points.add(Iterables.transform(f.getColumns(), transform));
+                });
+            }
 
-                final QueryTrace trace =
-                    new QueryTrace(FETCH_SEGMENT, w.elapsed(TimeUnit.NANOSECONDS));
-                final ImmutableList<Long> times = ImmutableList.of(trace.getElapsed());
-                final List<T> data =
-                    ImmutableList.copyOf(Iterables.mergeSorted(points, type.comparator()));
-                final List<MetricCollection> groups =
-                    ImmutableList.of(MetricCollection.build(type, data));
-                return new FetchData(series, times, groups, trace);
-            }));
-        }
+            final QueryTrace trace = new QueryTrace(FETCH_SEGMENT, w.elapsed(TimeUnit.NANOSECONDS));
+            final ImmutableList<Long> times = ImmutableList.of(trace.getElapsed());
+            final List<T> data =
+                ImmutableList.copyOf(Iterables.mergeSorted(points, type.comparator()));
+            final List<MetricCollection> groups =
+                ImmutableList.of(MetricCollection.build(type, data));
 
-        return async
-            .collect(queries, FetchData.collect(FETCH, series))
-            .onDone(reporter.reportFetch());
+            observer
+                .observe(new FetchData(series, times, groups, trace))
+                .onDone(observer.bindResolved(
+                    v -> fetchBatch(type, columnFamily, series, prepared, c, observer,
+                        deserializer)));
+        }));
     }
 
     <T> ByteString serialize(T rowKey, Serializer<T> serializer) throws IOException {

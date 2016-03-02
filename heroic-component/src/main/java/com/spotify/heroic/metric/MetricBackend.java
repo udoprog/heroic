@@ -74,10 +74,12 @@ public interface MetricBackend extends Initializing, Grouped {
      * @param watcher The watcher implementation to use when fetching metrics.
      * @return A future containing the fetched data wrapped in a {@link FetchData} structure.
      */
-    AsyncFuture<FetchData> fetch(
+    default AsyncObservable<FetchData> fetch(
         MetricType type, Series series, DateRange range, FetchQuotaWatcher watcher,
         QueryOptions options
-    );
+    ) {
+        return AsyncObservable.empty();
+    }
 
     /**
      * List all series directly from the database.

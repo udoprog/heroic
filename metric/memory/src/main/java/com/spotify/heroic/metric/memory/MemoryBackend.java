@@ -24,6 +24,7 @@ package com.spotify.heroic.metric.memory;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.spotify.heroic.QueryOptions;
+import com.spotify.heroic.async.AsyncObservable;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Groups;
 import com.spotify.heroic.common.Series;
@@ -135,16 +136,20 @@ public class MemoryBackend extends AbstractMetricBackend {
     }
 
     @Override
-    public AsyncFuture<FetchData> fetch(
+    public AsyncObservable<FetchData> fetch(
         MetricType source, Series series, DateRange range, FetchQuotaWatcher watcher,
         QueryOptions options
     ) {
-        final Stopwatch w = Stopwatch.createStarted();
-        final MemoryKey key = new MemoryKey(source, series);
-        final List<MetricCollection> groups = doFetch(key, range);
-        final QueryTrace trace = new QueryTrace(FETCH, w.elapsed(TimeUnit.NANOSECONDS));
-        final ImmutableList<Long> times = ImmutableList.of(trace.getElapsed());
-        return async.resolved(new FetchData(series, times, groups, trace));
+        return observer -> {
+            final Stopwatch w = Stopwatch.createStarted();
+            final MemoryKey key = new MemoryKey(source, series);
+            final List<MetricCollection> groups = doFetch(key, range);
+            final QueryTrace trace = new QueryTrace(FETCH, w.elapsed(TimeUnit.NANOSECONDS));
+            final ImmutableList<Long> times = ImmutableList.of(trace.getElapsed());
+            observer
+                .observe(new FetchData(series, times, groups, trace))
+                .onDone(observer.bindVoid());
+        };
     }
 
     @Override

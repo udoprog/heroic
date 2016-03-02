@@ -24,6 +24,7 @@ package com.spotify.heroic.metric.generated;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.spotify.heroic.QueryOptions;
+import com.spotify.heroic.async.AsyncObservable;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Groups;
 import com.spotify.heroic.common.Series;
@@ -94,29 +95,45 @@ public class GeneratedBackend extends AbstractMetricBackend {
     }
 
     @Override
-    public AsyncFuture<FetchData> fetch(
+    public AsyncObservable<FetchData> fetch(
         MetricType source, Series series, DateRange range, FetchQuotaWatcher watcher,
         QueryOptions options
     ) {
-        final Stopwatch w = Stopwatch.createStarted();
+        return observer -> {
+            final Stopwatch w = Stopwatch.createStarted();
 
-        if (source == MetricType.POINT) {
-            final List<Point> data = generator.generatePoints(series, range, watcher);
-            final QueryTrace trace = new QueryTrace(FETCH, w.elapsed(TimeUnit.NANOSECONDS));
-            final ImmutableList<Long> times = ImmutableList.of(trace.getElapsed());
-            final List<MetricCollection> groups = ImmutableList.of(MetricCollection.points(data));
-            return async.resolved(new FetchData(series, times, groups, trace));
-        }
+            if (source == MetricType.POINT) {
+                final List<Point> data = generator.generatePoints(series, range, watcher);
+                final QueryTrace trace = new QueryTrace(FETCH, w.elapsed(TimeUnit.NANOSECONDS));
+                final ImmutableList<Long> times = ImmutableList.of(trace.getElapsed());
+                final List<MetricCollection> groups =
+                    ImmutableList.of(MetricCollection.points(data));
 
-        if (source == MetricType.EVENT) {
-            final List<Event> data = generator.generateEvents(series, range, watcher);
-            final QueryTrace trace = new QueryTrace(FETCH, w.elapsed(TimeUnit.NANOSECONDS));
-            final ImmutableList<Long> times = ImmutableList.of(trace.getElapsed());
-            final List<MetricCollection> groups = ImmutableList.of(MetricCollection.events(data));
-            return async.resolved(new FetchData(series, times, groups, trace));
-        }
+                observer
+                    .observe(new FetchData(series, times, groups, trace))
+                    .onDone(observer.bindResolved(v -> {
+                        observer.end();
+                    }));
+                return;
+            }
 
-        throw new IllegalArgumentException("unsupported source: " + source);
+            if (source == MetricType.EVENT) {
+                final List<Event> data = generator.generateEvents(series, range, watcher);
+                final QueryTrace trace = new QueryTrace(FETCH, w.elapsed(TimeUnit.NANOSECONDS));
+                final ImmutableList<Long> times = ImmutableList.of(trace.getElapsed());
+                final List<MetricCollection> groups =
+                    ImmutableList.of(MetricCollection.events(data));
+
+                observer
+                    .observe(new FetchData(series, times, groups, trace))
+                    .onDone(observer.bindResolved(v -> {
+                        observer.end();
+                    }));
+                return;
+            }
+
+            throw new IllegalArgumentException("unsupported source: " + source);
+        };
     }
 
     @Override
