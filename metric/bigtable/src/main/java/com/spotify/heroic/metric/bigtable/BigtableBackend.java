@@ -50,15 +50,14 @@ import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.QueryTrace;
 import com.spotify.heroic.metric.WriteMetric;
 import com.spotify.heroic.metric.WriteResult;
-import com.spotify.heroic.metric.bigtable.api.Column;
-import com.spotify.heroic.metric.bigtable.api.DataClient;
+import com.spotify.heroic.metric.bigtable.api.BigtableDataClient;
+import com.spotify.heroic.metric.bigtable.api.BigtableTableAdminClient;
+import com.spotify.heroic.metric.bigtable.api.Family;
 import com.spotify.heroic.metric.bigtable.api.Mutations;
-import com.spotify.heroic.metric.bigtable.api.MutationsBuilder;
 import com.spotify.heroic.metric.bigtable.api.ReadRowsRequest;
 import com.spotify.heroic.metric.bigtable.api.Row;
 import com.spotify.heroic.metric.bigtable.api.RowFilter;
 import com.spotify.heroic.metric.bigtable.api.Table;
-import com.spotify.heroic.metric.bigtable.api.TableAdminClient;
 import com.spotify.heroic.metrics.Meter;
 import com.spotify.heroic.statistics.MetricBackendReporter;
 import eu.toolchain.async.AsyncFramework;
@@ -156,14 +155,14 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
                 return async.call(new Callable<Void>() {
                     @Override
                     public Void call() throws Exception {
-                        final TableAdminClient admin = c.adminClient();
+                        final BigtableTableAdminClient admin = c.tableAdminClient();
 
                         configureMetricsTable(admin);
 
                         return null;
                     }
 
-                    private void configureMetricsTable(final TableAdminClient admin)
+                    private void configureMetricsTable(final BigtableTableAdminClient admin)
                         throws IOException {
                         final Table metrics = admin.getTable(METRICS).orElseGet(() -> {
                             log.info("Creating missing table: " + METRICS);
@@ -205,7 +204,7 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
             final Series series = w.getSeries();
             final List<AsyncFuture<WriteResult>> results = new ArrayList<>();
 
-            final DataClient client = c.client();
+            final BigtableDataClient client = c.dataClient();
 
             final MetricCollection g = w.getData();
 
@@ -238,7 +237,7 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
                     final Series series = w.getSeries();
                     final List<AsyncFuture<WriteResult>> results = new ArrayList<>();
 
-                    final DataClient client = c.client();
+                    final BigtableDataClient client = c.dataClient();
 
                     final MetricCollection g = w.getData();
 
@@ -380,7 +379,7 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
     }
 
     private <T extends Metric> AsyncFuture<WriteResult> writeBatch(
-        final String columnFamily, final Series series, final DataClient client,
+        final String columnFamily, final Series series, final BigtableDataClient client,
         final List<T> batch, final Function<T, ByteString> serializer
     ) throws IOException {
         // common case for consumers
@@ -390,7 +389,7 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
         }
 
         final List<Pair<RowKey, Mutations>> saved = new ArrayList<>();
-        final Map<RowKey, MutationsBuilder> building = new HashMap<>();
+        final Map<RowKey, Mutations.Builder> building = new HashMap<>();
 
         for (final T d : batch) {
             final long timestamp = d.getTimestamp();
@@ -399,13 +398,13 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
 
             final RowKey rowKey = new RowKey(series, base);
 
-            MutationsBuilder builder = building.get(rowKey);
+            Mutations.Builder builder = building.get(rowKey);
 
             final ByteString offsetBytes = serializeOffset(offset);
             final ByteString valueBytes = serializer.apply(d);
 
             if (builder == null) {
-                builder = client.mutations();
+                builder = Mutations.builder();
                 building.put(rowKey, builder);
             }
 
@@ -413,7 +412,7 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
 
             if (builder.size() >= MAX_BATCH_SIZE) {
                 saved.add(Pair.of(rowKey, builder.build()));
-                building.put(rowKey, client.mutations());
+                building.put(rowKey, Mutations.builder());
             }
         }
 
@@ -427,7 +426,7 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
                 .directTransform(result -> WriteResult.of(System.nanoTime() - start)));
         }
 
-        for (final Map.Entry<RowKey, MutationsBuilder> e : building.entrySet()) {
+        for (final Map.Entry<RowKey, Mutations.Builder> e : building.entrySet()) {
             final long start = System.nanoTime();
             final ByteString rowKeyBytes = serialize(e.getKey(), rowKeySerializer);
             writes.add(client
@@ -439,7 +438,7 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
     }
 
     private <T extends Metric> AsyncFuture<WriteResult> writeOne(
-        final String columnFamily, Series series, DataClient client, T p,
+        final String columnFamily, Series series, BigtableDataClient client, T p,
         Function<T, ByteString> serializer
     ) throws IOException {
         final long timestamp = p.getTimestamp();
@@ -448,7 +447,7 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
 
         final RowKey rowKey = new RowKey(series, base);
 
-        final MutationsBuilder builder = client.mutations();
+        final Mutations.Builder builder = Mutations.builder();
 
         final ByteString offsetBytes = serializeOffset(offset);
         final ByteString valueBytes = serializer.apply(p);
@@ -471,7 +470,7 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
 
         final List<AsyncFuture<FetchData>> queries = new ArrayList<>();
 
-        final DataClient client = c.client();
+        final BigtableDataClient client = c.dataClient();
 
         final AsyncFuture<List<Row>> readRows = client.readRows(METRICS, ReadRowsRequest
             .builder()
@@ -483,7 +482,7 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
                 .build())
             .build());
 
-        final Function<Column, T> transform = (Column cell) -> {
+        final Function<Family.LatestCellValueColumn, T> transform = cell -> {
             final long timestamp = p.base + deserializeOffset(cell.getQualifier());
             return deserializer.apply(timestamp, cell.getValue());
         };
@@ -495,7 +494,7 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
 
             for (final Row row : result) {
                 row.getFamily(columnFamily).ifPresent(f -> {
-                    points.add(Iterables.transform(f.getColumns(), transform));
+                    points.add(Iterables.transform(f.latestCellValue(), transform));
                 });
             }
 
