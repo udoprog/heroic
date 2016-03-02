@@ -83,12 +83,14 @@ class BigtableAnalyticsMetricBackend implements MetricBackend {
     }
 
     @Override
-    public AsyncFuture<FetchData> fetch(
+    public AsyncObservable<FetchData> fetch(
         MetricType type, Series series, DateRange range, FetchQuotaWatcher watcher,
         QueryOptions options
     ) {
-        analytics.reportFetchSeries(LocalDate.now(), series);
-        return backend.fetch(type, series, range, watcher, options);
+        return observer -> {
+            analytics.reportFetchSeries(LocalDate.now(), series);
+            backend.fetch(type, series, range, watcher, options).observe(observer);
+        };
     }
 
     @Override

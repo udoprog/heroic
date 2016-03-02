@@ -76,6 +76,7 @@ import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -155,15 +156,37 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
     }
 
     @Override
-    public AsyncFuture<FetchData> fetch(
+    public AsyncObservable<FetchData> fetch(
         MetricType source, Series series, final DateRange range, final FetchQuotaWatcher watcher,
         final QueryOptions options
     ) {
-        if (source == MetricType.POINT) {
-            return fetchDataPoints(series, range, watcher, options);
-        }
+        return observer -> {
+            if (!watcher.mayReadData()) {
+                throw new IllegalArgumentException("query violated data limit");
+            }
 
-        throw new IllegalArgumentException("unsupported source: " + source);
+            final int limit = watcher.getReadDataQuota();
+
+            final List<PreparedFetch> prepared;
+
+            final Borrowed<Connection> b = connection.borrow();
+            final Connection c = b.get();
+
+            try {
+                prepared = c.schema.ranges(series, range);
+            } catch (IOException e) {
+                observer.fail(e);
+                return;
+            }
+
+            if (source == MetricType.POINT) {
+                fetchDataPoints(series, limit, options, prepared.iterator(),
+                    observer.onFinished(b::release), c);
+                return;
+            }
+
+            throw new IllegalArgumentException("unsupported source: " + source);
+        };
     }
 
     @Override
@@ -494,63 +517,52 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
         });
     }
 
-    private AsyncFuture<FetchData> fetchDataPoints(
-        final Series series, DateRange range, final FetchQuotaWatcher watcher,
-        final QueryOptions options
-    ) {
-
-        if (!watcher.mayReadData()) {
-            throw new IllegalArgumentException("query violated data limit");
+    private void fetchDataPoints(
+        final Series series, final int limit, final QueryOptions options,
+        final Iterator<PreparedFetch> prepared, final AsyncObserver<FetchData> observer,
+        final Connection c
+    ) throws Exception {
+        if (!prepared.hasNext()) {
+            observer.end();
+            return;
         }
 
-        final int limit = watcher.getReadDataQuota();
+        final Schema.PreparedFetch p = prepared.next();
 
-        return connection.doto(c -> {
-            final List<PreparedFetch> prepared;
+        final Stopwatch w = Stopwatch.createStarted();
 
-            try {
-                prepared = c.schema.ranges(series, range);
-            } catch (IOException e) {
-                return async.failed(e);
-            }
+        final Function<RowFetchResult<Point>, AsyncFuture<QueryTrace>> traceBuilder;
 
-            final List<AsyncFuture<FetchData>> futures = new ArrayList<>();
+        final Statement stmt;
 
-            for (final Schema.PreparedFetch f : prepared) {
-                final ResolvableFuture<FetchData> future = async.future();
+        if (options.isTracing()) {
+            stmt = p.fetch(limit).enableTracing();
+            traceBuilder = result -> buildTrace(c, FETCH_SEGMENT.extend(p.toString()),
+                w.elapsed(TimeUnit.NANOSECONDS), result.getInfo());
+        } else {
+            stmt = p.fetch(limit);
+            traceBuilder = result -> async.resolved(
+                new QueryTrace(FETCH_SEGMENT, w.elapsed(TimeUnit.NANOSECONDS)));
+        }
 
-                final Stopwatch w = Stopwatch.createStarted();
+        final ResolvableFuture<FetchData> future = async.future();
 
-                final Function<RowFetchResult<Point>, AsyncFuture<QueryTrace>> traceBuilder;
+        Async
+            .bind(async, c.session.executeAsync(stmt))
+            .onDone(new RowFetchHelper<>(future, p.converter(), result -> {
+                return traceBuilder.apply(result).directTransform(trace -> {
+                    final ImmutableList<Long> times = ImmutableList.of(trace.getElapsed());
+                    final List<MetricCollection> groups =
+                        ImmutableList.of(MetricCollection.points(result.getData()));
+                    return new FetchData(series, times, groups, trace);
+                });
+            }));
 
-                final Statement stmt;
-
-                if (options.isTracing()) {
-                    stmt = f.fetch(limit).enableTracing();
-                    traceBuilder = result -> buildTrace(c, FETCH_SEGMENT.extend(f.toString()),
-                        w.elapsed(TimeUnit.NANOSECONDS), result.getInfo());
-                } else {
-                    stmt = f.fetch(limit);
-                    traceBuilder = result -> async.resolved(
-                        new QueryTrace(FETCH_SEGMENT, w.elapsed(TimeUnit.NANOSECONDS)));
-                }
-
-                Async
-                    .bind(async, c.session.executeAsync(stmt))
-                    .onDone(new RowFetchHelper<Point, FetchData>(future, f.converter(), result -> {
-                        return traceBuilder.apply(result).directTransform(trace -> {
-                            final ImmutableList<Long> times = ImmutableList.of(trace.getElapsed());
-                            final List<MetricCollection> groups =
-                                ImmutableList.of(MetricCollection.points(result.getData()));
-                            return new FetchData(series, times, groups, trace);
-                        });
-                    }));
-
-                futures.add(future.onDone(reporter.reportFetch()));
-            }
-
-            return async.collect(futures, FetchData.collect(FETCH, series));
-        });
+        future.onDone(observer.bindResolved(data -> {
+            observer.observe(data).onDone(observer.bindResolved(v -> {
+                fetchDataPoints(series, limit, options, prepared, observer, c);
+            }));
+        }));
     }
 
     @RequiredArgsConstructor

@@ -33,6 +33,7 @@ import com.spotify.heroic.aggregation.AggregationSession;
 import com.spotify.heroic.aggregation.AggregationState;
 import com.spotify.heroic.aggregation.AggregationTraversal;
 import com.spotify.heroic.async.AsyncObservable;
+import com.spotify.heroic.async.AsyncObserver;
 import com.spotify.heroic.common.BackendGroups;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.GroupMember;
@@ -50,7 +51,7 @@ import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import eu.toolchain.async.Collector;
 import eu.toolchain.async.LazyTransform;
-import eu.toolchain.async.StreamCollector;
+import eu.toolchain.async.ResolvableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
@@ -63,7 +64,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -236,7 +236,7 @@ public class LocalMetricManager implements MetricManager {
 
                 final AggregationSession session = traversal.getSession();
 
-                final List<Callable<AsyncFuture<FetchData>>> fetches = new ArrayList<>();
+                final List<AsyncObservable<FetchData>> fetches = new ArrayList<>();
 
                 final Map<Map<String, String>, Set<Series>> lookup = new HashMap<>();
 
@@ -252,13 +252,7 @@ public class LocalMetricManager implements MetricManager {
 
                     runVoid(b -> {
                         for (final Series serie : series) {
-                            fetches.add(() -> {
-                                if (watcher.isQuotaViolated()) {
-                                    throw new IllegalStateException("quota limit violated");
-                                }
-
-                                return b.fetch(source, serie, range, watcher, options);
-                            });
+                            fetches.add(b.fetch(source, serie, range, watcher, options));
                         }
 
                         return null;
@@ -267,7 +261,7 @@ public class LocalMetricManager implements MetricManager {
 
                 /* setup collector */
 
-                final StreamCollector<FetchData, ResultGroups> collector;
+                final ResultCollector collector;
 
                 final Stopwatch w = Stopwatch.createStarted();
 
@@ -299,7 +293,32 @@ public class LocalMetricManager implements MetricManager {
                     };
                 }
 
-                return async.eventuallyCollect(fetches, collector, fetchParallelism);
+                final ResolvableFuture<ResultGroups> future = async.future();
+
+                AsyncObservable.chain(fetches).observe(new AsyncObserver<FetchData>() {
+                    @Override
+                    public AsyncFuture<Void> observe(final FetchData value) throws Exception {
+                        collector.resolved(value);
+                        return async.resolved();
+                    }
+
+                    @Override
+                    public void cancel() throws Exception {
+                        future.cancel();
+                    }
+
+                    @Override
+                    public void fail(final Throwable cause) throws Exception {
+                        future.fail(cause);
+                    }
+
+                    @Override
+                    public void end() throws Exception {
+                        future.resolve(collector.collect());
+                    }
+                });
+
+                return future;
             };
 
             return metadata
@@ -321,17 +340,17 @@ public class LocalMetricManager implements MetricManager {
         }
 
         @Override
-        public AsyncFuture<FetchData> fetch(
+        public AsyncObservable<FetchData> fetch(
             final MetricType source, final Series series, final DateRange range,
             final FetchQuotaWatcher watcher, final QueryOptions options
         ) {
-            final List<AsyncFuture<FetchData>> callbacks =
+            final List<AsyncObservable<FetchData>> callbacks =
                 run(b -> b.fetch(source, series, range, watcher, options));
-            return async.collect(callbacks, FetchData.collect(FETCH, series));
+            return AsyncObservable.chain(callbacks);
         }
 
         @Override
-        public AsyncFuture<FetchData> fetch(
+        public AsyncObservable<FetchData> fetch(
             final MetricType source, final Series series, final DateRange range,
             final QueryOptions options
         ) {
@@ -475,50 +494,22 @@ public class LocalMetricManager implements MetricManager {
     }
 
     @RequiredArgsConstructor
-    private abstract static class ResultCollector
-        implements StreamCollector<FetchData, ResultGroups> {
+    private abstract static class ResultCollector {
         final FetchQuotaWatcher watcher;
         final AggregationInstance aggregation;
         final AggregationSession session;
         final Map<Map<String, String>, Set<Series>> lookup;
 
-        @Override
         public void resolved(FetchData result) throws Exception {
             for (final MetricCollection g : result.getGroups()) {
                 g.updateAggregation(session, result.getSeries().getTags());
             }
         }
 
-        @Override
-        public void failed(Throwable cause) throws Exception {
-            log.error("Fetch failed", cause);
-        }
-
-        @Override
-        public void cancelled() throws Exception {
-        }
-
-        @Override
-        public ResultGroups end(int resolved, int failed, int cancelled) throws Exception {
-            return collect(resolved, failed, cancelled, buildTrace());
-        }
-
         public abstract QueryTrace buildTrace();
 
-        private ResultGroups collect(
-            int resolved, int failed, int cancelled, final QueryTrace trace
-        ) throws Exception {
-            if (failed > 0 || cancelled > 0) {
-                final String message =
-                    String.format("Some result groups failed (%d) or were cancelled (%d)", failed,
-                        cancelled);
-
-                if (watcher.isQuotaViolated()) {
-                    throw new Exception(message + " (fetch quota was reached)");
-                }
-
-                throw new Exception(message);
-            }
+        private ResultGroups collect() throws Exception {
+            final QueryTrace trace = buildTrace();
 
             final AggregationResult result = session.result();
 
@@ -543,11 +534,7 @@ public class LocalMetricManager implements MetricManager {
                     aggregation.cadence()));
             }
 
-            final Statistics stat = result
-                .getStatistics()
-                .merge(
-                    Statistics.of(MetricManager.RESOLVED, resolved, MetricManager.FAILED, failed));
-
+            final Statistics stat = result.getStatistics();
             return new ResultGroups(groups, ImmutableList.of(), stat, trace);
         }
     }
