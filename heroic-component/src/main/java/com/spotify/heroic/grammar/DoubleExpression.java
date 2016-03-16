@@ -75,6 +75,11 @@ public final class DoubleExpression implements Expression {
         return new DoubleExpression(ctx.join(other.context()), value + other.cast(this).value);
     }
 
+    @Override
+    public Expression negate() {
+        return new DoubleExpression(ctx, -value);
+    }
+
     public String toString() {
         return String.format("<%f>", value);
     }

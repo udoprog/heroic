@@ -40,15 +40,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedSet;
 
 @RequiredArgsConstructor
 @JsonSerialize(using = QueryMetricsResponse.Serializer.class)
 public class QueryMetricsResponse {
-    @Getter
-    private final DateRange range;
-
     @Getter
     private final List<AggregationData> data;
 
@@ -71,7 +69,14 @@ public class QueryMetricsResponse {
 
             g.writeStartObject();
 
-            g.writeObjectField("range", response.getRange());
+            final Optional<DateRange> range = totalRange(response.getData());
+
+            if (range.isPresent()) {
+                g.writeObjectField("range", range.get());
+            } else {
+                g.writeNullField("range");
+            }
+
             g.writeObjectField("trace", response.getTrace());
 
             g.writeFieldName("common");
@@ -86,6 +91,16 @@ public class QueryMetricsResponse {
             g.writeNumberField("cadence", response.getCadence().toMilliseconds());
 
             g.writeEndObject();
+        }
+
+        private Optional<DateRange> totalRange(final List<AggregationData> data) {
+            Optional<DateRange> range = Optional.empty();
+
+            for (final AggregationData d : data) {
+                range = Optional.of(range.map(r -> r.join(d.getRange())).orElseGet(d::getRange));
+            }
+
+            return range;
         }
 
         private void serializeCommonTags(
@@ -144,6 +159,7 @@ public class QueryMetricsResponse {
 
                 final MetricCollection collection = d.getMetrics();
 
+                g.writeObjectField("range", d.getRange());
                 g.writeStringField("type", collection.getType().identifier());
                 g.writeStringField("hash", Integer.toHexString(d.getKey().hashCode()));
                 g.writeObjectField("values", collection.getData());

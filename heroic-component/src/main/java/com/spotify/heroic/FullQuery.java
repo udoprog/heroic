@@ -43,6 +43,7 @@ public class FullQuery {
     private final QueryOptions options;
     private final Duration cadence;
     private final Set<String> features;
+    private final long now;
 
     @JsonCreator
     public FullQuery(
@@ -52,7 +53,7 @@ public class FullQuery {
         @JsonProperty("aggregation") final Aggregation aggregation,
         @JsonProperty("options") final QueryOptions options,
         @JsonProperty("cadence") final Duration cadence,
-        @JsonProperty("features") final Set<String> features
+        @JsonProperty("features") final Set<String> features, @JsonProperty("now") final Long now
     ) {
         this.statements = statements;
         this.source = source;
@@ -62,5 +63,6 @@ public class FullQuery {
         this.options = options;
         this.cadence = cadence;
         this.features = features;
+        this.now = now;
     }
 }

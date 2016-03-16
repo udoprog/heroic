@@ -173,6 +173,15 @@ public class QueryListener extends HeroicQueryBaseListener {
     }
 
     @Override
+    public void exitExpressionNegate(
+        final HeroicQueryParser.ExpressionNegateContext ctx
+    ) {
+        final Context c = context(ctx);
+        final Expression expression = pop(c, Expression.class);
+        push(new NegateExpression(c, expression));
+    }
+
+    @Override
     public void exitExpressionMinus(ExpressionMinusContext ctx) {
         final Context c = context(ctx);
         final Expression right = pop(c, Expression.class);

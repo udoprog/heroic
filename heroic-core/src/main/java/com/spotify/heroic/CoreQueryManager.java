@@ -33,6 +33,7 @@ import com.spotify.heroic.grammar.LetExpression;
 import com.spotify.heroic.grammar.QueryExpression;
 import com.spotify.heroic.grammar.QueryParser;
 import com.spotify.heroic.grammar.RangeExpression;
+import com.spotify.heroic.grammar.ReferenceExpression;
 import com.spotify.heroic.grammar.Statements;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
@@ -172,15 +173,39 @@ public class CoreQueryManager implements QueryManager {
             @Override
             public QueryBuilder visitQuery(final QueryExpression e) {
                 /* get aggregation that is part of statement, if any */
-                final Optional<Aggregation> aggregation = e.getSelect().map(a -> {
-                    final Optional<Aggregation> agg = aggregations.fromExpression(a);
+                final Optional<Aggregation> aggregation = e
+                    .getSelect()
+                    .flatMap(a -> a.visit(new Expression.Visitor<Optional<Aggregation>>() {
+                        // ignore references since they will be picked up later.
+                        @Override
+                        public Optional<Aggregation> visitReference(final ReferenceExpression e) {
+                            return Optional.empty();
+                        }
 
-                    if (!agg.isPresent()) {
-                        throw new IllegalArgumentException("Expected aggregation: " + a);
-                    }
+                        @Override
+                        public Optional<Aggregation> defaultAction(final Expression e) {
+                            final Optional<Aggregation> agg = aggregations.fromExpression(a);
 
-                    return agg.get();
-                });
+                            if (!agg.isPresent()) {
+                                throw new IllegalArgumentException("Expected aggregation: " + a);
+                            }
+
+                            return agg;
+                        }
+                    }));
+
+                final Optional<String> reference =
+                    e.getSelect().flatMap(a -> a.visit(new Expression.Visitor<Optional<String>>() {
+                        @Override
+                        public Optional<String> visitReference(final ReferenceExpression e) {
+                            return Optional.of(e.getName());
+                        }
+
+                        @Override
+                        public Optional<String> defaultAction(final Expression e) {
+                            return Optional.empty();
+                        }
+                    }));
 
                 final Optional<QueryDateRange> range =
                     e.getRange().map(r -> r.visit(new Expression.Visitor<QueryDateRange>() {
@@ -194,6 +219,7 @@ public class CoreQueryManager implements QueryManager {
                     .source(e.getSource())
                     .range(range)
                     .aggregation(aggregation)
+                    .reference(reference)
                     .filter(e.getFilter());
             }
         });

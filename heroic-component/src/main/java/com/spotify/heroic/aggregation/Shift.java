@@ -23,23 +23,38 @@ package com.spotify.heroic.aggregation;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.spotify.heroic.common.DateRange;
+import com.spotify.heroic.common.Duration;
+import com.spotify.heroic.grammar.DurationExpression;
 import com.spotify.heroic.grammar.Expression;
 import eu.toolchain.async.AsyncFuture;
 import lombok.Data;
 
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 @Data
-public class Empty implements Aggregation {
-    public static final String NAME = "empty";
-
-    public static final Aggregation INSTANCE = new Empty(Optional.empty());
+public class Shift implements Aggregation {
+    public static final String NAME = "shift";
 
     private final Optional<Expression> reference;
+    private final Expression amount;
+
+    private static final Expression.Visitor<Duration> TO_DURATION =
+        new Expression.Visitor<Duration>() {
+            @Override
+            public Duration visitDuration(final DurationExpression e) {
+                return Duration.of(e.getValue(), e.getUnit());
+            }
+        };
 
     @JsonCreator
-    public Empty(@JsonProperty("reference") final Optional<Expression> reference) {
+    public Shift(
+        @JsonProperty("reference") final Optional<Expression> reference,
+        @JsonProperty("amount") final Optional<Expression> amount
+    ) {
         this.reference = reference;
+        this.amount = amount.orElseGet(() -> Expression.duration(TimeUnit.MILLISECONDS, 0));
     }
 
     @Override
@@ -49,6 +64,9 @@ public class Empty implements Aggregation {
 
     @Override
     public AsyncFuture<AggregationContext> setup(final AggregationContext context) {
-        return context.lookupContext(reference).applyEmpty();
+        final Duration shift = context.eval(amount).visit(TO_DURATION);
+        final DateRange shifted = context.range().shift(shift.toMilliseconds());
+        final LookupOverrides overrides = new LookupOverrides(Optional.of(shifted));
+        return context.lookupContext(reference).apply(overrides);
     }
 }

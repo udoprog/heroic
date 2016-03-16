@@ -41,6 +41,8 @@ import com.spotify.heroic.common.RangeFilter;
 import com.spotify.heroic.common.SelectedGroup;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.common.Statistics;
+import com.spotify.heroic.grammar.DefaultScope;
+import com.spotify.heroic.grammar.Expression;
 import com.spotify.heroic.metadata.FindSeries;
 import com.spotify.heroic.metadata.MetadataBackend;
 import com.spotify.heroic.metadata.MetadataManager;
@@ -196,6 +198,7 @@ public class LocalMetricManager implements MetricManager {
                     seriesLimit + 1);
 
             final QueryTrace.Tracer tracer = QueryTrace.trace(ANALYZE);
+            final Expression.Scope scope = new DefaultScope(query.getNow());
 
             final LazyTransform<FindSeries, AnalyzeResult> transform =
                 (final FindSeries result) -> {
@@ -204,7 +207,8 @@ public class LocalMetricManager implements MetricManager {
                             query.getOptions());
 
                     final AggregationContext context = AggregationContext
-                        .tracing(async, input, query.getRange(), query.getCadence())
+                        .tracing(async, input, query.getRange(), query.getCadence(),
+                            e -> e.eval(scope))
                         .withOptions(query.getOptions());
 
                     return query.getAggregation().setup(context).directTransform(out -> {
@@ -231,6 +235,8 @@ public class LocalMetricManager implements MetricManager {
 
             final QueryTrace.Tracer tracer = QueryTrace.trace(QUERY);
 
+            final Expression.Scope scope = new DefaultScope(query.getNow());
+
             final LazyTransform<FindSeries, QueryResult> transform = (final FindSeries result) -> {
                 /* if empty, there are not time series on this shard */
                 if (result.isEmpty()) {
@@ -249,7 +255,7 @@ public class LocalMetricManager implements MetricManager {
                         query.getOptions());
 
                 final AggregationContext context = AggregationContext
-                    .of(async, input, query.getRange(), query.getCadence())
+                    .of(async, input, query.getRange(), query.getCadence(), e -> e.eval(scope))
                     .withOptions(query.getOptions());
 
                 return query.getAggregation().setup(context).lazyTransform(out -> {
@@ -273,7 +279,8 @@ public class LocalMetricManager implements MetricManager {
                     for (final AggregationState s : out.input()) {
                         observables.add(s
                             .getObservable()
-                            .transform(d -> new AggregationData(s.getKey(), s.getSeries(), d)));
+                            .transform(d -> new AggregationData(s.getKey(), s.getSeries(), d,
+                                out.range())));
                     }
 
                     /* setup collector */

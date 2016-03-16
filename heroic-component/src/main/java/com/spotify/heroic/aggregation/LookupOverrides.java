@@ -21,34 +21,18 @@
 
 package com.spotify.heroic.aggregation;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.spotify.heroic.grammar.Expression;
-import eu.toolchain.async.AsyncFuture;
+import com.spotify.heroic.common.DateRange;
 import lombok.Data;
 
 import java.util.Optional;
 
 @Data
-public class Empty implements Aggregation {
-    public static final String NAME = "empty";
+public class LookupOverrides {
+    private static final LookupOverrides EMPTY = new LookupOverrides(Optional.empty());
 
-    public static final Aggregation INSTANCE = new Empty(Optional.empty());
+    private final Optional<DateRange> range;
 
-    private final Optional<Expression> reference;
-
-    @JsonCreator
-    public Empty(@JsonProperty("reference") final Optional<Expression> reference) {
-        this.reference = reference;
-    }
-
-    @Override
-    public boolean referential() {
-        return reference.isPresent();
-    }
-
-    @Override
-    public AsyncFuture<AggregationContext> setup(final AggregationContext context) {
-        return context.lookupContext(reference).applyEmpty();
+    public static LookupOverrides empty() {
+        return EMPTY;
     }
 }

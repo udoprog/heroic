@@ -61,7 +61,7 @@ public abstract class BiFunctionAggregation implements Aggregation {
         new AggregationLookup.Visitor<Double>() {
             @Override
             public Double visitContext(
-                final AsyncFuture<AggregationContext> context
+                final LookupFunction context
             ) {
                 throw new IllegalStateException("Context not expected");
             }
@@ -72,17 +72,19 @@ public abstract class BiFunctionAggregation implements Aggregation {
             }
         };
 
-    private static final AggregationLookup.Visitor<AsyncFuture<AggregationContext>> toContext =
-        new AggregationLookup.Visitor<AsyncFuture<AggregationContext>>() {
+    private static final AggregationLookup.Visitor<LookupFunction> toContext =
+        new AggregationLookup.Visitor<LookupFunction>() {
             @Override
-            public AsyncFuture<AggregationContext> visitContext(
-                final AsyncFuture<AggregationContext> context
+            public LookupFunction visitContext(
+                final LookupFunction context
             ) {
                 return context;
             }
 
             @Override
-            public AsyncFuture<AggregationContext> visitExpression(final Expression e) {
+            public LookupFunction visitExpression(
+                final Expression e
+            ) {
                 throw new IllegalStateException("Expression not expected");
             }
         };
@@ -124,11 +126,11 @@ public abstract class BiFunctionAggregation implements Aggregation {
         final Function<Double, Double> function;
 
         if (leftContext.isExpression()) {
-            in = rightContext.visit(toContext);
+            in = rightContext.visit(toContext).applyEmpty();
             final double value = leftContext.visit(toDouble);
             function = p -> applyPoint(value, p);
         } else {
-            in = leftContext.visit(toContext);
+            in = leftContext.visit(toContext).applyEmpty();
             final double value = rightContext.visit(toDouble);
             function = p -> applyPoint(p, value);
         }
@@ -154,7 +156,8 @@ public abstract class BiFunctionAggregation implements Aggregation {
         final AggregationLookup rightLookup
     ) {
         final List<AsyncFuture<AggregationContext>> collected =
-            ImmutableList.of(leftLookup.visit(toContext), rightLookup.visit(toContext));
+            ImmutableList.of(leftLookup.visit(toContext).applyEmpty(),
+                rightLookup.visit(toContext).applyEmpty());
 
         return context
             .async()

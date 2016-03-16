@@ -14,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 
 import java.util.Optional;
+import java.util.function.Function;
 
 import static org.junit.Assert.assertEquals;
 
@@ -46,7 +47,8 @@ public class AggregationTest {
         assertEquals(ImmutableSet.of("site", "host"), chain.requiredTags());
 
         final AggregationContext context = AggregationContext.tracing(async,
-            ImmutableList.of(AggregationState.forSeries(s, Observable.empty())), range, duration);
+            ImmutableList.of(AggregationState.forSeries(s, Observable.empty())), range, duration,
+            Function.identity());
 
         final AggregationContext out = chain.setup(context).get();
 

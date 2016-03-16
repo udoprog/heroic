@@ -70,6 +70,7 @@ expr
     : LParen expr RParen                            #ExpressionPrecedence
     | LBracket (expr (Comma expr)*)? RBracket       #ExpressionList
     | LCurly (expr (Comma expr)*)? RCurly           #ExpressionList
+    | Minus expr                                    #ExpressionNegate
     | expr Div expr                                 #ExpressionDiv
     | expr Mul expr                                 #ExpressionMul
     | expr Minus expr                               #ExpressionMinus

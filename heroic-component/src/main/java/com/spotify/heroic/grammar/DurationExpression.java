@@ -75,6 +75,11 @@ public class DurationExpression implements Expression {
         return operate(ADD, other);
     }
 
+    @Override
+    public Expression negate() {
+        return new DurationExpression(ctx, unit, -value);
+    }
+
     private Expression operate(BinaryOperation op, Expression other) {
         final DurationExpression o = other.cast(this);
 

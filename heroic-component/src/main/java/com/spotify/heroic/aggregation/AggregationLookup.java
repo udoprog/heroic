@@ -21,7 +21,6 @@
 
 package com.spotify.heroic.aggregation;
 
-import eu.toolchain.async.AsyncFuture;
 import lombok.RequiredArgsConstructor;
 
 public interface AggregationLookup {
@@ -31,7 +30,7 @@ public interface AggregationLookup {
 
     @RequiredArgsConstructor
     class Context implements AggregationLookup {
-        private final AsyncFuture<AggregationContext> context;
+        private final LookupFunction context;
 
         @Override
         public <T> T visit(final Visitor<T> visitor) {
@@ -60,7 +59,7 @@ public interface AggregationLookup {
     }
 
     interface Visitor<T> {
-        T visitContext(AsyncFuture<AggregationContext> context);
+        T visitContext(LookupFunction context);
 
         T visitExpression(com.spotify.heroic.grammar.Expression e);
     }

@@ -51,7 +51,7 @@ public abstract class FunctionAggregation implements Aggregation {
 
     @Override
     public AsyncFuture<AggregationContext> setup(final AggregationContext context) {
-        return context.lookupContext(this.reference).directTransform(out -> {
+        return context.lookupContext(this.reference).applyEmpty().directTransform(out -> {
             final List<AggregationState> states =
                 new ArrayList<AggregationState>(out.input().size());
 

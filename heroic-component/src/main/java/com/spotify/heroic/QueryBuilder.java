@@ -51,6 +51,7 @@ public class QueryBuilder {
     private Optional<Aggregation> aggregation = Optional.empty();
     private Optional<QueryOptions> options = Optional.empty();
     private Optional<Set<String>> features = Optional.empty();
+    private Optional<String> reference = Optional.empty();
 
     public QueryBuilder modifyOptions(Function<QueryOptions, QueryOptions> modify) {
         this.options = Optional.of(
@@ -160,9 +161,15 @@ public class QueryBuilder {
         return this;
     }
 
+    public QueryBuilder reference(final Optional<String> reference) {
+        checkNotNull(reference, "reference");
+        this.reference = reference;
+        return this;
+    }
+
     public Query build() {
-        return new Query(statements, Optional.empty(), aggregation, source, range, legacyFilter(),
-            options, groupBy, features);
+        return new Query(statements, Optional.empty(), aggregation, reference, source, range,
+            legacyFilter(), options, groupBy, features);
     }
 
     /**

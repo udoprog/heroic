@@ -68,6 +68,12 @@ public class Module implements HeroicModule {
                 return new Empty(reference);
             });
 
+            c.register(Shift.NAME, Shift.class, args -> {
+                final Optional<Expression> reference = args.getNext("reference", Expression.class);
+                final Optional<Expression> amount = args.getNext("amount", Expression.class);
+                return new Shift(reference, amount);
+            });
+
             c.register(Group.NAME, Group.class, new GroupingAggregationBuilder(factory) {
                 @Override
                 protected Aggregation build(

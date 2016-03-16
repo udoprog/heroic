@@ -69,7 +69,7 @@ public abstract class GroupingAggregation implements Aggregation {
 
     @Override
     public AsyncFuture<AggregationContext> setup(AggregationContext input) {
-        return input.lookupContext(reference).lazyTransform(context -> {
+        return input.lookupContext(reference).applyEmpty().lazyTransform(context -> {
             final Optional<Set<String>> of = this.of.map(o -> {
                 ImmutableSet.Builder<String> result = ImmutableSet.builder();
                 result.addAll(o);

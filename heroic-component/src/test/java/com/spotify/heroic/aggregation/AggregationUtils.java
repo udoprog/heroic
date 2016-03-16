@@ -16,6 +16,7 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class AggregationUtils {
@@ -24,7 +25,8 @@ public class AggregationUtils {
     static RunResult run(
         final Aggregation a, List<AggregationState> states, DateRange range, Duration duration
     ) throws Exception {
-        final AggregationContext ctx = AggregationContext.of(async, states, range, duration);
+        final AggregationContext ctx =
+            AggregationContext.of(async, states, range, duration, Function.identity());
 
         final AggregationContext out = a.setup(ctx).get();
 

@@ -96,7 +96,7 @@ public abstract class BucketAggregation<B extends Bucket> implements Aggregation
 
     @Override
     public AsyncFuture<AggregationContext> setup(final AggregationContext input) {
-        return input.lookupContext(reference).directTransform(context -> {
+        return input.lookupContext(reference).applyEmpty().directTransform(context -> {
             final DateRange range = context.range();
 
             final Duration cadence = this.size.orElse(context.cadence());

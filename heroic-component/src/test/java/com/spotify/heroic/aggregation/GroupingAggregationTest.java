@@ -17,6 +17,7 @@ import org.mockito.runners.MockitoJUnitRunner;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -51,7 +52,8 @@ public class GroupingAggregationTest {
             .map(s -> forSeries(s, observable))
             .collect(Collectors.toList());
 
-        final AggregationContext context = AggregationContext.of(async, states, range, duration);
+        final AggregationContext context =
+            AggregationContext.of(async, states, range, duration, Function.identity());
 
         final AggregationContext out = a.setup(context).get();
 

@@ -25,6 +25,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.metric.MetricCollection;
 import lombok.Data;
@@ -37,16 +38,19 @@ public final class AggregationData {
     private final Map<String, String> key;
     private final Iterable<Series> series;
     private final MetricCollection metrics;
+    private final DateRange range;
 
     @JsonCreator
     public AggregationData(
         @JsonProperty("key") final Map<String, String> key,
         @JsonProperty("series") final Iterable<Series> series,
-        @JsonProperty("metrics") final MetricCollection metrics
+        @JsonProperty("metrics") final MetricCollection metrics,
+        @JsonProperty("range") final DateRange range
     ) {
         this.key = key;
         this.series = series;
         this.metrics = metrics;
+        this.range = range;
     }
 
     @JsonIgnore

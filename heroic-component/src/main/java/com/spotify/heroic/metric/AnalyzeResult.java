@@ -231,7 +231,8 @@ public final class AnalyzeResult {
         final ImmutableList.Builder<AggregationData> data = ImmutableList.builder();
 
         for (final AggregationState s : out.input()) {
-            data.add(new AggregationData(s.getKey(), s.getSeries(), MetricCollection.empty()));
+            data.add(new AggregationData(s.getKey(), s.getSeries(), MetricCollection.empty(),
+                out.range()));
         }
 
         return new AnalyzeResult(AnalyzeResult.IN, AnalyzeResult.OUT, data.build(), out.cadence(),

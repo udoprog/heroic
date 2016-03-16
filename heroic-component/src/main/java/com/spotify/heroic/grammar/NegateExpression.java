@@ -19,36 +19,51 @@
  * under the License.
  */
 
-package com.spotify.heroic.aggregation;
+package com.spotify.heroic.grammar;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.spotify.heroic.grammar.Expression;
-import eu.toolchain.async.AsyncFuture;
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import lombok.AccessLevel;
 import lombok.Data;
-
-import java.util.Optional;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 @Data
-public class Empty implements Aggregation {
-    public static final String NAME = "empty";
+@EqualsAndHashCode(exclude = {"ctx"})
+@JsonTypeName("negate")
+@RequiredArgsConstructor
+public class NegateExpression implements Expression {
+    @Getter(AccessLevel.NONE)
+    private final Context ctx;
 
-    public static final Aggregation INSTANCE = new Empty(Optional.empty());
-
-    private final Optional<Expression> reference;
+    private final Expression expression;
 
     @JsonCreator
-    public Empty(@JsonProperty("reference") final Optional<Expression> reference) {
-        this.reference = reference;
+    public NegateExpression(
+        @JsonProperty("expression") final Expression expression
+    ) {
+        this(Context.empty(), expression);
     }
 
     @Override
-    public boolean referential() {
-        return reference.isPresent();
+    public Expression eval(Scope scope) {
+        return expression.eval(scope).negate();
     }
 
     @Override
-    public AsyncFuture<AggregationContext> setup(final AggregationContext context) {
-        return context.lookupContext(reference).applyEmpty();
+    public <R> R visit(final Visitor<R> visitor) {
+        return visitor.visitNegate(this);
+    }
+
+    @Override
+    public Context context() {
+        return ctx;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("<-%s>", expression);
     }
 }

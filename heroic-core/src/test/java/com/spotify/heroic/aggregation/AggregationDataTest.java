@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.spotify.heroic.HeroicMappers;
+import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.metric.MetricCollection;
 import org.junit.Test;
 
@@ -17,7 +18,7 @@ public class AggregationDataTest {
     public void testSerialization() throws Exception {
         final AggregationData d =
             new AggregationData(ImmutableMap.of(), Iterables.concat(ImmutableList.of()),
-                MetricCollection.empty());
+                MetricCollection.empty(), DateRange.now());
 
         final AggregationData r = m.readValue(m.writeValueAsString(d), AggregationData.class);
 

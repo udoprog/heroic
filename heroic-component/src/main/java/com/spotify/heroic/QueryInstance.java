@@ -75,4 +75,13 @@ public class QueryInstance {
         return new QueryInstance(statements, source, filter, range, aggregation, options, cadence,
             features);
     }
+
+    public QueryInstance withRangeIfPresent(final Optional<DateRange> range) {
+        if (range.isPresent()) {
+            return new QueryInstance(statements, source, filter, range, aggregation, options,
+                cadence, features);
+        }
+
+        return this;
+    }
 }

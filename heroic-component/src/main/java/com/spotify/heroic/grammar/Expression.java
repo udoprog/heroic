@@ -40,7 +40,7 @@ import java.util.concurrent.TimeUnit;
     @JsonSubTypes.Type(ListExpression.class), @JsonSubTypes.Type(MinusExpression.class),
     @JsonSubTypes.Type(PlusExpression.class), @JsonSubTypes.Type(QueryExpression.class),
     @JsonSubTypes.Type(RangeExpression.class), @JsonSubTypes.Type(ReferenceExpression.class),
-    @JsonSubTypes.Type(StringExpression.class)
+    @JsonSubTypes.Type(StringExpression.class), @JsonSubTypes.Type(NegateExpression.class)
 })
 public interface Expression {
     /**
@@ -61,6 +61,10 @@ public interface Expression {
 
     default Expression add(Expression other) {
         throw context().error(String.format("%s: unsupported operator: +", this));
+    }
+
+    default Expression negate() {
+        throw context().error(String.format("%s: cannot be negated", this));
     }
 
     default <T> T cast(T to) {
@@ -196,6 +200,10 @@ public interface Expression {
         }
 
         default R visitRange(final RangeExpression e) {
+            return defaultAction(e);
+        }
+
+        default R visitNegate(final NegateExpression e) {
             return defaultAction(e);
         }
 

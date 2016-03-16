@@ -63,7 +63,7 @@ public class FilterAggregation implements Aggregation {
 
     @Override
     public AsyncFuture<AggregationContext> setup(final AggregationContext input) {
-        return input.lookupContext(reference).directTransform(context -> {
+        return input.lookupContext(reference).applyEmpty().directTransform(context -> {
             final List<Observable<MetricCollection>> observables = new ArrayList<>();
             final List<Iterable<Series>> series = new ArrayList<>();
 

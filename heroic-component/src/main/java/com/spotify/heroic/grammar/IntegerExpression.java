@@ -75,6 +75,11 @@ public final class IntegerExpression implements Expression {
         return new IntegerExpression(ctx.join(other.context()), value + other.cast(this).value);
     }
 
+    @Override
+    public Expression negate() {
+        return new IntegerExpression(ctx, -value);
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public <T> T cast(T to) {

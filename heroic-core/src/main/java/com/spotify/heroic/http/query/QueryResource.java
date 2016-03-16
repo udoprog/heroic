@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableMap;
 import com.spotify.heroic.Query;
 import com.spotify.heroic.QueryBuilder;
 import com.spotify.heroic.QueryManager;
-import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.common.JavaxRestFramework;
 import com.spotify.heroic.metric.QueryResult;
@@ -215,8 +214,8 @@ public class QueryResource {
                 for (final Pair<String, QueryResult> e : entries) {
                     final QueryResult r = e.getRight();
                     results.put(e.getLeft(),
-                        new QueryMetricsResponse(DateRange.now(), r.getData(), Duration.empty(),
-                            r.getErrors(), r.getTrace()));
+                        new QueryMetricsResponse(r.getData(), Duration.empty(), r.getErrors(),
+                            r.getTrace()));
                 }
 
                 return new QueryBatchResponse(results.build());
@@ -233,8 +232,8 @@ public class QueryResource {
         response.setTimeout(300, TimeUnit.SECONDS);
 
         httpAsync.bind(response, callback,
-            r -> new QueryMetricsResponse(DateRange.now(), r.getData(), Duration.empty(),
-                r.getErrors(), r.getTrace()));
+            r -> new QueryMetricsResponse(r.getData(), Duration.empty(), r.getErrors(),
+                r.getTrace()));
     }
 
     private void bindAnalyzeGraphviz(
