@@ -173,7 +173,7 @@ public abstract class AbstractElasticsearchMetadataBackend extends AbstractElast
 
                 @Override
                 public void cancelled() throws Exception {
-                    o.cancel();
+                    o.end();
                 }
 
                 @Override
@@ -218,11 +218,9 @@ public abstract class AbstractElasticsearchMetadataBackend extends AbstractElast
                             o
                                 .observe(entries)
                                 .onResolved(v -> handleNext(scrollId))
-                                .onFailed(o::fail)
-                                .onCancelled(o::cancel);
+                                .onFailed(o::fail);
                         })
-                        .onFailed(o::fail)
-                        .onCancelled(o::cancel);
+                        .onFailed(o::fail);
                 }
             });
         };

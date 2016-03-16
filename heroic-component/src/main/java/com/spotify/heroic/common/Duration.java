@@ -46,6 +46,7 @@ import java.util.regex.Pattern;
 @Data
 public class Duration {
     public static final TimeUnit DEFAULT_UNIT = TimeUnit.MILLISECONDS;
+    private static final Duration EMPTY = new Duration(0L, DEFAULT_UNIT);
 
     private final long duration;
     private final TimeUnit unit;
@@ -135,5 +136,13 @@ public class Duration {
             default:
                 throw new IllegalStateException("Unit not supported for serialization: " + unit);
         }
+    }
+
+    public static Duration empty() {
+        return EMPTY;
+    }
+
+    public Duration join(final Duration cadence) {
+        return this.duration <= 0L ? cadence : this;
     }
 }

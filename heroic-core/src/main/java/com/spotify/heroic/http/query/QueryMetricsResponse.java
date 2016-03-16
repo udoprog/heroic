@@ -25,15 +25,13 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.google.common.collect.ImmutableList;
+import com.spotify.heroic.aggregation.AggregationData;
 import com.spotify.heroic.common.DateRange;
-import com.spotify.heroic.common.Statistics;
+import com.spotify.heroic.common.Duration;
+import com.spotify.heroic.common.Series;
 import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.QueryTrace;
 import com.spotify.heroic.metric.RequestError;
-import com.spotify.heroic.metric.SeriesValues;
-import com.spotify.heroic.metric.ShardLatency;
-import com.spotify.heroic.metric.ShardedResultGroup;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -52,21 +50,13 @@ public class QueryMetricsResponse {
     private final DateRange range;
 
     @Getter
-    private final List<ShardedResultGroup> result;
+    private final List<AggregationData> data;
 
     @Getter
-    private final Statistics statistics = Statistics.empty();
+    private final Duration cadence;
 
     @Getter
     private final List<RequestError> errors;
-
-    /**
-     * Shard latencies associated with the query.
-     *
-     * @deprecated Use {@link #trace} instead.
-     */
-    @Getter
-    private final List<ShardLatency> latencies = ImmutableList.of();
 
     @Getter
     private final QueryTrace trace;
@@ -76,22 +66,24 @@ public class QueryMetricsResponse {
         public void serialize(
             QueryMetricsResponse response, JsonGenerator g, SerializerProvider provider
         ) throws IOException {
-            final List<ShardedResultGroup> result = response.getResult();
-            final Map<String, SortedSet<String>> common = calculateCommon(g, result);
+            final List<AggregationData> result = response.getData();
+            final Map<String, String> common = calculateCommon(result);
 
             g.writeStartObject();
 
             g.writeObjectField("range", response.getRange());
             g.writeObjectField("trace", response.getTrace());
 
-            g.writeFieldName("commonTags");
-            serializeCommonTags(g, common);
+            g.writeFieldName("common");
+            g.writeObject(common);
 
             g.writeFieldName("result");
             serializeResult(g, common, result);
 
             g.writeFieldName("errors");
             serializeErrors(g, response.getErrors());
+
+            g.writeNumberField("cadence", response.getCadence().toMilliseconds());
 
             g.writeEndObject();
         }
@@ -127,62 +119,36 @@ public class QueryMetricsResponse {
             g.writeEndArray();
         }
 
-        private Map<String, SortedSet<String>> calculateCommon(
-            final JsonGenerator g, final List<ShardedResultGroup> result
-        ) {
-            final Map<String, SortedSet<String>> common = new HashMap<>();
-            final Set<String> blacklist = new HashSet<>();
+        private Map<String, String> calculateCommon(final List<AggregationData> data) {
+            final CommonTags common = new CommonTags();
 
-            for (final ShardedResultGroup r : result) {
-                final Set<Map.Entry<String, SortedSet<String>>> entries =
-                    r.getSeries().getTags().entrySet();
-
-                for (final Map.Entry<String, SortedSet<String>> e : entries) {
-                    if (blacklist.contains(e.getKey())) {
-                        continue;
+            for (final AggregationData d : data) {
+                for (final Series s : d.getSeries()) {
+                    for (final Map.Entry<String, String> e : s.getTags().entrySet()) {
+                        common.put(e.getKey(), e.getValue());
                     }
-
-                    final SortedSet<String> previous = common.put(e.getKey(), e.getValue());
-
-                    if (previous == null) {
-                        continue;
-                    }
-
-                    if (previous.equals(e.getValue())) {
-                        continue;
-                    }
-
-                    blacklist.add(e.getKey());
-                    common.remove(e.getKey());
                 }
             }
 
-            return common;
+            return common.common;
         }
 
         private void serializeResult(
-            final JsonGenerator g, final Map<String, SortedSet<String>> common,
-            final List<ShardedResultGroup> result
+            final JsonGenerator g, final Map<String, String> common,
+            final List<AggregationData> result
         ) throws IOException {
-
             g.writeStartArray();
 
-            for (final ShardedResultGroup group : result) {
+            for (final AggregationData d : result) {
                 g.writeStartObject();
 
-                final MetricCollection collection = group.getGroup();
-                final SeriesValues series = group.getSeries();
+                final MetricCollection collection = d.getMetrics();
 
                 g.writeStringField("type", collection.getType().identifier());
-                g.writeStringField("hash", Integer.toHexString(group.hashCode()));
-                g.writeObjectField("shard", group.getShard());
-                g.writeNumberField("cadence", group.getCadence());
+                g.writeStringField("hash", Integer.toHexString(d.getKey().hashCode()));
                 g.writeObjectField("values", collection.getData());
-                g.writeNumberField("keyCount", group.getSeries().getKeys().size());
 
-                writeKey(g, series.getKeys());
-                writeTags(g, common, series.getTags());
-                writeTagCounts(g, series.getTags());
+                writeSeries(g, d.getSeries(), common);
 
                 g.writeEndObject();
             }
@@ -190,58 +156,64 @@ public class QueryMetricsResponse {
             g.writeEndArray();
         }
 
-        void writeKey(JsonGenerator g, final SortedSet<String> keys) throws IOException {
-            g.writeFieldName("key");
-
-            if (keys.size() == 1) {
-                g.writeString(keys.iterator().next());
-            } else {
-                g.writeNull();
-            }
-        }
-
-        void writeTags(
-            JsonGenerator g, final Map<String, SortedSet<String>> common,
-            final Map<String, SortedSet<String>> tags
+        void writeSeries(
+            JsonGenerator g, final Iterable<Series> series, final Map<String, String> common
         ) throws IOException {
-            g.writeFieldName("tags");
+            final Set<String> keys = new HashSet<>();
+            final Map<String, Integer> counts = new HashMap<>();
+            final Map<String, Set<String>> values = new HashMap<>();
+            final CommonTags singles = new CommonTags();
 
-            g.writeStartObject();
+            for (final Series s : series) {
+                keys.add(s.getKey());
 
-            for (final Map.Entry<String, SortedSet<String>> pair : tags.entrySet()) {
-                if (common.containsKey(pair.getKey())) {
-                    continue;
+                for (final Map.Entry<String, String> e : s.getTags().entrySet()) {
+                    if (!common.containsKey(e.getKey())) {
+                        Set<String> v = values.get(e.getKey());
+
+                        if (v == null) {
+                            v = new HashSet<>();
+                            values.put(e.getKey(), v);
+                        }
+
+                        v.add(e.getValue());
+
+                        if (v.size() > 1) {
+                            counts.put(e.getKey(), v.size());
+                        }
+
+                        singles.put(e.getKey(), e.getValue());
+                    }
                 }
-
-                final SortedSet<String> values = pair.getValue();
-
-                if (values.size() != 1) {
-                    continue;
-                }
-
-                g.writeStringField(pair.getKey(), values.iterator().next());
             }
 
-            g.writeEndObject();
+            g.writeObjectField("keys", keys);
+            g.writeObjectField("tagCounts", counts);
+            g.writeObjectField("tags", singles.common);
         }
+    }
 
-        void writeTagCounts(JsonGenerator g, final Map<String, SortedSet<String>> tags)
-            throws IOException {
-            g.writeFieldName("tagCounts");
+    static class CommonTags {
+        final Map<String, String> common = new HashMap<>();
+        final Set<String> blacklist = new HashSet<>();
 
-            g.writeStartObject();
-
-            for (final Map.Entry<String, SortedSet<String>> pair : tags.entrySet()) {
-                final SortedSet<String> values = pair.getValue();
-
-                if (values.size() <= 1) {
-                    continue;
-                }
-
-                g.writeNumberField(pair.getKey(), values.size());
+        public void put(final String key, final String value) {
+            if (blacklist.contains(key)) {
+                return;
             }
 
-            g.writeEndObject();
+            final String previous = common.put(key, value);
+
+            if (previous == null) {
+                return;
+            }
+
+            if (previous.equals(value)) {
+                return;
+            }
+
+            blacklist.add(key);
+            common.remove(key);
         }
     }
 }

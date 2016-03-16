@@ -6,13 +6,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.spotify.heroic.HeroicMappers;
-import com.spotify.heroic.common.Statistics;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 
@@ -37,25 +34,6 @@ public class BasicSerializationTest {
         final MetricCollection expected = MetricCollection.points(
             ImmutableList.of(new Point(1000, 10.0d), new Point(2000, 20.0d)));
         assertSerialization("MetricCollection.json", expected, MetricCollection.class);
-    }
-
-    @Test
-    public void testResultGroup() throws Exception {
-        final SeriesValues series = SeriesValues.empty();
-        final ResultGroup expected =
-            new ResultGroup(ImmutableMap.of(), series, MetricCollection.points(new ArrayList<>()),
-                0L);
-        assertSerialization("ResultGroup.json", expected, ResultGroup.class);
-    }
-
-    @Test
-    public void testResultGroups() throws Exception {
-        final List<ResultGroup> groups = new ArrayList<>();
-        final List<RequestError> errors = new ArrayList<>();
-        final ResultGroups expected = new ResultGroups(groups, errors, Statistics.empty(),
-            new QueryTrace(QueryTrace.identifier("test")));
-
-        assertSerialization("ResultGroups.json", expected, ResultGroups.class);
     }
 
     private <T> void assertSerialization(final String json, final T expected, final Class<T> type)

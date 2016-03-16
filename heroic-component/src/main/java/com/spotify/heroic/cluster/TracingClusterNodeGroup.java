@@ -21,20 +21,18 @@
 
 package com.spotify.heroic.cluster;
 
-import com.spotify.heroic.QueryOptions;
-import com.spotify.heroic.aggregation.AggregationInstance;
+import com.spotify.heroic.FullQuery;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.RangeFilter;
 import com.spotify.heroic.common.Series;
-import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.metadata.CountSeries;
 import com.spotify.heroic.metadata.DeleteSeries;
 import com.spotify.heroic.metadata.FindKeys;
 import com.spotify.heroic.metadata.FindSeries;
 import com.spotify.heroic.metadata.FindTags;
-import com.spotify.heroic.metric.MetricType;
+import com.spotify.heroic.metric.AnalyzeResult;
+import com.spotify.heroic.metric.QueryResult;
 import com.spotify.heroic.metric.QueryTrace;
-import com.spotify.heroic.metric.ResultGroups;
 import com.spotify.heroic.metric.WriteMetric;
 import com.spotify.heroic.metric.WriteResult;
 import com.spotify.heroic.suggest.KeySuggest;
@@ -50,6 +48,7 @@ import java.util.Optional;
 
 public class TracingClusterNodeGroup implements ClusterNode.Group {
     private final ClusterNode.Group delegate;
+    private final QueryTrace.Identifier analyze;
     private final QueryTrace.Identifier query;
 
     public TracingClusterNodeGroup(final Class<?> where, final ClusterNode.Group delegate) {
@@ -58,6 +57,7 @@ public class TracingClusterNodeGroup implements ClusterNode.Group {
 
     public TracingClusterNodeGroup(final String identifier, final ClusterNode.Group delegate) {
         this.delegate = delegate;
+        this.analyze = QueryTrace.identifier(identifier + "#analyze");
         this.query = QueryTrace.identifier(identifier + "#query");
     }
 
@@ -67,13 +67,15 @@ public class TracingClusterNodeGroup implements ClusterNode.Group {
     }
 
     @Override
-    public AsyncFuture<ResultGroups> query(
-        MetricType source, Filter filter, DateRange range, AggregationInstance aggregation,
-        QueryOptions options
+    public AsyncFuture<AnalyzeResult> analyze(
+        final FullQuery query
     ) {
-        return delegate
-            .query(source, filter, range, aggregation, options)
-            .directTransform(ResultGroups.trace(query));
+        return delegate.analyze(query).directTransform(AnalyzeResult.step(this.analyze));
+    }
+
+    @Override
+    public AsyncFuture<QueryResult> query(FullQuery query) {
+        return delegate.query(query).directTransform(QueryResult.trace(this.query));
     }
 
     @Override

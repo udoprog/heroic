@@ -23,25 +23,17 @@ package com.spotify.heroic.grammar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import com.spotify.heroic.Query;
-import com.spotify.heroic.QueryDateRange;
-import com.spotify.heroic.aggregation.Aggregation;
-import com.spotify.heroic.aggregation.AggregationFactory;
-import com.spotify.heroic.aggregation.MissingAggregation;
 import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.filter.FilterFactory;
 import com.spotify.heroic.grammar.HeroicQueryParser.AggregationByAllContext;
 import com.spotify.heroic.grammar.HeroicQueryParser.AggregationByContext;
-import com.spotify.heroic.grammar.HeroicQueryParser.AggregationContext;
 import com.spotify.heroic.grammar.HeroicQueryParser.AggregationPipeContext;
 import com.spotify.heroic.grammar.HeroicQueryParser.ExpressionDurationContext;
 import com.spotify.heroic.grammar.HeroicQueryParser.ExpressionFloatContext;
 import com.spotify.heroic.grammar.HeroicQueryParser.ExpressionIntegerContext;
 import com.spotify.heroic.grammar.HeroicQueryParser.ExpressionListContext;
 import com.spotify.heroic.grammar.HeroicQueryParser.ExpressionMinusContext;
-import com.spotify.heroic.grammar.HeroicQueryParser.ExpressionNowContext;
 import com.spotify.heroic.grammar.HeroicQueryParser.ExpressionPlusContext;
 import com.spotify.heroic.grammar.HeroicQueryParser.FilterAndContext;
 import com.spotify.heroic.grammar.HeroicQueryParser.FilterBooleanContext;
@@ -60,9 +52,7 @@ import com.spotify.heroic.grammar.HeroicQueryParser.FilterPrefixContext;
 import com.spotify.heroic.grammar.HeroicQueryParser.FilterRegexContext;
 import com.spotify.heroic.grammar.HeroicQueryParser.FromContext;
 import com.spotify.heroic.grammar.HeroicQueryParser.KeyValueContext;
-import com.spotify.heroic.grammar.HeroicQueryParser.QueriesContext;
 import com.spotify.heroic.grammar.HeroicQueryParser.QueryContext;
-import com.spotify.heroic.grammar.HeroicQueryParser.SelectAggregationContext;
 import com.spotify.heroic.grammar.HeroicQueryParser.SelectAllContext;
 import com.spotify.heroic.grammar.HeroicQueryParser.SourceRangeAbsoluteContext;
 import com.spotify.heroic.grammar.HeroicQueryParser.SourceRangeRelativeContext;
@@ -86,23 +76,20 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class QueryListener extends HeroicQueryBaseListener {
     private final FilterFactory filters;
-    private final AggregationFactory aggregations;
-    private final long now;
 
-    private static final Object QUERIES_MARK = new Object();
     private static final Object LIST_MARK = new Object();
-    private static final Object AGGREGAITON_DEF = new Object();
+    private static final Object EXPR_FUNCTION_ENTER = new Object();
 
     public static final Object EMPTY = new Object();
     public static final Object NOT_EMPTY = new Object();
 
     public static final Object QUERY_MARK = new Object();
-    public static final Object GROUP_BY_MARK = new Object();
     public static final Object SELECT_MARK = new Object();
     public static final Object WHERE_MARK = new Object();
     public static final Object FROM_MARK = new Object();
 
     public static final Object PIPE_MARK = new Object();
+    public static final Object STATEMENTS_MARK = new Object();
 
     public static final String GROUP = "group";
     public static final String CHAIN = "chain";
@@ -110,26 +97,32 @@ public class QueryListener extends HeroicQueryBaseListener {
     private final Stack<Object> stack = new Stack<>();
 
     @Override
-    public void enterQueries(QueriesContext ctx) {
-        push(QUERIES_MARK);
+    public void enterStatements(final HeroicQueryParser.StatementsContext ctx) {
+        push(STATEMENTS_MARK);
     }
 
     @Override
-    public void exitQueries(QueriesContext ctx) {
+    public void exitStatements(final HeroicQueryParser.StatementsContext ctx) {
         final Context c = context(ctx);
+        final List<Expression> expressions = popUntil(c, STATEMENTS_MARK, Expression.class);
+        push(new Statements(c, expressions));
+    }
 
-        final List<Query> list = new ArrayList<>();
+    @Override
+    public void exitLetStatement(final HeroicQueryParser.LetStatementContext ctx) {
+        final Context c = context(ctx);
+        final Expression e = pop(Expression.class);
+        final ReferenceExpression reference = pop(ReferenceExpression.class);
+        push(new LetExpression(c, reference, e));
+    }
 
-        while (true) {
-            if (stack.peek() == QUERIES_MARK) {
-                stack.pop();
-                break;
-            }
-
-            list.add(pop(c, Query.class));
-        }
-
-        push(new Queries(list));
+    @Override
+    public void exitExpressionReference(
+        final HeroicQueryParser.ExpressionReferenceContext ctx
+    ) {
+        final Context c = context(ctx);
+        final String name = ctx.getChild(0).getText().substring(1);
+        push(new ReferenceExpression(c, name));
     }
 
     @Override
@@ -139,12 +132,12 @@ public class QueryListener extends HeroicQueryBaseListener {
 
     @Override
     public void exitQuery(QueryContext ctx) {
-        Optional<Aggregation> aggregation = Optional.empty();
-        Optional<MetricType> source = Optional.empty();
-        Optional<QueryDateRange> range = Optional.empty();
-        Optional<Filter> where = Optional.empty();
-
         final Context c = context(ctx);
+
+        Optional<Expression> aggregation = Optional.empty();
+        Optional<MetricType> source = Optional.empty();
+        Optional<RangeExpression> range = Optional.empty();
+        Optional<Filter> where = Optional.empty();
 
         while (true) {
             final Object mark = stack.pop();
@@ -154,7 +147,7 @@ public class QueryListener extends HeroicQueryBaseListener {
             }
 
             if (mark == SELECT_MARK) {
-                aggregation = popOptional(Aggregation.class);
+                aggregation = popOptional(Expression.class);
                 continue;
             }
 
@@ -165,7 +158,7 @@ public class QueryListener extends HeroicQueryBaseListener {
 
             if (mark == FROM_MARK) {
                 source = Optional.of(pop(MetricType.class));
-                range = popOptional(QueryDateRange.class);
+                range = popOptional(RangeExpression.class);
                 continue;
             }
 
@@ -176,36 +169,30 @@ public class QueryListener extends HeroicQueryBaseListener {
             throw c.error("No source clause available");
         }
 
-        push(new Query(Optional.empty(), aggregation, source, range, where, Optional.empty(),
-            Optional.empty(), ImmutableSet.of()));
-    }
-
-    @Override
-    public void exitExpressionNow(ExpressionNowContext ctx) {
-        push(new IntValue(now, context(ctx)));
+        push(new QueryExpression(c, aggregation, source, range, where));
     }
 
     @Override
     public void exitExpressionMinus(ExpressionMinusContext ctx) {
         final Context c = context(ctx);
-        final Value b = pop(c, Value.class);
-        final Value a = pop(c, Value.class);
-        push(a.sub(b));
+        final Expression right = pop(c, Expression.class);
+        final Expression left = pop(c, Expression.class);
+        push(new MinusExpression(c, left, right));
     }
 
     @Override
     public void exitExpressionPlus(ExpressionPlusContext ctx) {
         final Context c = context(ctx);
-        final Value b = pop(c, Value.class);
-        final Value a = pop(c, Value.class);
-        push(a.add(b));
+        final Expression right = pop(c, Expression.class);
+        final Expression left = pop(c, Expression.class);
+        push(new PlusExpression(c, left, right));
     }
 
     @Override
     public void exitFilterIn(FilterInContext ctx) {
         final Context c = context(ctx);
-        final Value match = pop(c, Value.class);
-        final StringValue key = pop(c, StringValue.class);
+        final Expression match = pop(c, Expression.class);
+        final StringExpression key = pop(c, StringExpression.class);
 
         push(filters.or(buildIn(c, key, match)));
     }
@@ -213,8 +200,8 @@ public class QueryListener extends HeroicQueryBaseListener {
     @Override
     public void exitFilterNotIn(FilterNotInContext ctx) {
         final Context c = context(ctx);
-        final ListValue match = pop(c, ListValue.class);
-        final StringValue key = pop(c, StringValue.class);
+        final ListExpression match = pop(c, ListExpression.class);
+        final StringExpression key = pop(c, StringExpression.class);
 
         push(filters.not(filters.or(buildIn(c, key, match))));
     }
@@ -226,29 +213,16 @@ public class QueryListener extends HeroicQueryBaseListener {
     }
 
     @Override
-    public void exitSelectAggregation(final SelectAggregationContext ctx) {
-        final Context c = context(ctx);
-
-        final Optional<Aggregation> aggregation;
-
-        try {
-            aggregation = pop(c, Value.class)
-                .toOptional()
-                .map(o -> o.cast(AggregationValue.class).build(aggregations));
-        } catch (final MissingAggregation e) {
-            throw c.error("Not a valid aggregation: " + e.getName());
-        } catch (final Exception e) {
-            throw c.error(e);
-        }
-
-        pushOptional(aggregation);
+    public void exitSelectExpression(final HeroicQueryParser.SelectExpressionContext ctx) {
+        final Expression aggregation = pop(Expression.class);
+        pushOptional(Optional.of(aggregation));
         push(SELECT_MARK);
     }
 
     @Override
     public void exitWhere(WhereContext ctx) {
         final Context c = context(ctx);
-        push(pop(c, Filter.class).optimize());
+        push(pop(c, Filter.class));
         push(WHERE_MARK);
     }
 
@@ -260,34 +234,34 @@ public class QueryListener extends HeroicQueryBaseListener {
     @Override
     public void exitExpressionList(ExpressionListContext ctx) {
         final Context c = context(ctx);
-        stack.push(new ListValue(popUntil(c, LIST_MARK, Value.class), c));
+        stack.push(new ListExpression(c, popUntil(c, LIST_MARK, Expression.class)));
     }
 
     @Override
-    public void enterAggregation(AggregationContext ctx) {
-        stack.push(AGGREGAITON_DEF);
+    public void enterExpressionFunction(HeroicQueryParser.ExpressionFunctionContext ctx) {
+        stack.push(EXPR_FUNCTION_ENTER);
     }
 
     @Override
-    public void exitAggregation(final AggregationContext ctx) {
+    public void exitExpressionFunction(final HeroicQueryParser.ExpressionFunctionContext ctx) {
         final Context c = context(ctx);
 
         final String name = ctx.getChild(0).getText();
 
-        final ImmutableList.Builder<Value> arguments = ImmutableList.builder();
-        final ImmutableMap.Builder<String, Value> keywords = ImmutableMap.builder();
+        final ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
+        final ImmutableMap.Builder<String, Expression> keywords = ImmutableMap.builder();
 
-        while (stack.peek() != AGGREGAITON_DEF) {
+        while (stack.peek() != EXPR_FUNCTION_ENTER) {
             final Object top = stack.pop();
 
             if (top instanceof KeywordValue) {
                 final KeywordValue kw = (KeywordValue) top;
-                keywords.put(kw.key, kw.value);
+                keywords.put(kw.key, kw.expression);
                 continue;
             }
 
-            if (top instanceof Value) {
-                arguments.add((Value) top);
+            if (top instanceof Expression) {
+                arguments.add((Expression) top);
                 continue;
             }
 
@@ -296,14 +270,15 @@ public class QueryListener extends HeroicQueryBaseListener {
 
         stack.pop();
 
-        push(new AggregationValue(name, new ListValue(Lists.reverse(arguments.build()), c),
-            keywords.build(), c));
+        push(
+            new FunctionExpression(c, name, new ListExpression(c, Lists.reverse(arguments.build())),
+                keywords.build()));
     }
 
     @Override
     public void exitKeyValue(KeyValueContext ctx) {
-        final Value value = pop(context(ctx), Value.class);
-        stack.push(new KeywordValue(ctx.getChild(0).getText(), value));
+        final Expression expression = pop(context(ctx), Expression.class);
+        stack.push(new KeywordValue(ctx.getChild(0).getText(), expression));
     }
 
     @Override
@@ -317,10 +292,10 @@ public class QueryListener extends HeroicQueryBaseListener {
             .orElseThrow(() -> context.error("Invalid source (" + sourceText +
                 "), must be one of " + MetricType.values()));
 
-        final Optional<QueryDateRange> range;
+        final Optional<RangeExpression> range;
 
         if (ctx.getChildCount() > 2) {
-            range = Optional.of(pop(context, QueryDateRange.class));
+            range = Optional.of(pop(context, RangeExpression.class));
         } else {
             range = Optional.empty();
         }
@@ -332,25 +307,29 @@ public class QueryListener extends HeroicQueryBaseListener {
 
     @Override
     public void exitSourceRangeAbsolute(SourceRangeAbsoluteContext ctx) {
-        final IntValue end = pop(context(ctx), IntValue.class);
-        final IntValue start = pop(context(ctx), IntValue.class);
-        push(new QueryDateRange.Absolute(start.getValue(), end.getValue()));
+        final Context c = context(ctx);
+        final Expression end = pop(c, Expression.class);
+        final Expression start = pop(c, Expression.class);
+        push(new RangeExpression(c, start, end));
     }
 
     @Override
     public void exitSourceRangeRelative(SourceRangeRelativeContext ctx) {
-        final DurationValue diff = pop(context(ctx), DurationValue.class);
-        push(new QueryDateRange.Relative(diff.getUnit(), diff.getValue()));
+        final Context c = context(ctx);
+        final ReferenceExpression now = new ReferenceExpression(c, "now");
+        final Expression distance = pop(c, Expression.class);
+        final Expression start = new MinusExpression(c, now, distance);
+        push(new RangeExpression(c, start, now));
     }
 
     @Override
     public void exitExpressionInteger(ExpressionIntegerContext ctx) {
-        push(new IntValue(Long.parseLong(ctx.getText()), context(ctx)));
+        push(new IntegerExpression(context(ctx), Long.parseLong(ctx.getText())));
     }
 
     @Override
     public void exitExpressionFloat(ExpressionFloatContext ctx) {
-        push(new DoubleValue(Double.parseDouble(ctx.getText()), context(ctx)));
+        push(new DoubleExpression(context(ctx), Double.parseDouble(ctx.getText())));
     }
 
     @Override
@@ -361,11 +340,11 @@ public class QueryListener extends HeroicQueryBaseListener {
 
         if (token.getType() == HeroicQueryLexer.SimpleString ||
             token.getType() == HeroicQueryLexer.Identifier) {
-            push(new StringValue(child.getText(), c));
+            push(new StringExpression(c, child.getText()));
             return;
         }
 
-        push(new StringValue(parseQuotedString(child.getText()), c));
+        push(new StringExpression(c, parseQuotedString(child.getText())));
     }
 
     @Override
@@ -385,12 +364,12 @@ public class QueryListener extends HeroicQueryBaseListener {
             value = Integer.parseInt(text.substring(0, text.length() - 1));
         }
 
-        push(new DurationValue(unit, value, c));
+        push(new DurationExpression(c, unit, value));
     }
 
     @Override
     public void exitFilterHas(FilterHasContext ctx) {
-        final StringValue value = pop(context(ctx), StringValue.class);
+        final StringExpression value = pop(context(ctx), StringExpression.class);
 
         push(filters.hasTag(value.getString()));
     }
@@ -402,62 +381,62 @@ public class QueryListener extends HeroicQueryBaseListener {
 
     @Override
     public void exitFilterKeyEq(FilterKeyEqContext ctx) {
-        final StringValue value = pop(context(ctx), StringValue.class);
+        final StringExpression value = pop(context(ctx), StringExpression.class);
 
         push(filters.matchKey(value.getString()));
     }
 
     @Override
     public void exitFilterKeyNotEq(FilterKeyNotEqContext ctx) {
-        final StringValue value = pop(context(ctx), StringValue.class);
+        final StringExpression value = pop(context(ctx), StringExpression.class);
 
         push(filters.not(filters.matchKey(value.getString())));
     }
 
     @Override
     public void exitFilterEq(FilterEqContext ctx) {
-        final StringValue value = pop(context(ctx), StringValue.class);
-        final StringValue key = pop(context(ctx), StringValue.class);
+        final StringExpression value = pop(context(ctx), StringExpression.class);
+        final StringExpression key = pop(context(ctx), StringExpression.class);
 
         push(filters.matchTag(key.getString(), value.getString()));
     }
 
     @Override
     public void exitFilterNotEq(FilterNotEqContext ctx) {
-        final StringValue value = pop(context(ctx), StringValue.class);
-        final StringValue key = pop(context(ctx), StringValue.class);
+        final StringExpression value = pop(context(ctx), StringExpression.class);
+        final StringExpression key = pop(context(ctx), StringExpression.class);
 
         push(filters.not(filters.matchTag(key.getString(), value.getString())));
     }
 
     @Override
     public void exitFilterPrefix(FilterPrefixContext ctx) {
-        final StringValue value = pop(context(ctx), StringValue.class);
-        final StringValue key = pop(context(ctx), StringValue.class);
+        final StringExpression value = pop(context(ctx), StringExpression.class);
+        final StringExpression key = pop(context(ctx), StringExpression.class);
 
         push(filters.startsWith(key.getString(), value.getString()));
     }
 
     @Override
     public void exitFilterNotPrefix(FilterNotPrefixContext ctx) {
-        final StringValue value = pop(context(ctx), StringValue.class);
-        final StringValue key = pop(context(ctx), StringValue.class);
+        final StringExpression value = pop(context(ctx), StringExpression.class);
+        final StringExpression key = pop(context(ctx), StringExpression.class);
 
         push(filters.not(filters.startsWith(key.getString(), value.getString())));
     }
 
     @Override
     public void exitFilterRegex(FilterRegexContext ctx) {
-        final StringValue value = pop(context(ctx), StringValue.class);
-        final StringValue key = pop(context(ctx), StringValue.class);
+        final StringExpression value = pop(context(ctx), StringExpression.class);
+        final StringExpression key = pop(context(ctx), StringExpression.class);
 
         push(filters.regex(key.getString(), value.getString()));
     }
 
     @Override
     public void exitFilterNotRegex(FilterNotRegexContext ctx) {
-        final StringValue value = pop(context(ctx), StringValue.class);
-        final StringValue key = pop(context(ctx), StringValue.class);
+        final StringExpression value = pop(context(ctx), StringExpression.class);
+        final StringExpression key = pop(context(ctx), StringExpression.class);
 
         push(filters.not(filters.regex(key.getString(), value.getString())));
     }
@@ -482,20 +461,20 @@ public class QueryListener extends HeroicQueryBaseListener {
     public void exitAggregationBy(final AggregationByContext ctx) {
         final Context c = context(ctx);
 
-        final ListValue group = pop(c, Value.class).cast(ListValue.class);
-        final AggregationValue left = pop(c, Value.class).cast(AggregationValue.class);
+        final ListExpression group = pop(c, Expression.class).cast(ListExpression.class);
+        final FunctionExpression left = pop(c, Expression.class).cast(FunctionExpression.class);
 
-        push(new AggregationValue(GROUP, Value.list(group, left), ImmutableMap.of(), c));
+        push(new FunctionExpression(c, GROUP, Expression.list(group, left), ImmutableMap.of()));
     }
 
     @Override
     public void exitAggregationByAll(final AggregationByAllContext ctx) {
         final Context c = context(ctx);
 
-        final AggregationValue left = pop(c, Value.class).cast(AggregationValue.class);
+        final FunctionExpression left = pop(c, Expression.class).cast(FunctionExpression.class);
 
-        push(
-            new AggregationValue(GROUP, Value.list(new EmptyValue(c), left), ImmutableMap.of(), c));
+        push(new FunctionExpression(c, GROUP, Expression.list(new EmptyExpression(c), left),
+            ImmutableMap.of()));
     }
 
     @Override
@@ -506,12 +485,12 @@ public class QueryListener extends HeroicQueryBaseListener {
     @Override
     public void exitAggregationPipe(AggregationPipeContext ctx) {
         final Context c = context(ctx);
-        final List<AggregationValue> values = ImmutableList.copyOf(
-            popUntil(c, PIPE_MARK, Value.class)
+        final List<FunctionExpression> values = ImmutableList.copyOf(
+            popUntil(c, PIPE_MARK, Expression.class)
                 .stream()
-                .map(v -> v.cast(AggregationValue.class))
+                .map(v -> v.cast(FunctionExpression.class))
                 .iterator());
-        push(new AggregationValue(CHAIN, new ListValue(values, c), ImmutableMap.of(), c));
+        push(new FunctionExpression(c, CHAIN, new ListExpression(c, values), ImmutableMap.of()));
     }
 
     @Override
@@ -543,18 +522,20 @@ public class QueryListener extends HeroicQueryBaseListener {
         return Lists.reverse(results.build());
     }
 
-    private List<Filter> buildIn(final Context c, final StringValue key, final Value match) {
-        if (match instanceof StringValue) {
+    private List<Filter> buildIn(
+        final Context c, final StringExpression key, final Expression match
+    ) {
+        if (match instanceof StringExpression) {
             return ImmutableList.of(filters.matchTag(key.getString(), match.cast(String.class)));
         }
 
-        if (!(match instanceof ListValue)) {
+        if (!(match instanceof ListExpression)) {
             throw c.error("Cannot use type " + match + " in expression");
         }
 
         final List<Filter> values = new ArrayList<>();
 
-        for (final Value v : ((ListValue) match).getList()) {
+        for (final Expression v : ((ListExpression) match).getList()) {
             values.add(filters.matchTag(key.getString(), v.cast(String.class)));
         }
 
@@ -699,7 +680,7 @@ public class QueryListener extends HeroicQueryBaseListener {
     @Data
     private static final class KeywordValue {
         private final String key;
-        private final Value value;
+        private final Expression expression;
     }
 
     private static Context context(final ParserRuleContext source) {

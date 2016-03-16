@@ -27,7 +27,6 @@ import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
 import lombok.RequiredArgsConstructor;
 
-import java.util.Map;
 import java.util.concurrent.atomic.DoubleAccumulator;
 import java.util.concurrent.atomic.DoubleAdder;
 import java.util.concurrent.atomic.LongAdder;
@@ -60,7 +59,7 @@ public class SpreadBucket extends AbstractBucket {
     }
 
     @Override
-    public void updateSpread(Map<String, String> tags, Spread d) {
+    public void collectSpread(Spread d) {
         count.add(d.getCount());
         sum.add(d.getSum());
         sum2.add(d.getSum2());
@@ -69,7 +68,7 @@ public class SpreadBucket extends AbstractBucket {
     }
 
     @Override
-    public void updatePoint(Map<String, String> tags, Point d) {
+    public void collectPoint(Point d) {
         final double value = d.getValue();
 
         if (!Double.isFinite(value)) {

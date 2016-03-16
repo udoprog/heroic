@@ -22,14 +22,17 @@
 package com.spotify.heroic.dagger;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableSet;
 import com.spotify.heroic.CoreHeroicContext;
 import com.spotify.heroic.CoreQueryManager;
 import com.spotify.heroic.CoreShellTasks;
+import com.spotify.heroic.ExtraParameters;
 import com.spotify.heroic.HeroicContext;
 import com.spotify.heroic.HeroicCore;
 import com.spotify.heroic.HeroicCoreInstance;
 import com.spotify.heroic.HeroicMappers;
 import com.spotify.heroic.HeroicServer;
+import com.spotify.heroic.Query;
 import com.spotify.heroic.QueryManager;
 import com.spotify.heroic.ShellTasks;
 import com.spotify.heroic.aggregation.AggregationRegistry;
@@ -123,8 +126,15 @@ public class PrimaryModule {
     @Provides
     @Named("features")
     @PrimaryScope
-    Set<String> features() {
-        return features;
+    Set<String> features(ExtraParameters extra) {
+        final ImmutableSet.Builder<String> features = ImmutableSet.builder();
+        features.addAll(this.features);
+
+        if (extra.getBoolean("distributed").orElse(false)) {
+            features.add(Query.DISTRIBUTED_AGGREGATIONS);
+        }
+
+        return features.build();
     }
 
     @Provides

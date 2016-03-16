@@ -115,12 +115,6 @@ public class Keys implements ShellTask {
             }
 
             @Override
-            public void cancel() throws Exception {
-                log.error("Cancelled");
-                end();
-            }
-
-            @Override
             public void fail(final Throwable cause) throws Exception {
                 log.warn("Exception when pulling keys", cause);
                 end();

@@ -23,38 +23,51 @@ package com.spotify.heroic.aggregation.simple;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.spotify.heroic.aggregation.AggregationContext;
-import com.spotify.heroic.aggregation.AggregationInstance;
+import com.spotify.heroic.aggregation.BucketAggregation;
 import com.spotify.heroic.aggregation.SamplingQuery;
 import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.common.Optionals;
+import com.spotify.heroic.grammar.Expression;
+import com.spotify.heroic.metric.Metric;
+import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.MetricGroup;
+import com.spotify.heroic.metric.MetricType;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.util.List;
 import java.util.Optional;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class GroupUnique extends SamplingAggregation {
+public class GroupUnique extends BucketAggregation<GroupUniqueBucket> {
     public static final String NAME = "group-unique";
 
     @JsonCreator
     public GroupUnique(
         @JsonProperty("sampling") Optional<SamplingQuery> sampling,
         @JsonProperty("size") Optional<Duration> size,
-        @JsonProperty("extent") Optional<Duration> extent
+        @JsonProperty("extent") Optional<Duration> extent,
+        @JsonProperty("reference") final Optional<Expression> reference
     ) {
         super(Optionals.firstPresent(size, sampling.flatMap(SamplingQuery::getSize)),
-            Optionals.firstPresent(extent, sampling.flatMap(SamplingQuery::getExtent)));
+            Optionals.firstPresent(extent, sampling.flatMap(SamplingQuery::getExtent)), reference,
+            BucketAggregation.ALL_TYPES, MetricType.GROUP);
     }
 
     @Override
-    protected AggregationInstance apply(AggregationContext context, long size, long extent) {
-        return new GroupUniqueInstance(size, extent);
+    protected GroupUniqueBucket buildBucket(long timestamp) {
+        return new GroupUniqueBucket(timestamp);
     }
 
     @Override
-    public String toDSL() {
-        return samplingDSL(NAME);
+    protected Metric build(final GroupUniqueBucket bucket) {
+        final List<MetricCollection> groups = bucket.groups();
+
+        if (groups.isEmpty()) {
+            return Metric.invalid();
+        }
+
+        return new MetricGroup(bucket.timestamp(), groups);
     }
 }

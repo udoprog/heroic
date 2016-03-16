@@ -27,7 +27,6 @@ import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
 import lombok.RequiredArgsConstructor;
 
-import java.util.Map;
 import java.util.concurrent.atomic.DoubleAccumulator;
 import java.util.function.DoubleBinaryOperator;
 
@@ -51,12 +50,12 @@ public class StripedMinBucket extends AbstractBucket implements DoubleBucket {
     }
 
     @Override
-    public void updateSpread(Map<String, String> tags, Spread d) {
+    public void collectSpread(Spread d) {
         min.accumulate(d.getMin());
     }
 
     @Override
-    public void updatePoint(Map<String, String> tags, Point d) {
+    public void collectPoint(Point d) {
         min.accumulate(d.getValue());
     }
 

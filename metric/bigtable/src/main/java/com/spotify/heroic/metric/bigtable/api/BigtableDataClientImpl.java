@@ -187,7 +187,7 @@ public class BigtableDataClientImpl implements BigtableDataClient {
                 }
 
                 if (f.isCancelled()) {
-                    observer.cancel();
+                    observer.end();
                     break;
                 }
 
@@ -196,8 +196,7 @@ public class BigtableDataClientImpl implements BigtableDataClient {
 
             f
                 .onResolved(ign -> scanAsync(scanner, observer))
-                .onFailed(observer::fail)
-                .onCancelled(observer::cancel);
+                .onFailed(observer::fail);
         }
     }
 

@@ -55,7 +55,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
-import java.util.concurrent.TimeUnit;
 
 /**
  * MetricBackend for Heroic cassandra datastore.
@@ -144,11 +143,12 @@ public class MemoryBackend extends AbstractMetricBackend {
             final Stopwatch w = Stopwatch.createStarted();
             final MemoryKey key = new MemoryKey(source, series);
             final List<MetricCollection> groups = doFetch(key, range);
-            final QueryTrace trace = new QueryTrace(FETCH, w.elapsed(TimeUnit.NANOSECONDS));
+            final QueryTrace trace = new QueryTrace(FETCH, w);
             final ImmutableList<Long> times = ImmutableList.of(trace.getElapsed());
             observer
                 .observe(new FetchData(series, times, groups, trace))
                 .onDone(observer.bindVoid());
+            observer.end();
         };
     }
 

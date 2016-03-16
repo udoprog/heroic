@@ -27,7 +27,6 @@ import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
 import lombok.RequiredArgsConstructor;
 
-import java.util.Map;
 import java.util.concurrent.atomic.DoubleAdder;
 import java.util.concurrent.atomic.LongAdder;
 
@@ -47,14 +46,14 @@ public class StripedStdDevBucket extends AbstractBucket implements DoubleBucket 
     private final long timestamp;
 
     @Override
-    public void updateSpread(Map<String, String> tags, Spread d) {
+    public void collectSpread(Spread d) {
         sum.add(d.getSum());
         sum2.add(d.getSum2());
         count.add(d.getCount());
     }
 
     @Override
-    public void updatePoint(Map<String, String> tags, Point d) {
+    public void collectPoint(Point d) {
         final double v = d.getValue();
 
         sum.add(v);

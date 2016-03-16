@@ -1,6 +1,5 @@
 package com.spotify.heroic.aggregation.simple;
 
-import com.google.common.collect.ImmutableMap;
 import com.spotify.heroic.aggregation.DoubleBucket;
 import com.spotify.heroic.metric.Point;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +10,6 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -25,8 +23,6 @@ import static org.junit.Assert.assertEquals;
 @RequiredArgsConstructor
 public abstract class ValueBucketIntegrationTest {
     private static final int NCPU = Runtime.getRuntime().availableProcessors();
-
-    private static final Map<String, String> tags = ImmutableMap.of();
 
     private final double initial;
     private final DoubleBinaryOperator fn;
@@ -83,7 +79,7 @@ public abstract class ValueBucketIntegrationTest {
                         @Override
                         public Void call() throws Exception {
                             for (final Point d : updates) {
-                                bucket.updatePoint(tags, d);
+                                bucket.collectPoint(d);
                             }
 
                             return null;

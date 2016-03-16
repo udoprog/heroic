@@ -22,6 +22,9 @@
 package com.spotify.heroic.aggregation;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.spotify.heroic.grammar.Expression;
+import eu.toolchain.async.AsyncFuture;
 import lombok.Data;
 
 import java.util.Optional;
@@ -30,29 +33,22 @@ import java.util.Optional;
 public class Empty implements Aggregation {
     public static final String NAME = "empty";
 
-    public static final Aggregation INSTANCE = new Empty();
+    public static final Aggregation INSTANCE = new Empty(Optional.empty());
+
+    private final Optional<Expression> reference;
 
     @JsonCreator
-    public Empty() {
+    public Empty(@JsonProperty("reference") final Optional<Expression> reference) {
+        this.reference = reference;
     }
 
     @Override
-    public Optional<Long> size() {
-        return Optional.empty();
+    public boolean referential() {
+        return reference.isPresent();
     }
 
     @Override
-    public Optional<Long> extent() {
-        return Optional.empty();
-    }
-
-    @Override
-    public EmptyInstance apply(AggregationContext context) {
-        return EmptyInstance.INSTANCE;
-    }
-
-    @Override
-    public String toDSL() {
-        return String.format("%s()", NAME);
+    public AsyncFuture<AggregationContext> setup(final AggregationContext context) {
+        return context.lookupContext(reference);
     }
 }

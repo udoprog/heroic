@@ -78,12 +78,4 @@ public class ParserResource {
     public Response parseFilter(String filter) {
         return Response.ok(parser.parseFilter(filter)).build();
     }
-
-    @POST
-    @Consumes(MediaType.TEXT_PLAIN)
-    @Produces(MediaType.APPLICATION_JSON)
-    @Path("parse-aggregation")
-    public Response parseAggregation(String aggregation) {
-        return Response.ok(parser.parseAggregation(aggregation)).build();
-    }
 }

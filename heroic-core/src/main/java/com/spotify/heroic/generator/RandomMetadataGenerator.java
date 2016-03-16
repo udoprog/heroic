@@ -31,9 +31,12 @@ import java.util.Map;
 import java.util.Random;
 
 public class RandomMetadataGenerator implements MetadataGenerator {
-    private static final List<String> ROLES = ImmutableList.of("database", "web", "ingestor");
+    private static final List<String> ROLES =
+        ImmutableList.of("database", "web", "ingestor", "translator", "playground", "goalkeeper");
 
-    private static final List<String> WHATS = ImmutableList.of("disk-used", "teleported-goats");
+    private static final List<String> WHATS =
+        ImmutableList.of("disk-used", "teleported-goats", "waffles", "cycles", "punches",
+            "buckets");
 
     private final Random random = new Random();
 

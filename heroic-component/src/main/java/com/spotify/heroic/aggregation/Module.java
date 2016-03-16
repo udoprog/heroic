@@ -23,18 +23,14 @@ package com.spotify.heroic.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import com.spotify.heroic.HeroicModule;
-import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.dagger.LoadingComponent;
-import com.spotify.heroic.grammar.AggregationValue;
+import com.spotify.heroic.grammar.Expression;
+import com.spotify.heroic.grammar.FunctionExpression;
 import dagger.Component;
-import eu.toolchain.serializer.SerialReader;
-import eu.toolchain.serializer.SerialWriter;
-import eu.toolchain.serializer.Serializer;
 import eu.toolchain.serializer.SerializerFramework;
 
 import javax.inject.Inject;
 import javax.inject.Named;
-import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
@@ -45,153 +41,55 @@ public class Module implements HeroicModule {
     }
 
     @Component(dependencies = LoadingComponent.class)
-    static interface C {
+    interface C {
         E entry();
     }
 
     static class E implements HeroicModule.Entry {
         private final AggregationRegistry c;
-        private final AggregationSerializer aggregation;
         private final AggregationFactory factory;
         private final SerializerFramework s;
 
         @Inject
         public E(
-            AggregationRegistry c, AggregationSerializer aggregation, AggregationFactory factory,
+            AggregationRegistry c, AggregationFactory factory,
             @Named("common") SerializerFramework s
         ) {
             super();
             this.c = c;
-            this.aggregation = aggregation;
             this.factory = factory;
             this.s = s;
         }
 
         @Override
         public void setup() {
-            final Serializer<Optional<List<String>>> list = s.optional(s.list(s.string()));
-            final Serializer<List<AggregationInstance>> aggregations = s.list(aggregation);
+            c.register(Empty.NAME, Empty.class, args -> {
+                final Optional<Expression> reference = args.getNext("reference", Expression.class);
+                return new Empty(reference);
+            });
 
-            c.register(Empty.NAME, Empty.class, EmptyInstance.class,
-                new Serializer<EmptyInstance>() {
-                    @Override
-                    public void serialize(SerialWriter buffer, EmptyInstance value)
-                        throws IOException {
-                    }
+            c.register(Group.NAME, Group.class, new GroupingAggregationBuilder(factory) {
+                @Override
+                protected Aggregation build(
+                    Optional<List<String>> over, Optional<Aggregation> each,
+                    Optional<Expression> reference
+                ) {
+                    return new Group(over, each, reference);
+                }
+            });
 
-                    @Override
-                    public EmptyInstance deserialize(SerialReader buffer) throws IOException {
-                        return EmptyInstance.INSTANCE;
-                    }
-                }, args -> Empty.INSTANCE);
+            c.register(Chain.NAME, Chain.class, new AbstractAggregationDSL(factory) {
+                @Override
+                public Aggregation build(final AggregationArguments args) {
+                    final List<Aggregation> chain = ImmutableList.copyOf(args
+                        .takeArguments(FunctionExpression.class)
+                        .stream()
+                        .map(this::asAggregation)
+                        .iterator());
 
-            c.register(Group.NAME, Group.class, GroupInstance.class,
-                new GroupingAggregationSerializer<GroupInstance>(list, aggregation) {
-                    @Override
-                    protected GroupInstance build(
-                        Optional<List<String>> of, AggregationInstance each
-                    ) {
-                        return new GroupInstance(of, each);
-                    }
-                }, new GroupingAggregationBuilder(factory) {
-                    @Override
-                    protected Aggregation build(
-                        Optional<List<String>> over, Optional<Aggregation> each
-                    ) {
-                        return new Group(over, each);
-                    }
-                });
-
-            c.register(Collapse.NAME, Collapse.class, CollapseInstance.class,
-                new GroupingAggregationSerializer<CollapseInstance>(list, aggregation) {
-                    @Override
-                    protected CollapseInstance build(
-                        Optional<List<String>> of, AggregationInstance each
-                    ) {
-                        return new CollapseInstance(of, each);
-                    }
-                }, new GroupingAggregationBuilder(factory) {
-                    @Override
-                    protected Aggregation build(
-                        Optional<List<String>> over, Optional<Aggregation> each
-                    ) {
-                        return new Collapse(over, each);
-                    }
-                });
-
-            c.register(Chain.NAME, Chain.class, ChainInstance.class,
-                new Serializer<ChainInstance>() {
-                    @Override
-                    public void serialize(SerialWriter buffer, ChainInstance value)
-                        throws IOException {
-                        aggregations.serialize(buffer, value.getChain());
-                    }
-
-                    @Override
-                    public ChainInstance deserialize(SerialReader buffer) throws IOException {
-                        final List<AggregationInstance> chain = aggregations.deserialize(buffer);
-                        return new ChainInstance(chain);
-                    }
-                }, new AbstractAggregationDSL(factory) {
-                    @Override
-                    public Aggregation build(final AggregationArguments args) {
-                        final List<Aggregation> chain = ImmutableList.copyOf(args
-                            .takeArguments(AggregationValue.class)
-                            .stream()
-                            .map(this::asAggregation)
-                            .iterator());
-
-                        return new Chain(chain);
-                    }
-                });
-
-            c.register(Partition.NAME, Partition.class, PartitionInstance.class,
-                new Serializer<PartitionInstance>() {
-                    @Override
-                    public void serialize(SerialWriter buffer, PartitionInstance value)
-                        throws IOException {
-                        aggregations.serialize(buffer, value.getChildren());
-                    }
-
-                    @Override
-                    public PartitionInstance deserialize(SerialReader buffer) throws IOException {
-                        final List<AggregationInstance> children = aggregations.deserialize(buffer);
-                        return new PartitionInstance(children);
-                    }
-                }, new AbstractAggregationDSL(factory) {
-                    @Override
-                    public Aggregation build(final AggregationArguments args) {
-                        final List<Aggregation> children = ImmutableList.copyOf(args
-                            .takeArguments(AggregationValue.class)
-                            .stream()
-                            .map(this::asAggregation)
-                            .iterator());
-                        return new Partition(children);
-                    }
-                });
-
-            c.register(Options.NAME, Options.class, AggregationInstance.class, aggregation,
-                new AbstractAggregationDSL(factory) {
-                    @Override
-                    public Aggregation build(final AggregationArguments args) {
-                        final Optional<Aggregation> child = args
-                            .getNext("aggregation", AggregationValue.class)
-                            .map(this::asAggregation);
-
-                        final Optional<Duration> size = args.keyword("size", Duration.class);
-                        final Optional<Duration> extent = args.keyword("extent", Duration.class);
-
-                        final Optional<SamplingQuery> sampling;
-
-                        if (size.isPresent() || extent.isPresent()) {
-                            sampling = Optional.of(new SamplingQuery(size, extent));
-                        } else {
-                            sampling = Optional.empty();
-                        }
-
-                        return new Options(sampling, child);
-                    }
-                });
+                    return new Chain(chain);
+                }
+            });
         }
     }
 }

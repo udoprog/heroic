@@ -21,10 +21,11 @@
 
 package com.spotify.heroic.aggregation;
 
-import com.spotify.heroic.grammar.ListValue;
-import com.spotify.heroic.grammar.Value;
+import com.spotify.heroic.grammar.ListExpression;
+import com.spotify.heroic.grammar.Expression;
 
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Factory to dynamically build aggregations.
@@ -43,5 +44,13 @@ public interface AggregationFactory {
      * @return The built aggregation.
      * @throws MissingAggregation If the given name does not reflect an available aggregation.
      */
-    public Aggregation build(String name, ListValue args, Map<String, Value> keywords);
+    Aggregation build(String name, ListExpression args, Map<String, Expression> keywords);
+
+    /**
+     * Build an aggregation from an expression.
+     *
+     * @param e Expresison to build from.
+     * @return A new aggregation built from the given expression.
+     */
+    Optional<Aggregation> fromExpression(Expression e);
 }

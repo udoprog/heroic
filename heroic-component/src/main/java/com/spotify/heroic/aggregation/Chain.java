@@ -26,12 +26,18 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
+import com.spotify.heroic.common.Duration;
+import eu.toolchain.async.AsyncFuture;
 import lombok.Data;
+import org.apache.commons.lang3.tuple.Pair;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Optional;
+import java.util.Set;
 
 @Data
 public class Chain implements Aggregation {
@@ -53,44 +59,93 @@ public class Chain implements Aggregation {
     }
 
     @Override
-    public Optional<Long> size() {
-        return chain.get(chain.size() - 1).size();
-    }
-
-    /**
-     * The first aggregation in the chain determines the extent.
-     */
-    @Override
-    public Optional<Long> extent() {
-        return chain.iterator().next().extent();
-    }
-
-    @Override
-    public ChainInstance apply(final AggregationContext context) {
-        ListIterator<Aggregation> it = chain.listIterator(chain.size());
-
-        AggregationContext current = context;
-        final ImmutableSet.Builder<String> tags = ImmutableSet.builder();
-
-        final ImmutableList.Builder<AggregationInstance> chain = ImmutableList.builder();
+    public Optional<Duration> cadence() {
+        final ListIterator<Aggregation> it = this.chain.listIterator(this.chain.size());
 
         while (it.hasPrevious()) {
-            final AggregationInstance instance = it.previous().apply(current);
-            tags.addAll(instance.requiredTags());
-            current = AggregationContext.withRequiredTags(context, tags.build());
-            chain.add(instance);
+            final Optional<Duration> cadence = it.previous().cadence();
+
+            if (cadence.isPresent()) {
+                return cadence;
+            }
         }
 
-        return new ChainInstance(Lists.reverse(chain.build()));
+        return Optional.empty();
     }
 
     @Override
-    public String toDSL() {
-        return PIPE.join(chain.stream().map(Aggregation::toDSL).iterator());
+    public boolean referential() {
+        return chain.stream().anyMatch(Aggregation::referential);
     }
 
     @Override
-    public String toString() {
-        return toDSL();
+    public AsyncFuture<AggregationContext> setup(final AggregationContext context) {
+        AsyncFuture<AggregationContext> current = context.async().resolved(context);
+
+        for (final Pair<Set<String>, Aggregation> step : steps(context)) {
+            current = current.lazyTransform(
+                c -> step.getRight().setup(c.withRequiredTags(step.getLeft())));
+        }
+
+        return current;
+    }
+
+    @Override
+    public Set<String> requiredTags() {
+        final ImmutableSet.Builder<String> tags = ImmutableSet.builder();
+        chain.stream().map(Aggregation::requiredTags).forEach(tags::addAll);
+        return tags.build();
+    }
+
+    @Override
+    public Aggregation distributed() {
+        final List<Aggregation> newChain = new ArrayList<>();
+        final Iterator<Aggregation> it = chain.iterator();
+
+        while (it.hasNext()) {
+            final Aggregation n = it.next();
+
+            if (!it.hasNext()) {
+                newChain.add(n.distributed());
+                break;
+            }
+
+            newChain.add(n);
+        }
+
+        return new Chain(newChain);
+    }
+
+    @Override
+    public Aggregation combiner() {
+        final Iterator<Aggregation> it = chain.iterator();
+
+        while (it.hasNext()) {
+            final Aggregation n = it.next();
+
+            if (!it.hasNext()) {
+                return n.combiner();
+            }
+        }
+
+        throw new IllegalStateException("empty chain");
+    }
+
+    private List<Pair<Set<String>, Aggregation>> steps(final AggregationContext context) {
+        final ListIterator<Aggregation> it = this.chain.listIterator(this.chain.size());
+
+        final ImmutableSet.Builder<String> tags = ImmutableSet.builder();
+        tags.addAll(context.requiredTags());
+
+        final List<Pair<Set<String>, Aggregation>> steps = new ArrayList<>();
+
+        while (it.hasPrevious()) {
+            final Aggregation aggregation = it.previous();
+            tags.addAll(aggregation.requiredTags());
+            steps.add(Pair.of(tags.build(), aggregation));
+        }
+
+        Collections.reverse(steps);
+        return ImmutableList.copyOf(steps);
     }
 }

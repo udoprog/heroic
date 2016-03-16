@@ -21,25 +21,38 @@
 
 package com.spotify.heroic.aggregation;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
+import com.spotify.heroic.async.Observable;
 import com.spotify.heroic.common.Series;
+import com.spotify.heroic.metric.MetricCollection;
 import lombok.Data;
 
 import java.util.Map;
-import java.util.Set;
 
 @Data
 public class AggregationState {
     final Map<String, String> key;
-    final Set<Series> series;
+    final Iterable<Series> series;
+    final Observable<MetricCollection> observable;
 
     /**
-     * Create a state that only contains a single time series.
+     * Create a state representing a single series.
      *
-     * @param s The time series contained in the state.
-     * @return The new traverse state.
+     * @param s The seres it represents.
+     * @param observable Observable providing data for this series.
+     * @return An aggregation state representing a single series.
      */
-    public static AggregationState forSeries(Series s) {
-        return new AggregationState(s.getTags(), ImmutableSet.of(s));
+    public static AggregationState forSeries(
+        final Series s, final Observable<MetricCollection> observable
+    ) {
+        return new AggregationState(s.getTags(), ImmutableList.of(s), observable);
+    }
+
+    public AggregationState withKey(final Map<String, String> key) {
+        return new AggregationState(key, series, observable);
+    }
+
+    public AggregationState withObservable(final Observable<MetricCollection> observable) {
+        return new AggregationState(key, series, observable);
     }
 }

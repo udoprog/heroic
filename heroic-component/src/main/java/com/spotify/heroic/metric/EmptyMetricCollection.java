@@ -22,11 +22,8 @@
 package com.spotify.heroic.metric;
 
 import com.google.common.collect.ImmutableList;
-import com.spotify.heroic.aggregation.AggregationSession;
-import com.spotify.heroic.aggregation.Bucket;
-import com.spotify.heroic.aggregation.ReducerSession;
-
-import java.util.Map;
+import com.spotify.heroic.aggregation.MetricCollector;
+import com.spotify.heroic.aggregation.MetricsCollector;
 
 public class EmptyMetricCollection extends MetricCollection {
     public EmptyMetricCollection() {
@@ -34,16 +31,24 @@ public class EmptyMetricCollection extends MetricCollection {
     }
 
     @Override
-    public void updateAggregation(
-        AggregationSession session, Map<String, String> tags
+    public void update(
+        MetricsCollector session
     ) {
     }
 
     @Override
-    public void updateBucket(Bucket bucket, Map<String, String> tags) {
+    public void update(MetricCollector collector) {
     }
 
     @Override
-    public void updateReducer(ReducerSession session, Map<String, String> tags) {
+    public MetricCollection apply(
+        final MetricCollectionBiFunction function, final MetricCollection right
+    ) {
+        return this;
+    }
+
+    @Override
+    public MetricCollection apply(final MetricCollectionFunction function) {
+        return this;
     }
 }

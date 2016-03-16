@@ -21,26 +21,23 @@
 
 package com.spotify.heroic.cache.memory;
 
-import com.spotify.heroic.QueryOptions;
-import com.spotify.heroic.aggregation.AggregationInstance;
+import com.spotify.heroic.QueryInstance;
 import com.spotify.heroic.cache.CacheScope;
 import com.spotify.heroic.cache.QueryCache;
-import com.spotify.heroic.common.DateRange;
-import com.spotify.heroic.filter.Filter;
-import com.spotify.heroic.metric.MetricType;
+import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.metric.QueryResult;
 import eu.toolchain.async.AsyncFuture;
-import lombok.Data;
 import net.jodah.expiringmap.ExpirationPolicy;
 import net.jodah.expiringmap.ExpiringMap;
 
 import javax.inject.Inject;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 @CacheScope
 public class MemoryQueryCache implements QueryCache {
-    private final ExpiringMap<Key, AsyncFuture<QueryResult>> cache;
+    private final ExpiringMap<QueryInstance, AsyncFuture<QueryResult>> cache;
 
     private final Object lock = new Object();
 
@@ -51,42 +48,32 @@ public class MemoryQueryCache implements QueryCache {
 
     @Override
     public AsyncFuture<QueryResult> load(
-        MetricType source, Filter filter, DateRange range, AggregationInstance aggregationInstance,
-        QueryOptions options, Supplier<AsyncFuture<QueryResult>> loader
+        QueryInstance query, Supplier<AsyncFuture<QueryResult>> loader
     ) {
+        final Optional<Long> cadence =
+            query.getAggregation().cadence().map(Duration::toMilliseconds).filter(c -> c > 0);
+
         /* can't be cached :( */
-        if (aggregationInstance.cadence() <= 0) {
+        if (cadence.isPresent()) {
             return loader.get();
         }
 
-        final Key k = new Key(source, filter, range, aggregationInstance, options);
-
-        final AsyncFuture<QueryResult> result = cache.get(k);
+        final AsyncFuture<QueryResult> result = cache.get(query);
 
         if (result != null) {
             return result;
         }
 
         synchronized (lock) {
-            final AsyncFuture<QueryResult> candidate = cache.get(k);
+            final AsyncFuture<QueryResult> candidate = cache.get(query);
 
             if (candidate != null) {
                 return candidate;
             }
 
             final AsyncFuture<QueryResult> next = loader.get();
-            cache.put(k, next, ExpirationPolicy.ACCESSED, aggregationInstance.cadence(),
-                TimeUnit.MILLISECONDS);
+            cache.put(query, next, ExpirationPolicy.ACCESSED, cadence.get(), TimeUnit.MILLISECONDS);
             return next;
         }
-    }
-
-    @Data
-    public static class Key {
-        private final MetricType source;
-        private final Filter filter;
-        private final DateRange range;
-        private final AggregationInstance aggregationInstance;
-        private final QueryOptions options;
     }
 }

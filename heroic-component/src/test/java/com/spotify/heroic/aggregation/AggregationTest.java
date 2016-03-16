@@ -2,7 +2,12 @@ package com.spotify.heroic.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import org.junit.Before;
+import com.spotify.heroic.async.Observable;
+import com.spotify.heroic.common.DateRange;
+import com.spotify.heroic.common.Duration;
+import com.spotify.heroic.common.Series;
+import eu.toolchain.async.AsyncFramework;
+import eu.toolchain.async.TinyAsync;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
@@ -11,61 +16,42 @@ import org.mockito.runners.MockitoJUnitRunner;
 import java.util.Optional;
 
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.doReturn;
 
 /**
- * Tests for a bunch of aggregation archetypes.
+ * Tests for aggregation archetypes.
  *
  * @author udoprog
  */
 @RunWith(MockitoJUnitRunner.class)
 public class AggregationTest {
-    @Mock
-    private Aggregation a;
+    static AsyncFramework async = TinyAsync.builder().build();
 
     @Mock
-    private AggregationInstance instance;
+    DateRange range;
 
     @Mock
-    private AggregationContext context;
+    Duration duration;
 
-    @Before
-    public void setup() {
-        doReturn(instance).when(a).apply(any(AggregationContext.class));
-        doReturn(ImmutableSet.of()).when(context).requiredTags();
-    }
+    @Mock
+    Series s;
 
     @Test
-    public void testEmptyInChain() {
-        Aggregations.chain();
-    }
+    public void testTagsElision() throws Exception {
+        final GroupingAggregation a =
+            new Group(Optional.of(ImmutableList.of("site")), Optional.empty());
+        final GroupingAggregation b =
+            new Group(Optional.of(ImmutableList.of("host")), Optional.empty());
+        final Aggregation chain = Aggregations.chain(a, b);
 
-    /**
-     * Test that required tags works when elided for a given collection of aggregations.
-     */
-    @Test
-    public void testTagElision() {
-        final Aggregation g1 = new Group(Optional.of(ImmutableList.of("foo")), Optional.of(a));
-        final Aggregation g2 =
-            new Group(Optional.of(ImmutableList.of("bar")), Optional.of(new Chain(ImmutableList.of(
-                // inner groups should _not_ force tags elision
-                new Group(Optional.of(ImmutableList.of("baz")), Optional.of(a))))));
+        assertEquals(ImmutableSet.of("site", "host"), chain.requiredTags());
 
-        final AggregationInstance instance =
-            Aggregations.chain(Optional.of(ImmutableList.of(g1, g2))).apply(context);
+        final AggregationContext context = AggregationContext.tracing(async,
+            ImmutableList.of(AggregationState.forSeries(s, Observable.empty())), range, duration);
 
-        final ChainInstance chain = (ChainInstance) instance;
-        final GroupInstance g1i = (GroupInstance) chain.getChain().get(0);
-        final GroupInstance g2i = (GroupInstance) chain.getChain().get(1);
-        final GroupInstance g2i1i =
-            (GroupInstance) ((ChainInstance) ((GroupInstance) chain.getChain().get(1)).getEach())
-                .getChain()
-                .get(0);
+        final AggregationContext out = chain.setup(context).get();
 
-        assertEquals(Optional.of(ImmutableSet.of("foo", "bar")),
-            g1i.getOf().map(ImmutableSet::copyOf));
-        assertEquals(Optional.of(ImmutableSet.of("bar")), g2i.getOf().map(ImmutableSet::copyOf));
-        assertEquals(Optional.of(ImmutableSet.of("baz")), g2i1i.getOf().map(ImmutableSet::copyOf));
+        assertEquals(ImmutableSet.of("host"), out.requiredTags());
+        assertEquals(ImmutableSet.of("site", "host"),
+            out.parents().get(0).parents().get(0).parents().get(0).requiredTags());
     }
 }

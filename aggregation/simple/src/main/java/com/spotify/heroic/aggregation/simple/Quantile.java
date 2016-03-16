@@ -23,58 +23,59 @@ package com.spotify.heroic.aggregation.simple;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.spotify.heroic.aggregation.AggregationContext;
+import com.google.common.collect.ImmutableSet;
+import com.spotify.heroic.aggregation.BucketAggregation;
 import com.spotify.heroic.aggregation.SamplingQuery;
 import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.common.Optionals;
+import com.spotify.heroic.grammar.Expression;
+import com.spotify.heroic.metric.Metric;
+import com.spotify.heroic.metric.MetricType;
+import com.spotify.heroic.metric.Point;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class Quantile extends SamplingAggregation {
+public class Quantile extends BucketAggregation<QuantileBucket> {
     public static final String NAME = "quantile";
 
     public static final double DEFAULT_QUANTILE = 0.5;
     public static final double DEFAULT_ERROR = 0.01;
 
-    private final Optional<Double> q;
-    private final Optional<Double> error;
+    private final double q;
+    private final double error;
 
     @JsonCreator
     public Quantile(
-        @JsonProperty("sampling") Optional<SamplingQuery> sampling,
-        @JsonProperty("size") Optional<Duration> size,
-        @JsonProperty("extent") Optional<Duration> extent, @JsonProperty("q") Optional<Double> q,
-        @JsonProperty("error") Optional<Double> error
+        @JsonProperty("sampling") final Optional<SamplingQuery> sampling,
+        @JsonProperty("size") final Optional<Duration> size,
+        @JsonProperty("extent") Optional<Duration> extent,
+        @JsonProperty("reference") final Optional<Expression> reference,
+        @JsonProperty("q") Optional<Double> q, @JsonProperty("error") Optional<Double> error
     ) {
         super(Optionals.firstPresent(size, sampling.flatMap(SamplingQuery::getSize)),
-            Optionals.firstPresent(extent, sampling.flatMap(SamplingQuery::getExtent)));
-        this.q = q;
-        this.error = error;
+            Optionals.firstPresent(extent, sampling.flatMap(SamplingQuery::getExtent)), reference,
+            ImmutableSet.of(MetricType.POINT), MetricType.POINT);
+        this.q = q.orElse(DEFAULT_QUANTILE);
+        this.error = error.orElse(DEFAULT_ERROR);
     }
 
     @Override
-    public QuantileInstance apply(AggregationContext context, final long size, final long extent) {
-        return new QuantileInstance(size, extent, q.orElse(DEFAULT_QUANTILE),
-            error.orElse(DEFAULT_ERROR));
+    protected QuantileBucket buildBucket(long timestamp) {
+        return new QuantileBucket(timestamp, q, error);
     }
 
     @Override
-    public String toDSL() {
-        final List<String> extra = new ArrayList<>();
+    protected Metric build(QuantileBucket bucket) {
+        final double value = bucket.value();
 
-        this.q.ifPresent(q -> extra.add("q=" + percentage(q)));
-        this.error.ifPresent(error -> extra.add("error=" + percentage(error)));
+        if (Double.isNaN(value)) {
+            return Metric.invalid();
+        }
 
-        return samplingDSL(NAME, extra);
-    }
-
-    private String percentage(double v) {
-        return Integer.toString((int) Math.min(100, Math.max(0, Math.round(v * 100))));
+        return new Point(bucket.timestamp(), value);
     }
 }

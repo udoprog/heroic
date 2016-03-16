@@ -92,7 +92,7 @@ public class RenderResource {
         final QueryResult result = this.query.useGroup(backendGroup).query(q).get();
 
         final JFreeChart chart =
-            RenderUtils.createChart(result.getGroups(), title, highlight, threshold, height);
+            RenderUtils.createChart(result.getData(), title, highlight, threshold, height);
 
         final BufferedImage image = chart.createBufferedImage(width, height);
 

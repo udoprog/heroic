@@ -23,7 +23,6 @@ package com.spotify.heroic.grammar;
 
 import com.google.common.base.Joiner;
 import com.spotify.heroic.Query;
-import com.spotify.heroic.aggregation.Aggregation;
 import com.spotify.heroic.filter.Filter;
 
 import java.util.List;
@@ -40,21 +39,13 @@ public interface QueryParser {
     Filter parseFilter(String filter);
 
     /**
-     * Parse the given aggregation using the Heroic Query DSL.
+     * Parse the given statements.
      *
-     * @param aggregation String to parse.
-     * @return ParseException if unable to parse string.
+     * @param statements String to parse as statements.
+     * @return The parsed statements.
+     * @throws ParseException if unable to parse.
      */
-    Optional<Aggregation> parseAggregation(String aggregation);
-
-    /**
-     * Parse the given query.
-     *
-     * @param query String to parse.
-     * @return The parse query.
-     * @throws ParseException if unable to parse string.
-     */
-    Query parseQuery(String query);
+    Statements parse(String statements);
 
     String stringifyQuery(Query query);
 

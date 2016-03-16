@@ -23,6 +23,7 @@ package com.spotify.heroic.rpc.nativerpc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.spotify.heroic.FullQuery;
 import com.spotify.heroic.cluster.NodeMetadata;
 import com.spotify.heroic.common.RangeFilter;
 import com.spotify.heroic.lifecycle.LifeCycleRegistry;
@@ -33,13 +34,13 @@ import com.spotify.heroic.metadata.FindKeys;
 import com.spotify.heroic.metadata.FindSeries;
 import com.spotify.heroic.metadata.FindTags;
 import com.spotify.heroic.metadata.MetadataManager;
+import com.spotify.heroic.metric.AnalyzeResult;
 import com.spotify.heroic.metric.MetricManager;
-import com.spotify.heroic.metric.ResultGroups;
+import com.spotify.heroic.metric.QueryResult;
 import com.spotify.heroic.metric.WriteMetric;
 import com.spotify.heroic.metric.WriteResult;
 import com.spotify.heroic.rpc.nativerpc.NativeRpcProtocol.GroupedQuery;
 import com.spotify.heroic.rpc.nativerpc.NativeRpcProtocol.RpcKeySuggest;
-import com.spotify.heroic.rpc.nativerpc.NativeRpcProtocol.RpcQuery;
 import com.spotify.heroic.rpc.nativerpc.NativeRpcProtocol.RpcSuggestTagValue;
 import com.spotify.heroic.rpc.nativerpc.NativeRpcProtocol.RpcSuggestTagValues;
 import com.spotify.heroic.rpc.nativerpc.NativeRpcProtocol.RpcTagSuggest;
@@ -132,17 +133,25 @@ public class NativeRpcProtocolServer implements LifeCycles {
             }
         });
 
-        container.register(NativeRpcProtocol.METRICS_QUERY,
-            new NativeRpcEndpoint<GroupedQuery<RpcQuery>, ResultGroups>() {
+        container.register(NativeRpcProtocol.ANALYZE_QUERY,
+            new NativeRpcEndpoint<GroupedQuery<FullQuery>, AnalyzeResult>() {
                 @Override
-                public AsyncFuture<ResultGroups> handle(final GroupedQuery<RpcQuery> grouped)
+                public AsyncFuture<AnalyzeResult> handle(final GroupedQuery<FullQuery> grouped)
                     throws Exception {
-                    final RpcQuery query = grouped.getQuery();
+                    final FullQuery query = grouped.getQuery();
 
-                    return metrics
-                        .useGroup(grouped.getGroup().orElse(null))
-                        .query(query.getSource(), query.getFilter(), query.getRange(),
-                            query.getAggregation(), query.getOptions());
+                    return metrics.useGroup(grouped.getGroup().orElse(null)).analyze(query);
+                }
+            });
+
+        container.register(NativeRpcProtocol.METRICS_QUERY,
+            new NativeRpcEndpoint<GroupedQuery<FullQuery>, QueryResult>() {
+                @Override
+                public AsyncFuture<QueryResult> handle(final GroupedQuery<FullQuery> grouped)
+                    throws Exception {
+                    final FullQuery query = grouped.getQuery();
+
+                    return metrics.useGroup(grouped.getGroup().orElse(null)).query(query);
                 }
             });
 

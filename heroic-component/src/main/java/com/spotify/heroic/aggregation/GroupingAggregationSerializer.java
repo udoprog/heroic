@@ -34,7 +34,7 @@ import java.util.Optional;
 public abstract class GroupingAggregationSerializer<T extends GroupingAggregation>
     implements Serializer<T> {
     private final Serializer<Optional<List<String>>> list;
-    private final Serializer<AggregationInstance> aggregation;
+    private final Serializer<Aggregation> aggregation;
 
     @Override
     public void serialize(SerialWriter buffer, T value) throws IOException {
@@ -45,9 +45,9 @@ public abstract class GroupingAggregationSerializer<T extends GroupingAggregatio
     @Override
     public T deserialize(SerialReader buffer) throws IOException {
         final Optional<List<String>> of = list.deserialize(buffer);
-        final AggregationInstance each = aggregation.deserialize(buffer);
+        final Aggregation each = aggregation.deserialize(buffer);
         return build(of, each);
     }
 
-    protected abstract T build(Optional<List<String>> of, AggregationInstance each);
+    protected abstract T build(Optional<List<String>> of, Aggregation each);
 }

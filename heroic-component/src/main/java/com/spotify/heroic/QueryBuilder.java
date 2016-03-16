@@ -21,7 +21,6 @@
 
 package com.spotify.heroic;
 
-import com.google.common.collect.ImmutableSet;
 import com.spotify.heroic.aggregation.Aggregation;
 import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.filter.FilterFactory;
@@ -33,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.spotify.heroic.common.Optionals.pickOptional;
@@ -41,6 +41,7 @@ import static com.spotify.heroic.common.Optionals.pickOptional;
 public class QueryBuilder {
     private final FilterFactory filters;
 
+    private Optional<Map<String, Query>> statements = Optional.empty();
     private Optional<MetricType> source = Optional.empty();
     private Optional<Map<String, String>> tags = Optional.empty();
     private Optional<String> key = Optional.empty();
@@ -49,13 +50,25 @@ public class QueryBuilder {
     private Optional<QueryDateRange> range = Optional.empty();
     private Optional<Aggregation> aggregation = Optional.empty();
     private Optional<QueryOptions> options = Optional.empty();
-    private Set<String> features = ImmutableSet.of();
+    private Optional<Set<String>> features = Optional.empty();
+
+    public QueryBuilder modifyOptions(Function<QueryOptions, QueryOptions> modify) {
+        this.options = Optional.of(
+            this.options.map(modify).orElseGet(() -> modify.apply(QueryOptions.defaults())));
+        return this;
+    }
+
+    public QueryBuilder statements(Optional<Map<String, Query>> statements) {
+        checkNotNull(statements, "statements must not be null");
+        this.statements = statements;
+        return this;
+    }
 
     /**
      * Specify a set of tags that has to match.
      *
-     * @deprecated Use {@link #filter(Filter)} with the appropriate filter instead. These can be
-     * built using {@link FilterFactory#matchKey(String)}.
+     * @deprecated Use {@link #filter(java.util.Optional)}} with the appropriate filter instead.
+     * These can be built using {@link FilterFactory#matchKey(String)}.
      */
     public QueryBuilder key(Optional<String> key) {
         this.key = key;
@@ -65,8 +78,8 @@ public class QueryBuilder {
     /**
      * Specify a set of tags that has to match.
      *
-     * @deprecated Use {@link #filter(Filter)} with the appropriate filter instead. These can be
-     * built using {@link FilterFactory#matchTag(String, String)}.
+     * @deprecated Use {@link #filter(java.util.Optional)}} with the appropriate filter instead.
+     * These can be built using {@link FilterFactory#matchTag(String, String)}.
      */
     public QueryBuilder tags(Optional<Map<String, String>> tags) {
         checkNotNull(tags, "tags must not be null");
@@ -92,7 +105,7 @@ public class QueryBuilder {
      */
     public QueryBuilder range(Optional<QueryDateRange> range) {
         checkNotNull(range, "range");
-        this.range = pickOptional(this.range, range).filter(r -> !r.isEmpty());
+        this.range = pickOptional(this.range, range);
         return this;
     }
 
@@ -143,13 +156,13 @@ public class QueryBuilder {
 
     public QueryBuilder features(final Set<String> features) {
         checkNotNull(features, "features");
-        this.features = features;
+        this.features = Optional.of(features);
         return this;
     }
 
     public Query build() {
-        return new Query(Optional.empty(), aggregation, source, range, legacyFilter(), options,
-            groupBy, features);
+        return new Query(statements, Optional.empty(), aggregation, source, range, legacyFilter(),
+            options, groupBy, features);
     }
 
     /**

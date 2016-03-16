@@ -269,15 +269,6 @@ public class DataMigrate implements ShellTask {
         }
 
         @Override
-        public void cancel() throws Exception {
-            synchronized (io) {
-                io.out().println("Cancelled when reading keys");
-            }
-
-            end();
-        }
-
-        @Override
         public void fail(final Throwable cause) throws Exception {
             synchronized (io) {
                 io.out().println("Error when reading keys: " + cause.getMessage());
@@ -338,11 +329,6 @@ public class DataMigrate implements ShellTask {
 
             future.bind(write);
             return write;
-        }
-
-        @Override
-        public void cancel() throws Exception {
-            end();
         }
 
         @Override

@@ -68,6 +68,8 @@ public class NodeError implements RequestError {
     }
 
     private static String errorMessage(Throwable e) {
+        e.printStackTrace(System.out);
+
         final String message = e.getMessage() == null ? "<null>" : e.getMessage();
 
         if (e.getCause() == null) {

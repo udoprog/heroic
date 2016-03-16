@@ -25,7 +25,6 @@ import com.spotify.heroic.aggregation.AbstractAnyBucket;
 import com.spotify.heroic.metric.Metric;
 import lombok.RequiredArgsConstructor;
 
-import java.util.Map;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
@@ -46,7 +45,7 @@ public class StripedCountBucket extends AbstractAnyBucket {
     }
 
     @Override
-    public void update(Map<String, String> tags, Metric d) {
+    public void collectAny(Metric d) {
         count.increment();
     }
 

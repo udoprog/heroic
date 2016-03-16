@@ -32,6 +32,7 @@ import com.spotify.heroic.grammar.QueryParser;
 import com.spotify.heroic.metric.BackendKeyFilter;
 import com.spotify.heroic.shell.task.AnalyticsDumpFetchSeries;
 import com.spotify.heroic.shell.task.AnalyticsReportFetchSeries;
+import com.spotify.heroic.shell.task.AnalyzeQuery;
 import com.spotify.heroic.shell.task.BackendKeyArgument;
 import com.spotify.heroic.shell.task.Configure;
 import com.spotify.heroic.shell.task.CountData;
@@ -88,6 +89,7 @@ public final class Tasks {
     static final Map<Class<?>, ShellTaskDefinition> availableMap = new HashMap<>();
 
     static {
+        shellTask(AnalyzeQuery::setup, AnalyzeQuery.class);
         shellTask(Configure::setup, Configure.class);
         shellTask(Statistics::setup, Statistics.class);
         shellTask(Keys::setup, Keys.class);

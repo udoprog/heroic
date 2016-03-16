@@ -21,6 +21,8 @@
 
 package com.spotify.heroic.grammar;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 @Data
@@ -29,6 +31,17 @@ public class Context {
     private final int col;
     private final int lineEnd;
     private final int colEnd;
+
+    @JsonCreator
+    public Context(
+        @JsonProperty("line") final int line, @JsonProperty("col") final int col,
+        @JsonProperty("lineEnd") final int lineEnd, @JsonProperty("colEnd") final int colEnd
+    ) {
+        this.line = line;
+        this.col = col;
+        this.lineEnd = lineEnd;
+        this.colEnd = colEnd;
+    }
 
     public ParseException error(final String message) {
         return new ParseException(message, null, line, col, lineEnd, colEnd);
@@ -47,6 +60,12 @@ public class Context {
         return new ParseException(
             String.format("%s cannot be cast to a compatible type of %s", from, to), null, line,
             col, lineEnd, colEnd);
+    }
+
+    public ParseException scopeLookupError(final String name) {
+        return new ParseException(
+            String.format("cannot find reference %s in the current scope", name), null, line, col,
+            lineEnd, colEnd);
     }
 
     public Context join(final Context o) {

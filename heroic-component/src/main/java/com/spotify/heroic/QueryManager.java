@@ -22,6 +22,7 @@
 package com.spotify.heroic;
 
 import com.spotify.heroic.cluster.ClusterNode;
+import com.spotify.heroic.metric.AnalyzeResult;
 import com.spotify.heroic.metric.QueryResult;
 import eu.toolchain.async.AsyncFuture;
 
@@ -47,8 +48,10 @@ public interface QueryManager {
 
     AsyncFuture<Void> initialized();
 
-    public interface Group extends Iterable<ClusterNode.Group> {
+    interface Group extends Iterable<ClusterNode.Group> {
         AsyncFuture<QueryResult> query(Query query);
+
+        AsyncFuture<AnalyzeResult> analyze(Query query);
 
         ClusterNode.Group first();
     }

@@ -45,7 +45,6 @@ import lombok.RequiredArgsConstructor;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.ListIterator;
-import java.util.Map;
 
 /**
  * Implementation of the Cormode, Korn, Muthukrishnan, and Srivastava algorithm for streaming
@@ -88,7 +87,7 @@ public class QuantileBucket extends AbstractBucket {
      * @param d data point to add.
      */
     @Override
-    public synchronized void updatePoint(Map<String, String> tags, Point d) {
+    public synchronized void collectPoint(Point d) {
         batch[index] = d.getValue();
         index++;
         count++;

@@ -27,7 +27,6 @@ import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * A reducer session is the last step of a distributed aggregation.
@@ -38,13 +37,13 @@ import java.util.Map;
  * @see AggregationInstance#distributed()
  */
 public interface ReducerSession {
-    void updatePoints(Map<String, String> group, List<Point> values);
+    void updatePoints(List<Point> values);
 
-    void updateEvents(Map<String, String> group, List<Event> values);
+    void updateEvents(List<Event> values);
 
-    void updateSpreads(Map<String, String> group, List<Spread> values);
+    void updateSpreads(List<Spread> values);
 
-    void updateGroup(Map<String, String> group, List<MetricGroup> values);
+    void updateGroup(List<MetricGroup> values);
 
     ReducerResult result();
 }
