@@ -39,14 +39,13 @@ import com.spotify.heroic.cluster.ClusterNode;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.common.Statistics;
-import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.filter.FilterFactory;
 import com.spotify.heroic.grammar.DefaultScope;
 import com.spotify.heroic.grammar.Expression;
 import com.spotify.heroic.grammar.QueryExpression;
+import com.spotify.heroic.grammar.RangeExpression;
 import com.spotify.heroic.grammar.ReferenceExpression;
 import com.spotify.heroic.metric.AnalyzeResult;
-import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.QueryResult;
 import com.spotify.heroic.metric.QueryTrace;
 import com.spotify.heroic.metric.RequestError;
@@ -114,13 +113,11 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
     private final Set<String> features;
     private final long now;
 
-    private final Function<Expression, QueryBuilder> expressionToQuery;
+    private final Function<Expression, QueryInstance> expressionToQuery;
     private final Iterable<ClusterNode.Group> groups;
 
     @Override
-    public AsyncFuture<QueryResult> query(Query q) {
-        final QueryInstance query = newQueryInstance(q);
-
+    public AsyncFuture<QueryResult> query(QueryInstance query) {
         return queryCache.load(query, () -> {
             final QueryTrace.Tracer tracer = QueryTrace.trace(QUERY);
 
@@ -147,10 +144,10 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
     }
 
     @Override
-    public AsyncFuture<AnalyzeResult> analyze(Query q) {
+    public AsyncFuture<AnalyzeResult> analyze(QueryInstance query) {
         final QueryTrace.Tracer tracer = QueryTrace.trace(ANALYZE);
 
-        return complexAnalyze(newQueryInstance(q)).directTransform(
+        return complexAnalyze(query).directTransform(
             result -> AnalyzeResult.analyze(result, () -> tracer.end(result.traces()),
                 ImmutableMap.of(), ImmutableList.of(), ImmutableList.of()));
     }
@@ -197,7 +194,7 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
                     public AggregationLookup visitQuery(
                         final QueryExpression e
                     ) {
-                        return runQuery(newQueryInstance(expressionToQuery.apply(e).build()));
+                        return runQuery(expressionToQuery.apply(e));
                     }
 
                     @Override
@@ -210,7 +207,7 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
         private AggregationLookup runQuery(final QueryInstance queryInstance) {
             return new AggregationLookup.Context(overrides -> this.lookupQuery.apply(queryInstance
                 .andFilter(filters, parent.getFilter())
-                .withRangeIfPresent(overrides.getRange())
+                .withRangeIfOtherPresent(overrides.getRange())
                 .withRangeIfAbsent(parent.getRange())
                 .withParentStatements(parent.getStatements())));
         }
@@ -227,27 +224,6 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
         final AggregationContext context = newDefault(query, ImmutableList.of()).withLookup(lookup);
 
         return query.getAggregation().setup(context);
-    }
-
-    private QueryInstance newQueryInstance(final Query q) {
-        final Map<String, QueryInstance> statements = buildStatements(q.getStatements());
-
-        final MetricType source = q.getSource().orElse(MetricType.POINT);
-        final QueryOptions options = q.getOptions();
-
-        final Aggregation aggregation;
-
-        if (q.getReference().isPresent()) {
-            aggregation = new Empty(Optional.of(new ReferenceExpression(q.getReference().get())));
-        } else {
-            aggregation = q.getAggregation().orElse(Empty.INSTANCE);
-        }
-
-        final Optional<DateRange> range = q.getRange().map(r -> r.buildDateRange(now));
-        final Filter filter = q.getFilter().orElseGet(filters::t);
-
-        return new QueryInstance(statements, source, filter, range, aggregation, options,
-            q.getAggregation().flatMap(Aggregation::cadence), q.getFeatures());
     }
 
     private AsyncFuture<AggregationContext> complexAnalyze(
@@ -270,10 +246,12 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
     private AggregationContext newDefault(
         final QueryInstance query, final List<AggregationState> states
     ) {
-        final DateRange rawRange = query.getRange().orElseGet(this::defaultDateRange);
+        final Expression.Scope scope = new DefaultScope(now);
+
+        final DateRange rawRange =
+            toDateRange(query.getRange().orElseGet(this::defaultDateRange).eval(scope));
         final Duration cadence = buildCadence(query.getCadence(), rawRange);
         final DateRange range = rawRange.rounded(cadence.toMilliseconds());
-        final Expression.Scope scope = new DefaultScope(now);
 
         return AggregationContext.of(async, states, range, cadence, e -> e.eval(scope));
     }
@@ -281,16 +259,21 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
     private AggregationContext newTracing(
         final QueryInstance query, final List<AggregationState> states
     ) {
-        final DateRange rawRange = query.getRange().orElseGet(this::defaultDateRange);
+        final Expression.Scope scope = new DefaultScope(now);
+
+        final DateRange rawRange =
+            toDateRange(query.getRange().orElseGet(this::defaultDateRange).eval(scope));
         final Duration cadence = buildCadence(query.getCadence(), rawRange);
         final DateRange range = rawRange.rounded(cadence.toMilliseconds());
-        final Expression.Scope scope = new DefaultScope(now);
 
         return AggregationContext.tracing(async, states, range, cadence, e -> e.eval(scope));
     }
 
     private FullQuery newFullQuey(final QueryInstance query) {
-        final DateRange rawRange = query.getRange().orElseGet(this::defaultDateRange);
+        final Expression.Scope scope = new DefaultScope(now);
+
+        final DateRange rawRange =
+            toDateRange(query.getRange().orElseGet(this::defaultDateRange).eval(scope));
         final Duration cadence = buildCadence(query.getCadence(), rawRange);
         final DateRange range = rawRange.rounded(cadence.toMilliseconds());
 
@@ -302,6 +285,12 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
 
         return new FullQuery(statements.build(), query.getSource(), query.getFilter(), range,
             query.getAggregation(), query.getOptions(), cadence, query.getFeatures(), now);
+    }
+
+    private DateRange toDateRange(final RangeExpression range) {
+        final long start = range.getStart().cast(Long.class);
+        final long end = range.getEnd().cast(Long.class);
+        return new DateRange(start, end);
     }
 
     private AsyncFuture<AggregationContext> distributeQuery(final QueryInstance q) {
@@ -372,24 +361,16 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
             .lazyTransform(new AnalyzeTransform(combiner, states -> newTracing(q, states)));
     }
 
-    private Map<String, QueryInstance> buildStatements(final Map<String, Query> statements) {
-        final ImmutableMap.Builder<String, QueryInstance> results = ImmutableMap.builder();
-
-        for (final Map.Entry<String, Query> e : statements.entrySet()) {
-            results.put(e.getKey(), newQueryInstance(e.getValue()));
-        }
-
-        return results.build();
-    }
-
     private Duration buildCadence(
         final Optional<Duration> duration, final DateRange range
     ) {
         return duration.orElseGet(() -> cadenceFromRange(range));
     }
 
-    private DateRange defaultDateRange() {
-        return new DateRange(now - TimeUnit.MILLISECONDS.convert(1, TimeUnit.DAYS), now);
+    private RangeExpression defaultDateRange() {
+        return Expression.range(
+            Expression.minus(Expression.reference("now"), Expression.duration(TimeUnit.DAYS, 1)),
+            Expression.reference("now"));
     }
 
     private Duration cadenceFromRange(final DateRange range) {

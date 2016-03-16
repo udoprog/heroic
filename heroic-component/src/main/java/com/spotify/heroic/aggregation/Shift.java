@@ -66,7 +66,10 @@ public class Shift implements Aggregation {
     public AsyncFuture<AggregationContext> setup(final AggregationContext context) {
         final Duration shift = context.eval(amount).visit(TO_DURATION);
         final DateRange shifted = context.range().shift(shift.toMilliseconds());
-        final LookupOverrides overrides = new LookupOverrides(Optional.of(shifted));
+        final LookupOverrides overrides = new LookupOverrides(Optional.of(
+            Expression.range(Expression.integer(shifted.start()),
+                Expression.integer(shifted.end()))));
+
         return context.lookupContext(reference).apply(overrides);
     }
 }

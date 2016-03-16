@@ -26,6 +26,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.spotify.heroic.Query;
 import com.spotify.heroic.QueryBuilder;
+import com.spotify.heroic.QueryInstance;
 import com.spotify.heroic.QueryManager;
 import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.common.JavaxRestFramework;
@@ -116,7 +117,7 @@ public class QueryResource {
             throw new NotFoundException("Stream query not found with id: " + id);
         }
 
-        final Query q = streamQuery.getQuery();
+        final QueryInstance q = streamQuery.getQuery();
         final QueryManager.Group group = streamQuery.getGroup();
         final AsyncFuture<QueryResult> callback = group.query(q);
 
@@ -133,7 +134,7 @@ public class QueryResource {
         @Suspended final AsyncResponse response, @QueryParam("group") String group,
         @Context UriInfo uri, QueryMetrics input
     ) {
-        bindAnalyzeGraphviz(response, query.useGroup(group), setupQuery(input, uri).build());
+        bindAnalyzeGraphviz(response, query.useGroup(group), setupQuery(input, uri));
     }
 
     @POST
@@ -144,7 +145,7 @@ public class QueryResource {
         @Suspended final AsyncResponse response, @Context UriInfo uri,
         @QueryParam("group") String group, QueryMetrics input
     ) {
-        httpAsync.bind(response, query.useGroup(group).analyze(setupQuery(input, uri).build()));
+        httpAsync.bind(response, query.useGroup(group).analyze(setupQuery(input, uri)));
     }
 
     @POST
@@ -177,7 +178,7 @@ public class QueryResource {
         @Suspended final AsyncResponse response, @Context UriInfo uri,
         @QueryParam("group") String group, String input
     ) {
-        bindMetricsResponse(response, query.useGroup(group).query(setupQuery(input, uri).build()));
+        bindMetricsResponse(response, query.useGroup(group).query(setupQuery(input, uri)));
     }
 
     @POST
@@ -188,7 +189,7 @@ public class QueryResource {
         @Suspended final AsyncResponse response, @QueryParam("group") String group,
         @Context UriInfo uri, QueryMetrics input
     ) {
-        bindMetricsResponse(response, query.useGroup(group).query(setupQuery(input, uri).build()));
+        bindMetricsResponse(response, query.useGroup(group).query(setupQuery(input, uri)));
     }
 
     @POST
@@ -202,8 +203,15 @@ public class QueryResource {
         final List<AsyncFuture<Pair<String, QueryResult>>> futures = new ArrayList<>();
 
         for (final Map.Entry<String, QueryMetrics> e : query.getQueries().entrySet()) {
-            final Query q = setupQuery(e.getValue(), uri).rangeIfAbsent(query.getRange()).build();
-            futures.add(group.query(q).directTransform(r -> Pair.of(e.getKey(), r)));
+            final QueryInstance q = setupQuery(e.getValue(), uri);
+
+            final QueryInstance result = query
+                .getRange()
+                .map(r -> Optional.of(r.toRangeExpression()))
+                .map(q::withRangeIfAbsent)
+                .orElse(q);
+
+            futures.add(group.query(result).directTransform(r -> Pair.of(e.getKey(), r)));
         }
 
         final AsyncFuture<QueryBatchResponse> future =
@@ -237,7 +245,7 @@ public class QueryResource {
     }
 
     private void bindAnalyzeGraphviz(
-        final AsyncResponse response, final QueryManager.Group g, final Query q
+        final AsyncResponse response, final QueryManager.Group g, final QueryInstance q
     ) {
         final AsyncFuture<String> callback = g.analyze(q).directTransform(r -> {
             final StringWriter writer = new StringWriter();
@@ -253,9 +261,9 @@ public class QueryResource {
     }
 
     @SuppressWarnings("deprecation")
-    private QueryBuilder setupQuery(final QueryMetrics q, final UriInfo uri) {
+    private QueryInstance setupQuery(final QueryMetrics q, final UriInfo uri) {
         final Supplier<? extends QueryBuilder> supplier = () -> query
-            .newQuery()
+            .newQueryBuilder()
             .key(q.getKey())
             .tags(q.getTags())
             .groupBy(q.getGroupBy())
@@ -274,17 +282,16 @@ public class QueryResource {
             .features(q.getFeatures()), uri);
     }
 
-    private QueryBuilder setupQuery(final String q, final UriInfo uri) {
+    private QueryInstance setupQuery(final String q, final UriInfo uri) {
         return modifyBuilderWithUri(query.newQueryFromString(q), uri);
     }
 
-    private QueryBuilder modifyBuilderWithUri(final QueryBuilder builder, final UriInfo uri) {
+    private QueryInstance modifyBuilderWithUri(final QueryInstance query, final UriInfo uri) {
         final Optional<Boolean> compactTracing = Optional
             .ofNullable(uri.getQueryParameters().getFirst(COMPACT_TRACING))
             .map(Boolean::parseBoolean);
 
-        return builder.modifyOptions(
-            o -> compactTracing.map(c -> o.withCompactTracing(c)).orElse(o));
+        return query.withOptions(query.getOptions().withCompactTracing(c));
     }
 
     @Data
@@ -296,6 +303,6 @@ public class QueryResource {
     @Data
     private static final class StreamQuery {
         private final QueryManager.Group group;
-        private final Query query;
+        private final QueryInstance query;
     }
 }

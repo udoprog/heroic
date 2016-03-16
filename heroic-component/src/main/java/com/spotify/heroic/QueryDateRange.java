@@ -28,7 +28,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.TimeUtils;
-import com.spotify.heroic.grammar.DefaultScope;
+import com.spotify.heroic.grammar.Expression;
 import com.spotify.heroic.grammar.RangeExpression;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -40,29 +40,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes({
     @JsonSubTypes.Type(QueryDateRange.Absolute.class), @JsonSubTypes.Type(
-    QueryDateRange.Relative.class), @JsonSubTypes.Type(
-    QueryDateRange.Expression.class)
+    QueryDateRange.Relative.class)
 })
 public interface QueryDateRange {
-    @Data
-    @JsonTypeName("expression")
-    class Expression implements QueryDateRange {
-        private final RangeExpression expression;
-
-        @JsonCreator
-        public Expression(@JsonProperty("expression") RangeExpression expression) {
-            this.expression = checkNotNull(expression, "expression");
-        }
-
-        @Override
-        public DateRange buildDateRange(final long now) {
-            final com.spotify.heroic.grammar.Expression.Scope scope = new DefaultScope(now);
-            final RangeExpression range = expression.eval(scope);
-            final long start = range.getStart().cast(Long.class);
-            final long end = range.getEnd().cast(Long.class);
-            return new DateRange(start, end);
-        }
-    }
+    RangeExpression toRangeExpression();
 
     @Data
     @RequiredArgsConstructor
@@ -78,8 +59,8 @@ public interface QueryDateRange {
         }
 
         @Override
-        public DateRange buildDateRange(final long now) {
-            return buildDateRange();
+        public RangeExpression toRangeExpression() {
+            return Expression.range(Expression.integer(start), Expression.integer(end));
         }
 
         private DateRange buildDateRange() {
@@ -103,14 +84,14 @@ public interface QueryDateRange {
         }
 
         @Override
-        public DateRange buildDateRange(final long now) {
-            return new DateRange(start(now, value), now);
+        public RangeExpression toRangeExpression() {
+            return Expression.range(
+                Expression.minus(Expression.reference("now"), Expression.duration(unit, value)),
+                Expression.reference("now"));
         }
 
         private long start(final long now, final long value) {
             return now - TimeUnit.MILLISECONDS.convert(value, unit);
         }
     }
-
-    DateRange buildDateRange(final long now);
 }

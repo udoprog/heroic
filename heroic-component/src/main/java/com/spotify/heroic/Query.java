@@ -46,7 +46,6 @@ public class Query {
 
     private final Map<String, Query> statements;
     private final Optional<Aggregation> aggregation;
-    private final Optional<String> reference;
     private final Optional<MetricType> source;
     private final Optional<QueryDateRange> range;
     private final Optional<Filter> filter;
@@ -60,7 +59,6 @@ public class Query {
         @JsonProperty("statements") final Optional<Map<String, Query>> statements,
         @JsonProperty("aggregators") final Optional<List<Aggregation>> aggregators,
         @JsonProperty("aggregation") final Optional<Aggregation> aggregation,
-        @JsonProperty("reference") final Optional<String> reference,
         @JsonProperty("source") final Optional<MetricType> source,
         @JsonProperty("range") final Optional<QueryDateRange> range,
         @JsonProperty("filter") final Optional<Filter> filter,
@@ -73,16 +71,10 @@ public class Query {
         this.range = range;
         this.aggregation =
             Optionals.pickOptional(aggregation, aggregators.flatMap(Aggregations::chain));
-        this.reference = reference;
         this.source = source;
         this.options = options.orElseGet(QueryOptions::defaults);
         this.groupBy = groupBy;
         this.features = features.orElseGet(ImmutableSet::of);
-    }
-
-    public Query withOptions(QueryOptions options) {
-        return new Query(statements, aggregation, reference, source, range, filter, options,
-            groupBy, features);
     }
 
     public Optional<Aggregation> getAggregation() {

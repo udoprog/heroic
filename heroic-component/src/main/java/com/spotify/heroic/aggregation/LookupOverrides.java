@@ -21,7 +21,7 @@
 
 package com.spotify.heroic.aggregation;
 
-import com.spotify.heroic.common.DateRange;
+import com.spotify.heroic.grammar.RangeExpression;
 import lombok.Data;
 
 import java.util.Optional;
@@ -30,7 +30,7 @@ import java.util.Optional;
 public class LookupOverrides {
     private static final LookupOverrides EMPTY = new LookupOverrides(Optional.empty());
 
-    private final Optional<DateRange> range;
+    private final Optional<RangeExpression> range;
 
     public static LookupOverrides empty() {
         return EMPTY;

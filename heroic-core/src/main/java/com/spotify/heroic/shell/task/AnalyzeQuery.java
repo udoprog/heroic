@@ -24,6 +24,7 @@ package com.spotify.heroic.shell.task;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.google.common.base.Joiner;
+import com.spotify.heroic.QueryInstance;
 import com.spotify.heroic.QueryManager;
 import com.spotify.heroic.dagger.CoreComponent;
 import com.spotify.heroic.shell.AbstractShellTaskParams;
@@ -75,7 +76,7 @@ public class AnalyzeQuery implements ShellTask {
         }
 
         final String queryString = Joiner.on(" ").join(params.query);
-        final com.spotify.heroic.Query q = query.newQueryFromString(queryString).build();
+        final QueryInstance q = query.newQueryFromString(queryString);
 
         return query.useDefaultGroup().analyze(q).directTransform(result -> {
             if (params.json) {

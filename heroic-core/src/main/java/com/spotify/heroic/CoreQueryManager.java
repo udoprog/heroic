@@ -22,11 +22,16 @@
 package com.spotify.heroic;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.spotify.heroic.aggregation.Aggregation;
 import com.spotify.heroic.aggregation.AggregationFactory;
+import com.spotify.heroic.aggregation.Empty;
 import com.spotify.heroic.cache.QueryCache;
 import com.spotify.heroic.cluster.ClusterManager;
 import com.spotify.heroic.cluster.ClusterNode;
+import com.spotify.heroic.common.Duration;
+import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.filter.FilterFactory;
 import com.spotify.heroic.grammar.Expression;
 import com.spotify.heroic.grammar.LetExpression;
@@ -35,8 +40,8 @@ import com.spotify.heroic.grammar.QueryParser;
 import com.spotify.heroic.grammar.RangeExpression;
 import com.spotify.heroic.grammar.ReferenceExpression;
 import com.spotify.heroic.grammar.Statements;
+import com.spotify.heroic.metric.MetricType;
 import eu.toolchain.async.AsyncFramework;
-import eu.toolchain.async.AsyncFuture;
 
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -106,15 +111,15 @@ public class CoreQueryManager implements QueryManager {
     }
 
     @Override
-    public QueryBuilder newQuery() {
+    public QueryBuilder newQueryBuilder() {
         return new QueryBuilder(filters);
     }
 
     @Override
-    public QueryBuilder newQueryFromString(final String queryString) {
+    public QueryInstance newQueryFromString(final String queryString) {
         final Statements parsed = parser.parse(queryString);
 
-        final Map<String, Query> statements = new HashMap<>();
+        final Map<String, QueryInstance> statements = new HashMap<>();
 
         parsed
             .getExpressions()
@@ -130,7 +135,7 @@ public class CoreQueryManager implements QueryManager {
                 }
             }).ifPresent(let -> {
                 statements.put(let.getReference().getName(),
-                    queryBuilderFromExpression(let.getExpression()).build());
+                    expressionToQueryInstance(let.getExpression()));
             }));
 
         final List<Expression> queries = parsed
@@ -143,84 +148,65 @@ public class CoreQueryManager implements QueryManager {
             throw new IllegalArgumentException("Expected exactly one non-let expression");
         }
 
-        return queryBuilderFromExpression(queries.get(0)).statements(Optional.of(statements));
-    }
-
-    @Override
-    public String queryToString(final Query q) {
-        return parser.stringifyQuery(q);
-    }
-
-    @Override
-    public String queryToString(final Query q, final Optional<Integer> indent) {
-        return parser.stringifyQuery(q, indent);
-    }
-
-    @Override
-    public AsyncFuture<Void> initialized() {
-        return cluster.initialized();
+        return expressionToQueryInstance(queries.get(0)).withParentStatements(statements);
     }
 
     private CoreQueryManagerGroup newGroup(final Iterable<ClusterNode.Group> groups) {
         final long now = System.currentTimeMillis();
 
         return new CoreQueryManagerGroup(async, filters, aggregations, queryCache, features, now,
-            this::queryBuilderFromExpression, groups);
+            this::expressionToQueryInstance, groups);
     }
 
-    private QueryBuilder queryBuilderFromExpression(final Expression q) {
-        return q.visit(new Expression.Visitor<QueryBuilder>() {
+    private QueryInstance newQueryInstance(
+        final Optional<MetricType> source, final Optional<RangeExpression> range,
+        final Optional<Filter> filter, final Optional<Aggregation> aggregation,
+        final QueryOptions options, final Map<String, QueryInstance> statements,
+        final Set<String> features
+    ) {
+        final MetricType s = source.orElse(MetricType.POINT);
+        final Aggregation a = aggregation.orElse(Empty.INSTANCE);
+        final Filter f = filter.orElseGet(filters::t);
+
+        return new QueryInstance(statements, s, f, range, a, options,
+            aggregation.flatMap(Aggregation::cadence), features);
+    }
+
+    private QueryInstance expressionToQueryInstance(final Expression q) {
+        return q.visit(new Expression.Visitor<QueryInstance>() {
             @Override
-            public QueryBuilder visitQuery(final QueryExpression e) {
+            public QueryInstance visitQuery(final QueryExpression e) {
                 /* get aggregation that is part of statement, if any */
-                final Optional<Aggregation> aggregation = e
-                    .getSelect()
-                    .flatMap(a -> a.visit(new Expression.Visitor<Optional<Aggregation>>() {
+                final Optional<Aggregation> aggregation =
+                    e.getSelect().map(a -> a.visit(new Expression.Visitor<Aggregation>() {
                         // ignore references since they will be picked up later.
                         @Override
-                        public Optional<Aggregation> visitReference(final ReferenceExpression e) {
-                            return Optional.empty();
+                        public Aggregation visitReference(final ReferenceExpression e) {
+                            return new Empty(Optional.<Expression>of(e));
                         }
 
                         @Override
-                        public Optional<Aggregation> defaultAction(final Expression e) {
+                        public Aggregation defaultAction(final Expression e) {
                             final Optional<Aggregation> agg = aggregations.fromExpression(a);
 
                             if (!agg.isPresent()) {
                                 throw new IllegalArgumentException("Expected aggregation: " + a);
                             }
 
-                            return agg;
+                            return agg.get();
                         }
                     }));
 
-                final Optional<String> reference =
-                    e.getSelect().flatMap(a -> a.visit(new Expression.Visitor<Optional<String>>() {
+                final Optional<RangeExpression> range =
+                    e.getRange().map(r -> r.visit(new Expression.Visitor<RangeExpression>() {
                         @Override
-                        public Optional<String> visitReference(final ReferenceExpression e) {
-                            return Optional.of(e.getName());
-                        }
-
-                        @Override
-                        public Optional<String> defaultAction(final Expression e) {
-                            return Optional.empty();
+                        public RangeExpression visitRange(final RangeExpression e) {
+                            return e;
                         }
                     }));
 
-                final Optional<QueryDateRange> range =
-                    e.getRange().map(r -> r.visit(new Expression.Visitor<QueryDateRange>() {
-                        @Override
-                        public QueryDateRange visitRange(final RangeExpression e) {
-                            return new QueryDateRange.Expression(e);
-                        }
-                    }));
-
-                return newQuery()
-                    .source(e.getSource())
-                    .range(range)
-                    .aggregation(aggregation)
-                    .reference(reference)
-                    .filter(e.getFilter());
+                return newQueryInstance(e.getSource(), range, e.getFilter(), aggregation,
+                    QueryOptions.DEFAULTS, ImmutableMap.of(), ImmutableSet.of());
             }
         });
     }

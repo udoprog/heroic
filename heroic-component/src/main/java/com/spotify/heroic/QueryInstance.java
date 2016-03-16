@@ -23,11 +23,11 @@ package com.spotify.heroic;
 
 import com.google.common.collect.ImmutableMap;
 import com.spotify.heroic.aggregation.Aggregation;
-import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.common.Optionals;
 import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.filter.FilterFactory;
+import com.spotify.heroic.grammar.RangeExpression;
 import com.spotify.heroic.metric.MetricType;
 import lombok.Data;
 
@@ -40,7 +40,7 @@ public class QueryInstance {
     private final Map<String, QueryInstance> statements;
     private final MetricType source;
     private final Filter filter;
-    private final Optional<DateRange> range;
+    private final Optional<RangeExpression> range;
     private final Aggregation aggregation;
     private final QueryOptions options;
     private final Optional<Duration> cadence;
@@ -60,6 +60,11 @@ public class QueryInstance {
             options, cadence, features);
     }
 
+    public QueryInstance withOptions(final QueryOptions options) {
+        return new QueryInstance(statements, source, filter, range, aggregation, options, cadence,
+            features);
+    }
+
     public QueryInstance withParentStatements(final Map<String, QueryInstance> statements) {
         final ImmutableMap<String, QueryInstance> s = ImmutableMap.<String, QueryInstance>builder()
             .putAll(statements)
@@ -69,14 +74,14 @@ public class QueryInstance {
         return new QueryInstance(s, source, filter, range, aggregation, options, cadence, features);
     }
 
-    public QueryInstance withRangeIfAbsent(final Optional<DateRange> other) {
-        final Optional<DateRange> range = Optionals.firstPresent(this.range, other);
+    public QueryInstance withRangeIfAbsent(final Optional<RangeExpression> other) {
+        final Optional<RangeExpression> range = Optionals.firstPresent(this.range, other);
 
         return new QueryInstance(statements, source, filter, range, aggregation, options, cadence,
             features);
     }
 
-    public QueryInstance withRangeIfPresent(final Optional<DateRange> range) {
+    public QueryInstance withRangeIfOtherPresent(final Optional<RangeExpression> range) {
         if (range.isPresent()) {
             return new QueryInstance(statements, source, filter, range, aggregation, options,
                 cadence, features);

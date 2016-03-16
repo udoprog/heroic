@@ -23,6 +23,7 @@ package com.spotify.heroic.shell.task;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.spotify.heroic.QueryInstance;
 import com.spotify.heroic.QueryManager;
 import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.aggregation.AggregationData;
@@ -45,7 +46,6 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @TaskUsage("Execute a query")
@@ -76,31 +76,30 @@ public class Query implements ShellTask {
 
         final QueryOptions options = QueryOptions.builder().tracing(params.tracing).build();
 
-        return query
-            .useGroup(params.group)
-            .query(query.newQueryFromString(queryString).options(Optional.of(options)).build())
-            .directTransform(result -> {
-                for (final RequestError e : result.getErrors()) {
-                    io.out().println(String.format("ERR: %s", e.toString()));
-                }
+        final QueryInstance q = query.newQueryFromString(queryString).withOptions(options);
 
-                for (final AggregationData data : result.getData()) {
-                    final MetricCollection c = data.getMetrics();
+        return query.useGroup(params.group).query(q).directTransform(result -> {
+            for (final RequestError e : result.getErrors()) {
+                io.out().println(String.format("ERR: %s", e.toString()));
+            }
 
-                    io
-                        .out()
-                        .println(String.format("%s: %s: %s", c.getType(), data.getKey(),
-                            data.getSeries()));
-                    io.out().println(indent.writeValueAsString(c.getData()));
-                    io.out().flush();
-                }
+            for (final AggregationData data : result.getData()) {
+                final MetricCollection c = data.getMetrics();
 
-                io.out().println("TRACE:");
-                result.getTrace().formatTrace(io.out());
+                io
+                    .out()
+                    .println(
+                        String.format("%s: %s: %s", c.getType(), data.getKey(), data.getSeries()));
+                io.out().println(indent.writeValueAsString(c.getData()));
                 io.out().flush();
+            }
 
-                return null;
-            });
+            io.out().println("TRACE:");
+            result.getTrace().formatTrace(io.out());
+            io.out().flush();
+
+            return null;
+        });
     }
 
     @ToString
