@@ -29,7 +29,6 @@ import com.spotify.heroic.cluster.ClusterNode;
 import com.spotify.heroic.cluster.NodeMetadata;
 import com.spotify.heroic.cluster.NodeRegistryEntry;
 import com.spotify.heroic.metric.NodeError;
-import com.spotify.heroic.metric.RequestError;
 import eu.toolchain.async.Collector;
 import eu.toolchain.async.Transform;
 import lombok.Data;
@@ -42,16 +41,16 @@ import java.util.TreeSet;
 
 @Data
 public class TagValueSuggest {
-    public static final List<RequestError> EMPTY_ERRORS = new ArrayList<RequestError>();
+    public static final List<NodeError> EMPTY_ERRORS = new ArrayList<NodeError>();
     public static final List<String> EMPTY_VALUES = new ArrayList<String>();
 
-    private final List<RequestError> errors;
+    private final List<NodeError> errors;
     private final List<String> values;
     private final boolean limited;
 
     @JsonCreator
     public TagValueSuggest(
-        @JsonProperty("errors") List<RequestError> errors,
+        @JsonProperty("errors") List<NodeError> errors,
         @JsonProperty("values") List<String> values, @JsonProperty("limited") Boolean limited
     ) {
         this.errors = Optional.fromNullable(errors).or(EMPTY_ERRORS);
@@ -67,7 +66,7 @@ public class TagValueSuggest {
         return new Collector<TagValueSuggest, TagValueSuggest>() {
             @Override
             public TagValueSuggest collect(Collection<TagValueSuggest> groups) throws Exception {
-                final List<RequestError> errors = new ArrayList<>();
+                final List<NodeError> errors = new ArrayList<>();
                 final SortedSet<String> values = new TreeSet<>();
 
                 boolean limited = false;
@@ -94,7 +93,7 @@ public class TagValueSuggest {
             public TagValueSuggest transform(Throwable e) throws Exception {
                 final NodeMetadata m = node.getMetadata();
                 final ClusterNode c = node.getClusterNode();
-                return new TagValueSuggest(ImmutableList.<RequestError>of(
+                return new TagValueSuggest(ImmutableList.<NodeError>of(
                     NodeError.fromThrowable(m.getId(), c.toString(), m.getTags(), e)), EMPTY_VALUES,
                     false);
             }
@@ -107,8 +106,8 @@ public class TagValueSuggest {
         return new Transform<Throwable, TagValueSuggest>() {
             @Override
             public TagValueSuggest transform(Throwable e) throws Exception {
-                final List<RequestError> errors =
-                    ImmutableList.<RequestError>of(NodeError.fromThrowable(group.node(), e));
+                final List<NodeError> errors =
+                    ImmutableList.<NodeError>of(NodeError.fromThrowable(group.node(), e));
                 return new TagValueSuggest(errors, EMPTY_VALUES, false);
             }
         };

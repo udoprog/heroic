@@ -22,32 +22,41 @@
 package com.spotify.heroic.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import com.spotify.heroic.grammar.AggregationValue;
-import com.spotify.heroic.grammar.ListValue;
-import com.spotify.heroic.grammar.Value;
+import com.spotify.heroic.grammar.Expression;
+import com.spotify.heroic.grammar.FunctionExpression;
+import com.spotify.heroic.grammar.ListExpression;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
-public abstract class GroupingAggregationBuilder extends AbstractAggregationDSL {
+public abstract class GroupingAggregationBuilder
+    implements Function<AggregationArguments, Aggregation> {
+    private final AggregationFactory factory;
+
     public GroupingAggregationBuilder(AggregationFactory factory) {
-        super(factory);
+        this.factory = factory;
     }
 
-    protected abstract Aggregation build(Optional<List<String>> of, Optional<Aggregation> each);
+    protected abstract Aggregation build(
+        Optional<List<String>> of, Optional<Aggregation> each, Optional<Expression> reference
+    );
 
     @Override
-    public Aggregation build(final AggregationArguments args) {
-        final Optional<List<String>> of =
-            args.getNext("of", Value.class).flatMap(Value::toOptional).map(this::convertOf);
+    public Aggregation apply(final AggregationArguments args) {
+        final Optional<List<String>> of = args
+            .getNext("of", Expression.class)
+            .flatMap(Expression::toOptional)
+            .map(this::convertOf);
         final Optional<Aggregation> each =
-            args.getNext("each", AggregationValue.class).map(this::asAggregation);
-        return build(of, each);
+            args.getNext("each", FunctionExpression.class).map(factory::fromExpressionWithEmpty);
+        final Optional<Expression> reference = args.getNext("reference", Expression.class);
+        return build(of, each, reference);
     }
 
-    private List<String> convertOf(final Value list) {
+    private List<String> convertOf(final Expression list) {
         return ImmutableList.copyOf(list
-            .cast(ListValue.class)
+            .cast(ListExpression.class)
             .getList()
             .stream()
             .map(v -> v.cast(String.class))

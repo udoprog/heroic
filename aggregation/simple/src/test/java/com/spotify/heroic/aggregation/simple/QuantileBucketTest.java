@@ -15,7 +15,7 @@ public class QuantileBucketTest {
     @Test
     public void testCount() throws IOException {
         final QuantileBucket b = new QuantileBucket(0, 0.5, ERROR);
-        b.updatePoint(TAGS, new Point(0, 1337.0));
+        b.collectPoint(new Point(0, 1337.0));
         Assert.assertEquals(1337.0, b.value(), 0.0);
     }
 
@@ -24,7 +24,7 @@ public class QuantileBucketTest {
         final QuantileBucket b = new QuantileBucket(0, 0.5, ERROR);
 
         for (int i = 1; i <= 10000; i++) {
-            b.updatePoint(TAGS, new Point(0, i));
+            b.collectPoint(new Point(0, i));
         }
 
         Assert.assertEquals(5000.0, b.value(), 10000 * ERROR);
@@ -35,7 +35,7 @@ public class QuantileBucketTest {
         final QuantileBucket b = new QuantileBucket(0, 0.1, ERROR);
 
         for (int i = 1; i <= 10000; i++) {
-            b.updatePoint(TAGS, new Point(0, i));
+            b.collectPoint(new Point(0, i));
         }
 
         Assert.assertEquals(1000.0, b.value(), 10000 * ERROR);

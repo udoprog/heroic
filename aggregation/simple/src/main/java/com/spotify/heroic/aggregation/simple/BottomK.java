@@ -23,44 +23,22 @@ package com.spotify.heroic.aggregation.simple;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.spotify.heroic.aggregation.Aggregation;
-import com.spotify.heroic.aggregation.AggregationContext;
+import com.spotify.heroic.grammar.Expression;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 @Data
-public class BottomK implements Aggregation {
+@EqualsAndHashCode(callSuper = true)
+public class BottomK extends FilterAggregation {
     public static final String NAME = "bottomk";
 
-    private final long k;
-    private final Aggregation of;
+    private final double k;
 
     @JsonCreator
-    public BottomK(@JsonProperty("k") long k, @JsonProperty("of") Aggregation of) {
+    public BottomK(@JsonProperty("k") long k, @JsonProperty("of") Optional<Expression> reference) {
+        super(new FilterKAreaStrategy(FilterKAreaType.BOTTOM, k), reference);
         this.k = k;
-        this.of = checkNotNull(of, "of");
-    }
-
-    @Override
-    public Optional<Long> size() {
-        return of.size();
-    }
-
-    @Override
-    public Optional<Long> extent() {
-        return of.extent();
-    }
-
-    @Override
-    public BottomKInstance apply(final AggregationContext context) {
-        return new BottomKInstance(k, of.apply(context));
-    }
-
-    @Override
-    public String toDSL() {
-        return String.format("%s(%s, %d)", NAME, of.toDSL(), k);
     }
 }

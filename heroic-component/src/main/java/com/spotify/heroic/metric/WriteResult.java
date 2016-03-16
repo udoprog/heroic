@@ -35,12 +35,12 @@ import java.util.List;
 
 @Data
 public class WriteResult {
-    public static final List<RequestError> EMPTY_ERRORS = ImmutableList.of();
+    public static final List<NodeError> EMPTY_ERRORS = ImmutableList.of();
     private static final List<Long> EMPTY_TIMES = ImmutableList.<Long>of();
 
     public static final WriteResult EMPTY = new WriteResult(EMPTY_ERRORS, EMPTY_TIMES);
 
-    private final List<RequestError> errors;
+    private final List<NodeError> errors;
     private final List<Long> times;
 
     public WriteResult(List<Long> times) {
@@ -50,7 +50,7 @@ public class WriteResult {
 
     @JsonCreator
     public WriteResult(
-        @JsonProperty("errors") List<RequestError> errors, @JsonProperty("times") List<Long> times
+        @JsonProperty("errors") List<NodeError> errors, @JsonProperty("times") List<Long> times
     ) {
         this.errors = errors;
         this.times = times;
@@ -77,7 +77,7 @@ public class WriteResult {
             return results.iterator().next();
         }
 
-        final List<RequestError> errors = new ArrayList<>();
+        final List<NodeError> errors = new ArrayList<>();
         final List<Long> times = new ArrayList<>();
 
         for (final WriteResult r : results) {
@@ -96,8 +96,8 @@ public class WriteResult {
         return new Transform<Throwable, WriteResult>() {
             @Override
             public WriteResult transform(Throwable e) throws Exception {
-                final List<RequestError> errors =
-                    ImmutableList.<RequestError>of(NodeError.fromThrowable(group.node(), e));
+                final List<NodeError> errors =
+                    ImmutableList.<NodeError>of(NodeError.fromThrowable(group.node(), e));
                 return new WriteResult(errors, EMPTY_TIMES);
             }
         };

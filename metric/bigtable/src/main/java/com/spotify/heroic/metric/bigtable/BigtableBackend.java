@@ -25,7 +25,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Function;
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.ByteString;
@@ -86,7 +85,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
@@ -294,23 +292,30 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
 
             switch (type) {
                 case POINT:
-                    fetchBatch(type, POINTS, series, prepared.iterator(), c, observer, (t, d) -> {
-                        final double value = deserializeValue(d);
-                        return new Point(t, value);
-                    });
+                    fetchBatch(type, POINTS, series, prepared.iterator(), c,
+                        observer.onFinished(b::release), (t, d) -> {
+                            final double value = deserializeValue(d);
+                            return new Point(t, value);
+                        });
+
+                    break;
                 case EVENT:
-                    fetchBatch(type, EVENTS, series, prepared.iterator(), c, observer, (t, d) -> {
-                        final Map<String, Object> payload;
+                    fetchBatch(type, EVENTS, series, prepared.iterator(), c,
+                        observer.onFinished(b::release), (t, d) -> {
+                            final Map<String, Object> payload;
 
-                        try {
-                            payload = mapper.readValue(d.toByteArray(), PAYLOAD_TYPE);
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
+                            try {
+                                payload = mapper.readValue(d.toByteArray(), PAYLOAD_TYPE);
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
 
-                        return new Event(t, payload);
-                    });
+                            return new Event(t, payload);
+                        });
+
+                    break;
                 default:
+                    b.release();
                     throw new Exception("Unsupported type: " + type);
             }
         };
@@ -444,7 +449,12 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
         final MetricType type, final String columnFamily, final Series series,
         final Iterator<PreparedQuery> prepared, final BigtableConnection c,
         final AsyncObserver<FetchData> observer, final BiFunction<Long, ByteString, T> deserializer
-    ) {
+    ) throws Exception {
+        if (!prepared.hasNext()) {
+            observer.end();
+            return;
+        }
+
         final PreparedQuery p = prepared.next();
 
         final BigtableDataClient client = c.dataClient();
@@ -464,7 +474,7 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
             return deserializer.apply(timestamp, cell.getValue());
         };
 
-        final Stopwatch w = Stopwatch.createStarted();
+        final QueryTrace.Tracer tracer = QueryTrace.trace(FETCH_SEGMENT);
 
         readRows.onDone(observer.bindResolved(result -> {
             final List<Iterable<T>> points = new ArrayList<>();
@@ -475,7 +485,7 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
                 });
             }
 
-            final QueryTrace trace = new QueryTrace(FETCH_SEGMENT, w.elapsed(TimeUnit.NANOSECONDS));
+            final QueryTrace trace = tracer.end();
             final ImmutableList<Long> times = ImmutableList.of(trace.getElapsed());
             final List<T> data =
                 ImmutableList.copyOf(Iterables.mergeSorted(points, type.comparator()));

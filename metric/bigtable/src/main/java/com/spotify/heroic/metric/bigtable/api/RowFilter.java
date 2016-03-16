@@ -54,7 +54,7 @@ public interface RowFilter {
     com.google.bigtable.v1.RowFilter toPb();
 
     @Data
-    static class Chain implements RowFilter {
+    class Chain implements RowFilter {
         private final Iterable<? extends RowFilter> chain;
 
         @Override
@@ -67,7 +67,7 @@ public interface RowFilter {
     }
 
     @Data
-    static class ColumnRange implements RowFilter {
+    class ColumnRange implements RowFilter {
         private final String family;
 
         private final Optional<ByteString> startQualifierInclusive;

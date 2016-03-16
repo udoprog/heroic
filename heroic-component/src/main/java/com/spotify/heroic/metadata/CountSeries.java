@@ -29,7 +29,6 @@ import com.spotify.heroic.cluster.ClusterNode;
 import com.spotify.heroic.cluster.NodeMetadata;
 import com.spotify.heroic.cluster.NodeRegistryEntry;
 import com.spotify.heroic.metric.NodeError;
-import com.spotify.heroic.metric.RequestError;
 import eu.toolchain.async.Collector;
 import eu.toolchain.async.Transform;
 import lombok.Data;
@@ -40,17 +39,17 @@ import java.util.List;
 
 @Data
 public class CountSeries {
-    public static final List<RequestError> EMPTY_ERRORS = new ArrayList<>();
+    public static final List<NodeError> EMPTY_ERRORS = new ArrayList<>();
     public static final CountSeries EMPTY = new CountSeries(EMPTY_ERRORS, 0, false);
 
-    private final List<RequestError> errors;
+    private final List<NodeError> errors;
     private final boolean limited;
     private final long count;
 
     public static class SelfReducer implements Collector<CountSeries, CountSeries> {
         @Override
         public CountSeries collect(Collection<CountSeries> results) throws Exception {
-            final List<RequestError> errors = new ArrayList<>();
+            final List<NodeError> errors = new ArrayList<>();
             long count = 0;
             boolean limited = false;
 
@@ -72,7 +71,7 @@ public class CountSeries {
 
     @JsonCreator
     public CountSeries(
-        @JsonProperty("errors") List<RequestError> errors, @JsonProperty("count") long count,
+        @JsonProperty("errors") List<NodeError> errors, @JsonProperty("count") long count,
         @JsonProperty("limited") boolean limited
     ) {
         this.errors = Optional.fromNullable(errors).or(EMPTY_ERRORS);
@@ -92,7 +91,7 @@ public class CountSeries {
             public CountSeries transform(Throwable e) throws Exception {
                 final NodeMetadata m = node.getMetadata();
                 final ClusterNode c = node.getClusterNode();
-                return new CountSeries(ImmutableList.<RequestError>of(
+                return new CountSeries(ImmutableList.<NodeError>of(
                     NodeError.fromThrowable(m.getId(), c.toString(), m.getTags(), e)), 0, false);
             }
         };
@@ -104,8 +103,8 @@ public class CountSeries {
         return new Transform<Throwable, CountSeries>() {
             @Override
             public CountSeries transform(Throwable e) throws Exception {
-                final List<RequestError> errors =
-                    ImmutableList.<RequestError>of(NodeError.fromThrowable(group.node(), e));
+                final List<NodeError> errors =
+                    ImmutableList.<NodeError>of(NodeError.fromThrowable(group.node(), e));
                 return new CountSeries(errors, 0, false);
             }
         };

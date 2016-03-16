@@ -27,7 +27,6 @@ import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
 import lombok.RequiredArgsConstructor;
 
-import java.util.Map;
 import java.util.concurrent.atomic.DoubleAdder;
 
 /**
@@ -51,13 +50,13 @@ public class StripedSumBucket extends AbstractBucket implements DoubleBucket {
     }
 
     @Override
-    public void updatePoint(Map<String, String> tags, Point d) {
+    public void collectPoint(Point d) {
         valid = true;
         sum.add(d.getValue());
     }
 
     @Override
-    public void updateSpread(Map<String, String> tags, Spread d) {
+    public void collectSpread(Spread d) {
         valid = true;
         sum.add(d.getSum());
     }

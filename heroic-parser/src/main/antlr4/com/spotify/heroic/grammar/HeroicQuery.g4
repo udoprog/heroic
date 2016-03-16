@@ -3,8 +3,13 @@
  */
 grammar HeroicQuery;
 
-queries
-    : (query QuerySeparator)* query EOF
+statements
+    : (statement StatementSeparator)* statement EOF
+    ;
+
+statement
+    : Let expr Eq query #LetStatement
+    | query             #QueryStatemnet
     ;
 
 expressionOnly
@@ -20,8 +25,8 @@ query
     ;
 
 select
-    : All  # SelectAll
-    | expr # SelectAggregation
+    : Mul  # SelectAll
+    | expr # SelectExpression
     ;
 
 from
@@ -62,20 +67,26 @@ keyValue
     ;
 
 expr
-    : LParen expr RParen                                                  #ExpressionPrecedence
-    | expr Minus expr                                                     #ExpressionMinus
-    | expr Plus expr                                                      #ExpressionPlus
-    | LBracket (expr (Comma expr)*)? RBracket                             #ExpressionList
-    | LCurly (expr (Comma expr)*)? RCurly                                 #ExpressionList
-    | SNow                                                                #ExpressionNow
-    | Duration                                                            #ExpressionDuration
-    | Integer                                                             #ExpressionInteger
-    | Float                                                               #ExpressionFloat
-    | string                                                              #ExpressionString
-    | expr By expr                                                        #AggregationBy
-    | expr By All                                                         #AggregationByAll
-    | expr (Pipe expr)+                                                   #AggregationPipe
-    | Identifier (LParen (expr (Comma expr)*)? (Comma keyValue)* RParen)? #Aggregation
+    : LParen expr RParen                            #ExpressionPrecedence
+    | Duration                                      #ExpressionDuration
+    | Integer                                       #ExpressionInteger
+    | Float                                         #ExpressionFloat
+    | string                                        #ExpressionString
+    | Reference                                     #ExpressionReference
+    | LBracket (expr (Comma expr)*)? RBracket       #ExpressionList
+    | LCurly (expr (Comma expr)*)? RCurly           #ExpressionList
+    | Minus expr                                    #ExpressionNegate
+    | expr (Div | Mul) expr                         #ExpressionDivMul
+    | expr (Plus | Minus) expr                      #ExpressionPlusMinus
+    | expr By expr                                  #AggregationBy
+    | expr By Mul                                   #AggregationByAll
+    | expr (Pipe expr)+                             #AggregationPipe
+    | Identifier (LParen functionArguments RParen)? #ExpressionFunction
+    ;
+
+functionArguments
+    : expr (Comma expr)* (Comma keyValue)*
+    | keyValue (Comma keyValue)*
     ;
 
 sourceRange
@@ -84,7 +95,7 @@ sourceRange
     ;
 
 // keywords (must come before SimpleString!)
-All : '*' ;
+Let : 'let' ;
 
 True : 'true' ;
 
@@ -108,6 +119,10 @@ Plus : '+' ;
 
 Minus : '-' ;
 
+Div : '/' ;
+
+Mul : '*' ;
+
 Eq : '=' ;
 
 Regex : '~' ;
@@ -122,7 +137,7 @@ Bang : '!' ;
 
 NotEq : '!=' ;
 
-QuerySeparator : ';' ;
+StatementSeparator : ';' ;
 
 Comma : ',' ;
 
@@ -140,6 +155,10 @@ RBracket : ']' ;
 
 Pipe : '|' ;
 
+SKey : '$key' ;
+
+Reference : '$' [a-zA-Z] [a-zA-Z0-9]* ;
+
 QuotedString : '"' StringCharacters? '"' ;
 
 Identifier : [a-zA-Z] [a-zA-Z0-9]* ;
@@ -147,21 +166,17 @@ Identifier : [a-zA-Z] [a-zA-Z0-9]* ;
 // strings that do not have to be quoted
 SimpleString : [a-zA-Z] [a-zA-Z0-9:/_\-\.]* ;
 
-SKey : '$key' ;
-
-SNow : '$now' ;
-
 Duration
-    : Integer Unit
+    : Minus? Integer Unit
     ;
 
 Integer
-    : Digits
+    : Minus? Digits
     ;
 
 Float
-    : Digits '.' Digits?
-    | '.' Digits
+    : Minus? Digits '.' Digits?
+    | Minus? '.' Digits
     ;
 
 fragment
@@ -197,7 +212,7 @@ Digits
     : [0-9]+
     ;
 
-WS : [ \t\n]+ -> skip ;
+WS : [ \t\n\r]+ -> skip ;
 
 // is used to specifically match string where the end quote is missing
 UnterminatedQutoedString : '"' StringCharacters? ;

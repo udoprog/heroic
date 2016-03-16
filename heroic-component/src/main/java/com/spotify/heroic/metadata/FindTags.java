@@ -29,7 +29,6 @@ import com.spotify.heroic.cluster.ClusterNode;
 import com.spotify.heroic.cluster.NodeMetadata;
 import com.spotify.heroic.cluster.NodeRegistryEntry;
 import com.spotify.heroic.metric.NodeError;
-import com.spotify.heroic.metric.RequestError;
 import eu.toolchain.async.Collector;
 import eu.toolchain.async.Transform;
 import lombok.Data;
@@ -44,12 +43,12 @@ import java.util.Set;
 
 @Data
 public class FindTags {
-    public static final List<RequestError> EMPTY_ERRORS = new ArrayList<>();
+    public static final List<NodeError> EMPTY_ERRORS = new ArrayList<>();
     public static final Map<String, Set<String>> EMPTY_TAGS = new HashMap<>();
 
     public static final FindTags EMPTY = new FindTags(EMPTY_TAGS, 0);
 
-    private final List<RequestError> errors;
+    private final List<NodeError> errors;
     private final Map<String, Set<String>> tags;
     private final int size;
 
@@ -75,7 +74,7 @@ public class FindTags {
     public static class SelfReducer implements Collector<FindTags, FindTags> {
         @Override
         public FindTags collect(Collection<FindTags> results) throws Exception {
-            final List<RequestError> errors = new ArrayList<>();
+            final List<NodeError> errors = new ArrayList<>();
             final HashMap<String, Set<String>> tags = new HashMap<String, Set<String>>();
             int size = 0;
 
@@ -97,7 +96,7 @@ public class FindTags {
 
     @JsonCreator
     public FindTags(
-        @JsonProperty("errors") List<RequestError> errors,
+        @JsonProperty("errors") List<NodeError> errors,
         @JsonProperty("tags") Map<String, Set<String>> tags, @JsonProperty("size") int size
     ) {
         this.errors = Optional.fromNullable(errors).or(EMPTY_ERRORS);
@@ -110,28 +109,22 @@ public class FindTags {
     }
 
     public static Transform<Throwable, ? extends FindTags> nodeError(final NodeRegistryEntry node) {
-        return new Transform<Throwable, FindTags>() {
-            @Override
-            public FindTags transform(Throwable e) throws Exception {
-                final NodeMetadata m = node.getMetadata();
-                final ClusterNode c = node.getClusterNode();
-                return new FindTags(ImmutableList.<RequestError>of(
-                    NodeError.fromThrowable(m.getId(), c.toString(), m.getTags(), e)), EMPTY_TAGS,
-                    0);
-            }
+        return e -> {
+            final NodeMetadata m = node.getMetadata();
+            final ClusterNode c = node.getClusterNode();
+            return new FindTags(
+                ImmutableList.of(NodeError.fromThrowable(m.getId(), c.toString(), m.getTags(), e)),
+                EMPTY_TAGS, 0);
         };
     }
 
     public static Transform<Throwable, ? extends FindTags> nodeError(
         final ClusterNode.Group group
     ) {
-        return new Transform<Throwable, FindTags>() {
-            @Override
-            public FindTags transform(Throwable e) throws Exception {
-                final List<RequestError> errors =
-                    ImmutableList.<RequestError>of(NodeError.fromThrowable(group.node(), e));
-                return new FindTags(errors, EMPTY_TAGS, 0);
-            }
+        return e -> {
+            final List<NodeError> errors1 =
+                ImmutableList.of(NodeError.fromThrowable(group.node(), e));
+            return new FindTags(errors1, EMPTY_TAGS, 0);
         };
     }
 }

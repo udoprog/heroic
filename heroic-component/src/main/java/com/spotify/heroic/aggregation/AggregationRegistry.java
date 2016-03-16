@@ -22,7 +22,9 @@
 package com.spotify.heroic.aggregation;
 
 import com.fasterxml.jackson.databind.Module;
-import eu.toolchain.serializer.Serializer;
+import com.spotify.heroic.grammar.FunctionExpression;
+
+import java.util.function.Function;
 
 public interface AggregationRegistry {
     /**
@@ -30,18 +32,24 @@ public interface AggregationRegistry {
      *
      * @param id The id of the new aggregation, will be used in the type field, and in the DSL.
      * @param type The type of the aggregation.
-     * @param instanceType The type of the instance.
-     * @param instanceSerializer Serializer for the aggregation instance.
      * @param dsl DSL factory for the aggregation.
      */
-    <A extends Aggregation, I extends AggregationInstance> void register(
-        String id, Class<A> type, Class<I> instanceType, Serializer<I> instanceSerializer,
-        AggregationDSL dsl
+    <A extends Aggregation> void register(
+        String id, Class<A> type, Function<AggregationArguments, Aggregation> dsl
     );
+
+    void registerAlias(String id, Function<FunctionExpression, FunctionExpression> dsl);
 
     Module module();
 
+    /**
+     * Create an AggregationFactory instance using this Registry.
+     *
+     * Usage of this instance must be thread-safe in relationship with the AggregationRegistry.
+     * Modifications done to the AggregationRegistry must be reflected in the AggregationFactory at
+     * all times.
+     *
+     * @return A new AggregationFactory instance.
+     */
     AggregationFactory newAggregationFactory();
-
-    AggregationSerializer newAggregationSerializer();
 }

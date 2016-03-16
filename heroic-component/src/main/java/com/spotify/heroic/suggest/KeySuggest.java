@@ -28,7 +28,6 @@ import com.spotify.heroic.cluster.ClusterNode;
 import com.spotify.heroic.cluster.NodeMetadata;
 import com.spotify.heroic.cluster.NodeRegistryEntry;
 import com.spotify.heroic.metric.NodeError;
-import com.spotify.heroic.metric.RequestError;
 import eu.toolchain.async.Collector;
 import eu.toolchain.async.Transform;
 import lombok.Data;
@@ -45,15 +44,15 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 @Data
 public class KeySuggest {
-    public static final List<RequestError> EMPTY_ERRORS = new ArrayList<>();
+    public static final List<NodeError> EMPTY_ERRORS = new ArrayList<>();
     public static final List<Suggestion> EMPTY_SUGGESTIONS = new ArrayList<>();
 
-    private final List<RequestError> errors;
+    private final List<NodeError> errors;
     private final List<Suggestion> suggestions;
 
     @JsonCreator
     public KeySuggest(
-        @JsonProperty("errors") List<RequestError> errors,
+        @JsonProperty("errors") List<NodeError> errors,
         @JsonProperty("suggestions") List<Suggestion> suggestions
     ) {
         this.errors = checkNotNull(errors, "errors");
@@ -68,7 +67,7 @@ public class KeySuggest {
         return new Collector<KeySuggest, KeySuggest>() {
             @Override
             public KeySuggest collect(Collection<KeySuggest> results) throws Exception {
-                final List<RequestError> errors = new ArrayList<>();
+                final List<NodeError> errors = new ArrayList<>();
                 final Map<String, Suggestion> suggestions = new HashMap<>();
 
                 for (final KeySuggest r : results) {
@@ -104,7 +103,7 @@ public class KeySuggest {
             public KeySuggest transform(Throwable e) throws Exception {
                 final NodeMetadata m = node.getMetadata();
                 final ClusterNode c = node.getClusterNode();
-                return new KeySuggest(ImmutableList.<RequestError>of(
+                return new KeySuggest(ImmutableList.<NodeError>of(
                     NodeError.fromThrowable(m.getId(), c.toString(), m.getTags(), e)),
                     EMPTY_SUGGESTIONS);
             }
@@ -158,8 +157,8 @@ public class KeySuggest {
         return new Transform<Throwable, KeySuggest>() {
             @Override
             public KeySuggest transform(Throwable e) throws Exception {
-                final List<RequestError> errors =
-                    ImmutableList.<RequestError>of(NodeError.fromThrowable(group.node(), e));
+                final List<NodeError> errors =
+                    ImmutableList.<NodeError>of(NodeError.fromThrowable(group.node(), e));
                 return new KeySuggest(errors, EMPTY_SUGGESTIONS);
             }
         };

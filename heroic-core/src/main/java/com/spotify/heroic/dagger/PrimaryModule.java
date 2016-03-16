@@ -22,19 +22,24 @@
 package com.spotify.heroic.dagger;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableSet;
 import com.spotify.heroic.CoreHeroicContext;
 import com.spotify.heroic.CoreQueryManager;
 import com.spotify.heroic.CoreShellTasks;
+import com.spotify.heroic.ExtraParameters;
 import com.spotify.heroic.HeroicContext;
 import com.spotify.heroic.HeroicCore;
 import com.spotify.heroic.HeroicCoreInstance;
+import com.spotify.heroic.HeroicFeatures;
 import com.spotify.heroic.HeroicMappers;
 import com.spotify.heroic.HeroicServer;
 import com.spotify.heroic.QueryManager;
 import com.spotify.heroic.ShellTasks;
 import com.spotify.heroic.aggregation.AggregationRegistry;
 import com.spotify.heroic.filter.FilterRegistry;
+import com.spotify.heroic.grammar.CoreExpressionEvaluator;
 import com.spotify.heroic.grammar.CoreQueryParser;
+import com.spotify.heroic.grammar.ExpressionEvaluator;
 import com.spotify.heroic.grammar.QueryParser;
 import com.spotify.heroic.jetty.JettyServerConnector;
 import com.spotify.heroic.lifecycle.CoreLifeCycleManager;
@@ -123,8 +128,15 @@ public class PrimaryModule {
     @Provides
     @Named("features")
     @PrimaryScope
-    Set<String> features() {
-        return features;
+    Set<String> features(ExtraParameters extra) {
+        final ImmutableSet.Builder<String> features = ImmutableSet.builder();
+        features.addAll(this.features);
+
+        if (extra.getBoolean("distributed").orElse(false)) {
+            features.add(HeroicFeatures.DISTRIBUTED_AGGREGATIONS);
+        }
+
+        return features.build();
     }
 
     @Provides
@@ -178,6 +190,12 @@ public class PrimaryModule {
     @Named("heroicServer")
     LifeCycle heroicServerLife(LifeCycleManager manager, HeroicServer server) {
         return manager.build(server);
+    }
+
+    @Provides
+    @PrimaryScope
+    ExpressionEvaluator expressionParser(CoreExpressionEvaluator parser) {
+        return parser;
     }
 
     private SortedMap<String, ShellTask> setupTasks(

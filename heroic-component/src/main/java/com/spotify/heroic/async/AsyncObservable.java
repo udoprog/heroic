@@ -21,8 +21,8 @@
 
 package com.spotify.heroic.async;
 
-import com.spotify.heroic.analytics.SeriesHit;
 import com.spotify.heroic.common.Throwing;
+import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import eu.toolchain.async.Transform;
 
@@ -47,11 +47,6 @@ public interface AsyncObservable<T> {
                 }
 
                 @Override
-                public void cancel() throws Exception {
-                    observer.cancel();
-                }
-
-                @Override
                 public void fail(Throwable cause) throws Exception {
                     observer.fail(cause);
                 }
@@ -70,11 +65,6 @@ public interface AsyncObservable<T> {
                 @Override
                 public AsyncFuture<Void> observe(T value) throws Exception {
                     return observer.observe(value);
-                }
-
-                @Override
-                public void cancel() throws Exception {
-                    Throwing.call(observer::cancel, end::finished);
                 }
 
                 @Override
@@ -105,11 +95,6 @@ public interface AsyncObservable<T> {
                     @Override
                     public AsyncFuture<Void> observe(T value) throws Exception {
                         return observer.observe(value);
-                    }
-
-                    @Override
-                    public void cancel() throws Exception {
-                        observer.cancel();
                     }
 
                     @Override
@@ -145,7 +130,29 @@ public interface AsyncObservable<T> {
     /**
      * Create an observable that will always be immediately failed with the given throwable.
      */
-    static <T> AsyncObservable<SeriesHit> failed(final Throwable e) {
+    static <T> AsyncObservable<T> failed(final Throwable e) {
         return observer -> observer.fail(e);
+    }
+
+    default Observable<T> toSync(AsyncFramework async) {
+        return (final Observer<T> observer) -> {
+            AsyncObservable.this.observe(new AsyncObserver<T>() {
+                @Override
+                public AsyncFuture<Void> observe(final T value) throws Exception {
+                    observer.observe(value);
+                    return async.resolved();
+                }
+
+                @Override
+                public void fail(final Throwable cause) throws Exception {
+                    observer.fail(cause);
+                }
+
+                @Override
+                public void end() throws Exception {
+                    observer.end();
+                }
+            });
+        };
     }
 }

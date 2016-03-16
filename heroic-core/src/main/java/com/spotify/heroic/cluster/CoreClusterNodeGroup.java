@@ -21,21 +21,19 @@
 
 package com.spotify.heroic.cluster;
 
-import com.spotify.heroic.QueryOptions;
-import com.spotify.heroic.aggregation.AggregationInstance;
+import com.spotify.heroic.FullQuery;
 import com.spotify.heroic.cluster.ClusterNode.Group;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.RangeFilter;
 import com.spotify.heroic.common.Series;
-import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.metadata.CountSeries;
 import com.spotify.heroic.metadata.DeleteSeries;
 import com.spotify.heroic.metadata.FindKeys;
 import com.spotify.heroic.metadata.FindSeries;
 import com.spotify.heroic.metadata.FindTags;
-import com.spotify.heroic.metric.MetricType;
+import com.spotify.heroic.metric.AnalyzeResult;
+import com.spotify.heroic.metric.QueryResult;
 import com.spotify.heroic.metric.QueryTrace;
-import com.spotify.heroic.metric.ResultGroups;
 import com.spotify.heroic.metric.WriteMetric;
 import com.spotify.heroic.metric.WriteResult;
 import com.spotify.heroic.suggest.KeySuggest;
@@ -60,6 +58,10 @@ public class CoreClusterNodeGroup implements ClusterNodeGroup {
         QueryTrace.identifier(CoreClusterNodeGroup.class, "query_node");
     public static final QueryTrace.Identifier QUERY =
         QueryTrace.identifier(CoreClusterNodeGroup.class, "query");
+    public static final QueryTrace.Identifier ANALYZE_NODE =
+        QueryTrace.identifier(CoreClusterNodeGroup.class, "analyze_node");
+    public static final QueryTrace.Identifier ANALYZE =
+        QueryTrace.identifier(CoreClusterNodeGroup.class, "analyze");
 
     private final AsyncFramework async;
     private final Collection<ClusterNode.Group> entries;
@@ -75,19 +77,25 @@ public class CoreClusterNodeGroup implements ClusterNodeGroup {
     }
 
     @Override
-    public AsyncFuture<ResultGroups> query(
-        MetricType source, Filter filter, DateRange range, AggregationInstance aggregation,
-        QueryOptions options
-    ) {
-        final List<AsyncFuture<ResultGroups>> futures = new ArrayList<>(entries.size());
+    public AsyncFuture<AnalyzeResult> analyze(FullQuery query) {
+        final List<AsyncFuture<AnalyzeResult>> futures = new ArrayList<>(entries.size());
 
         for (final ClusterNode.Group g : entries) {
-            futures.add(g
-                .query(source, filter, range, aggregation, options)
-                .catchFailed(ResultGroups.nodeError(QUERY_NODE, g)));
+            futures.add(g.analyze(query).catchFailed(AnalyzeResult.nodeError(ANALYZE_NODE, g)));
         }
 
-        return async.collect(futures, ResultGroups.collect(QUERY));
+        return async.collect(futures, AnalyzeResult.collect(ANALYZE));
+    }
+
+    @Override
+    public AsyncFuture<QueryResult> query(FullQuery query) {
+        final List<AsyncFuture<QueryResult>> futures = new ArrayList<>(entries.size());
+
+        for (final ClusterNode.Group g : entries) {
+            futures.add(g.query(query).catchFailed(QueryResult.nodeError(QUERY_NODE, g)));
+        }
+
+        return async.collect(futures, QueryResult.collect(QUERY));
     }
 
     @Override

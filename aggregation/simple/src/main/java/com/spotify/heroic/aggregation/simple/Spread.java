@@ -23,10 +23,15 @@ package com.spotify.heroic.aggregation.simple;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.spotify.heroic.aggregation.AggregationContext;
+import com.google.common.collect.ImmutableSet;
+import com.spotify.heroic.aggregation.Aggregation;
+import com.spotify.heroic.aggregation.BucketAggregation;
 import com.spotify.heroic.aggregation.SamplingQuery;
 import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.common.Optionals;
+import com.spotify.heroic.grammar.Expression;
+import com.spotify.heroic.metric.Metric;
+import com.spotify.heroic.metric.MetricType;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -34,26 +39,38 @@ import java.util.Optional;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class Spread extends SamplingAggregation {
+public class Spread extends BucketAggregation<SpreadBucket> {
     public static final String NAME = "spread";
 
     @JsonCreator
     public Spread(
-        @JsonProperty("sampling") Optional<SamplingQuery> sampling,
-        @JsonProperty("size") Optional<Duration> size,
-        @JsonProperty("extent") Optional<Duration> extent
+        @JsonProperty("sampling") final Optional<SamplingQuery> sampling,
+        @JsonProperty("size") final Optional<Duration> size,
+        @JsonProperty("extent") final Optional<Duration> extent,
+        @JsonProperty("reference") final Optional<Expression> reference
     ) {
         super(Optionals.firstPresent(size, sampling.flatMap(SamplingQuery::getSize)),
-            Optionals.firstPresent(extent, sampling.flatMap(SamplingQuery::getExtent)));
+            Optionals.firstPresent(extent, sampling.flatMap(SamplingQuery::getExtent)), reference,
+            ImmutableSet.of(MetricType.POINT, MetricType.SPREAD), MetricType.SPREAD);
     }
 
     @Override
-    public SpreadInstance apply(AggregationContext context, final long size, final long extent) {
-        return new SpreadInstance(size, extent);
+    protected SpreadBucket buildBucket(long timestamp) {
+        return new SpreadBucket(timestamp);
     }
 
     @Override
-    public String toDSL() {
-        return samplingDSL(NAME);
+    protected Metric build(SpreadBucket bucket) {
+        return bucket.newSpread();
+    }
+
+    @Override
+    public Aggregation distributed() {
+        return new Spread(Optional.empty(), size, extent, Optional.empty());
+    }
+
+    @Override
+    public Aggregation combiner() {
+        return new Spread(Optional.empty(), size, extent, Optional.empty());
     }
 }

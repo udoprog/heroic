@@ -21,165 +21,178 @@
 
 package com.spotify.heroic.aggregation.simple;
 
-import com.spotify.heroic.aggregation.AggregationCombiner;
-import com.spotify.heroic.aggregation.AggregationData;
-import com.spotify.heroic.aggregation.AggregationInstance;
-import com.spotify.heroic.aggregation.AggregationResult;
-import com.spotify.heroic.aggregation.AggregationSession;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.spotify.heroic.aggregation.Aggregation;
+import com.spotify.heroic.aggregation.AggregationContext;
 import com.spotify.heroic.aggregation.AggregationState;
-import com.spotify.heroic.aggregation.AggregationTraversal;
-import com.spotify.heroic.aggregation.ReducerResult;
-import com.spotify.heroic.aggregation.ReducerSession;
-import com.spotify.heroic.common.DateRange;
+import com.spotify.heroic.aggregation.MetricsCollector;
+import com.spotify.heroic.async.Observable;
+import com.spotify.heroic.async.Observer;
+import com.spotify.heroic.grammar.Expression;
 import com.spotify.heroic.metric.Event;
 import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.MetricGroup;
 import com.spotify.heroic.metric.Point;
-import com.spotify.heroic.metric.ShardedResultGroup;
 import com.spotify.heroic.metric.Spread;
+import eu.toolchain.async.AsyncFuture;
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class FilterAggregation implements AggregationInstance {
-    private final AggregationInstance of;
+@Slf4j
+@Data
+public class FilterAggregation implements Aggregation {
     private final FilterStrategy filterStrategy;
+    private final Optional<Expression> reference;
 
-    public FilterAggregation(final FilterStrategy filterStrategy, final AggregationInstance of) {
+    public FilterAggregation(
+        final FilterStrategy filterStrategy, final Optional<Expression> reference
+    ) {
         this.filterStrategy = checkNotNull(filterStrategy, "filterStrategy");
-        this.of = checkNotNull(of, "of");
-    }
-
-    public AggregationInstance getOf() {
-        return of;
+        this.reference = reference;
     }
 
     @Override
-    public long estimate(DateRange range) {
-        return 0;
+    public boolean referential() {
+        return reference.isPresent();
     }
 
     @Override
-    public long cadence() {
-        return of.cadence();
+    public AsyncFuture<AggregationContext> setup(final AggregationContext input) {
+        return input.lookupContext(reference).directTransform(context -> {
+            final ImmutableList.Builder<AggregationState> out = ImmutableList.builder();
+
+            // Assume output observable's may only be used once.
+            final ConcurrentLinkedQueue<NextState> collected = new ConcurrentLinkedQueue<>();
+            final ConcurrentLinkedQueue<Observer<?>> ignored = new ConcurrentLinkedQueue<>();
+            final AtomicInteger errors = new AtomicInteger();
+            final AtomicInteger pending = new AtomicInteger(context.states().size());
+
+            for (final AggregationState s : context.states()) {
+                final Observable<MetricCollection> source = s.getObservable();
+
+                out.add(s.withObservable(observer -> {
+                    source.observe(
+                        new SubSetObservable(observer, pending, errors, collected, ignored));
+                }));
+            }
+
+            return context
+                .withStep(getClass().getSimpleName(), ImmutableList.of(context.step()),
+                    context.step().keys())
+                .withInput(out.build());
+        });
     }
 
-    @Override
-    public AggregationTraversal session(List<AggregationState> states, DateRange range) {
-        final AggregationTraversal traversal = of.session(states, range);
-        return new AggregationTraversal(traversal.getStates(),
-            new Session(filterStrategy, traversal.getSession()));
+    @Data
+    static class NextState {
+        private final MetricCollection data;
+        private final Observer<MetricCollection> out;
     }
 
-    @Override
-    public ReducerSession reducer(DateRange range) {
-        return new FilterKReducerSession(filterStrategy, of.reducer(range));
-    }
+    @RequiredArgsConstructor
+    class SubSetObservable implements Observer<MetricCollection>, MetricsCollector {
+        private final Observer<MetricCollection> target;
+        private final AtomicInteger pending;
+        private final AtomicInteger errors;
 
-    @Override
-    public AggregationCombiner combiner(DateRange range) {
-        return all -> {
-            final List<FilterableMetrics<ShardedResultGroup>> filterableMetrics = of
-                .combiner(range)
-                .combine(all)
+        private final ConcurrentLinkedQueue<NextState> collected;
+        private final ConcurrentLinkedQueue<Observer<?>> ignored;
+
+        final Queue<List<Point>> points = new ConcurrentLinkedQueue<>();
+        volatile boolean any = false;
+
+        @Override
+        public void observe(final MetricCollection c) throws Exception {
+            any = true;
+            c.update(this);
+        }
+
+        @Override
+        public void fail(final Throwable cause) throws Exception {
+            target.fail(cause);
+            errors.incrementAndGet();
+
+            if (pending.decrementAndGet() != 0) {
+                return;
+            }
+
+            doEnd();
+        }
+
+        @Override
+        public void end() throws Exception {
+            if (any) {
+                final MetricCollection c = MetricCollection.points(
+                    ImmutableList.copyOf(Iterables.concat(points).iterator()));
+
+                collected.add(new NextState(c, target));
+            } else {
+                ignored.add(target);
+            }
+
+            if (pending.decrementAndGet() != 0) {
+                return;
+            }
+
+            doEnd();
+        }
+
+        @Override
+        public void collectPoints(final List<Point> values) {
+            points.add(values);
+        }
+
+        @Override
+        public void collectEvents(final List<Event> values) {
+            /* ignore events */
+        }
+
+        @Override
+        public void collectSpreads(final List<Spread> values) {
+            /* ignore spreads */
+        }
+
+        @Override
+        public void collectGroups(final List<MetricGroup> values) {
+            /* ignore groups */
+        }
+
+        private void doEnd() throws Exception {
+            if (errors.get() > 0) {
+                for (final NextState s : collected) {
+                    s.getOut().end();
+                }
+
+                return;
+            }
+
+            final List<FilterableMetrics<NextState>> filterable = collected
                 .stream()
-                .map(s -> new FilterableMetrics<>(s, s::getGroup))
+                .map(d -> new FilterableMetrics<>(d, () -> d.getData()))
                 .collect(Collectors.toList());
 
-            return filterStrategy.filter(filterableMetrics);
-        };
-    }
+            for (final NextState d : filterStrategy.filter(filterable)) {
+                d.getOut().observe(d.getData());
+            }
 
-    private class Session implements AggregationSession {
-        private final AggregationSession childSession;
-        private final FilterStrategy filterStrategy;
+            for (final NextState d : collected) {
+                d.getOut().end();
+            }
 
-        public Session(FilterStrategy filterStrategy, AggregationSession childSession) {
-            this.filterStrategy = filterStrategy;
-            this.childSession = childSession;
-        }
-
-        @Override
-        public void updatePoints(Map<String, String> group, List<Point> values) {
-            childSession.updatePoints(group, values);
-        }
-
-        @Override
-        public void updateEvents(Map<String, String> group, List<Event> values) {
-            childSession.updateEvents(group, values);
-        }
-
-        @Override
-        public void updateSpreads(Map<String, String> group, List<Spread> values) {
-            childSession.updateSpreads(group, values);
-        }
-
-        @Override
-        public void updateGroup(Map<String, String> group, List<MetricGroup> values) {
-            childSession.updateGroup(group, values);
-        }
-
-        @Override
-        public AggregationResult result() {
-            final List<FilterableMetrics<AggregationData>> aggData = getFilterableAggregationData();
-            final List<AggregationData> result = filterStrategy.filter(aggData);
-            return new AggregationResult(result, childSession.result().getStatistics());
-        }
-
-        private List<FilterableMetrics<AggregationData>> getFilterableAggregationData() {
-            return childSession
-                .result()
-                .getResult()
-                .stream()
-                .map(a -> new AggregationData(a.getGroup(), a.getMetrics()))
-                .map(a -> new FilterableMetrics<>(a, a::getMetrics))
-                .collect(Collectors.toList());
-        }
-    }
-
-    private static class FilterKReducerSession implements ReducerSession {
-        private final ReducerSession childReducer;
-        private final FilterStrategy filterStrategy;
-
-        public FilterKReducerSession(FilterStrategy filterStrategy, ReducerSession reducer) {
-            this.filterStrategy = filterStrategy;
-            this.childReducer = reducer;
-        }
-
-        @Override
-        public void updatePoints(Map<String, String> group, List<Point> values) {
-            childReducer.updatePoints(group, values);
-        }
-
-        @Override
-        public void updateEvents(Map<String, String> group, List<Event> values) {
-            childReducer.updateEvents(group, values);
-        }
-
-        @Override
-        public void updateSpreads(Map<String, String> group, List<Spread> values) {
-            childReducer.updateSpreads(group, values);
-        }
-
-        @Override
-        public void updateGroup(Map<String, String> group, List<MetricGroup> values) {
-            childReducer.updateGroup(group, values);
-        }
-
-        @Override
-        public ReducerResult result() {
-            final List<FilterableMetrics<MetricCollection>> filterableMetrics = childReducer
-                .result()
-                .getResult()
-                .stream()
-                .map(m -> new FilterableMetrics<>(m, () -> m))
-                .collect(Collectors.toList());
-
-            return new ReducerResult(filterStrategy.filter(filterableMetrics),
-                childReducer.result().getStatistics());
+            for (final Observer<?> o : ignored) {
+                o.end();
+            }
         }
     }
 }

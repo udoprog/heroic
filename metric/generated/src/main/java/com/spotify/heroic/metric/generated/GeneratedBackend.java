@@ -47,7 +47,6 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * MetricBackend for Heroic cassandra datastore.
@@ -104,7 +103,7 @@ public class GeneratedBackend extends AbstractMetricBackend {
 
             if (source == MetricType.POINT) {
                 final List<Point> data = generator.generatePoints(series, range, watcher);
-                final QueryTrace trace = new QueryTrace(FETCH, w.elapsed(TimeUnit.NANOSECONDS));
+                final QueryTrace trace = new QueryTrace(FETCH, w);
                 final ImmutableList<Long> times = ImmutableList.of(trace.getElapsed());
                 final List<MetricCollection> groups =
                     ImmutableList.of(MetricCollection.points(data));
@@ -119,7 +118,7 @@ public class GeneratedBackend extends AbstractMetricBackend {
 
             if (source == MetricType.EVENT) {
                 final List<Event> data = generator.generateEvents(series, range, watcher);
-                final QueryTrace trace = new QueryTrace(FETCH, w.elapsed(TimeUnit.NANOSECONDS));
+                final QueryTrace trace = new QueryTrace(FETCH, w);
                 final ImmutableList<Long> times = ImmutableList.of(trace.getElapsed());
                 final List<MetricCollection> groups =
                     ImmutableList.of(MetricCollection.events(data));

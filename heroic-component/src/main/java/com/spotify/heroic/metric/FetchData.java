@@ -21,7 +21,6 @@
 
 package com.spotify.heroic.metric;
 
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.spotify.heroic.common.Series;
@@ -31,7 +30,6 @@ import lombok.Data;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Data
@@ -44,7 +42,7 @@ public class FetchData {
     public static Collector<FetchData, FetchData> collect(
         final QueryTrace.Identifier what, final Series series
     ) {
-        final Stopwatch w = Stopwatch.createStarted();
+        final QueryTrace.Tracer tracer = QueryTrace.trace(what);
 
         return results -> {
             final ImmutableList.Builder<Long> times = ImmutableList.builder();
@@ -75,8 +73,7 @@ public class FetchData {
                     .immutableSortedCopy(e.getValue().build())))
                 .collect(Collectors.toList());
 
-            return new FetchData(series, times.build(), groups,
-                new QueryTrace(what, w.elapsed(TimeUnit.NANOSECONDS), traces.build()));
+            return new FetchData(series, times.build(), groups, tracer.end(traces.build()));
         };
     }
 }

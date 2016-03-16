@@ -23,65 +23,61 @@ package com.spotify.heroic.aggregation;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.spotify.heroic.grammar.QueryParser;
-import lombok.Data;
+import com.google.common.collect.ImmutableMap;
+import com.spotify.heroic.grammar.Expression;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-@Data
-public class Group implements Aggregation {
+public class Group extends GroupingAggregation {
     public static final String NAME = "group";
-    public static final String ALL = "*";
 
-    private final Optional<List<String>> of;
-    private final Optional<Aggregation> each;
+    public static final Map<String, String> ALL_GROUP = ImmutableMap.of();
 
-    public Group(Optional<List<String>> of, Optional<Aggregation> each) {
-        this.of = checkNotNull(of, "of");
-        this.each = checkNotNull(each, "each");
+    public Group(
+        Optional<List<String>> of, Optional<Aggregation> each, Optional<Expression> reference
+    ) {
+        super(of, each, reference);
     }
 
     @JsonCreator
-    public static Group create(
-        @JsonProperty("of") Optional<List<String>> of,
-        @JsonProperty("each") Optional<AggregationOrList> each
+    public Group(
+        @JsonProperty("of") Optional<List<String>> of, @JsonProperty("each") AggregationOrList each,
+        @JsonProperty("reference") Optional<Expression> reference
     ) {
-        return new Group(of, each.flatMap(AggregationOrList::toAggregation));
+        this(of, each.toAggregation(), reference);
+    }
+
+    public Group(Optional<List<String>> of, Optional<Aggregation> each) {
+        this(of, new AggregationOrList(each), Optional.empty());
     }
 
     @Override
-    public Optional<Long> size() {
-        return each.flatMap(Aggregation::size);
-    }
+    protected Map<String, String> key(
+        final Map<String, String> tags, final Optional<Set<String>> of
+    ) {
+        return of.map(o -> {
+            // group by 'everything'
+            if (o.isEmpty()) {
+                return ALL_GROUP;
+            }
 
-    @Override
-    public Optional<Long> extent() {
-        return each.flatMap(Aggregation::extent);
-    }
+            final Map<String, String> key = new HashMap<>();
 
-    @Override
-    public GroupInstance apply(final AggregationContext context) {
-        final AggregationInstance instance = each.orElse(Empty.INSTANCE).apply(context);
+            for (final String tag : o) {
+                String value = tags.get(tag);
 
-        final Optional<List<String>> of = this.of.map(o -> {
-            final ImmutableSet.Builder<String> b = ImmutableSet.builder();
-            b.addAll(o).addAll(context.requiredTags());
-            return ImmutableList.copyOf(b.build());
-        });
+                if (value == null) {
+                    continue;
+                }
 
-        return new GroupInstance(of, instance);
-    }
+                key.put(tag, value);
+            }
 
-    @Override
-    public String toDSL() {
-        final Aggregation each = this.each.orElse(Empty.INSTANCE);
-        final String eachDSL = each instanceof Chain ? "(" + each.toDSL() + ")" : each.toDSL();
-        final String ofDSL = of.map(QueryParser::escapeList).orElse(ALL);
-        return eachDSL + " by " + ofDSL;
+            return key;
+        }).orElse(tags);
     }
 }

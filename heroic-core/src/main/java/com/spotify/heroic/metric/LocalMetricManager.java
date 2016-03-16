@@ -21,19 +21,17 @@
 
 package com.spotify.heroic.metric;
 
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.spotify.heroic.FullQuery;
 import com.spotify.heroic.QueryOptions;
+import com.spotify.heroic.aggregation.AggregationContext;
 import com.spotify.heroic.aggregation.AggregationData;
-import com.spotify.heroic.aggregation.AggregationInstance;
-import com.spotify.heroic.aggregation.AggregationResult;
-import com.spotify.heroic.aggregation.AggregationSession;
 import com.spotify.heroic.aggregation.AggregationState;
-import com.spotify.heroic.aggregation.AggregationTraversal;
 import com.spotify.heroic.async.AsyncObservable;
 import com.spotify.heroic.async.AsyncObserver;
+import com.spotify.heroic.async.Observable;
+import com.spotify.heroic.async.Observer;
 import com.spotify.heroic.common.BackendGroups;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.GroupMember;
@@ -42,36 +40,34 @@ import com.spotify.heroic.common.RangeFilter;
 import com.spotify.heroic.common.SelectedGroup;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.common.Statistics;
-import com.spotify.heroic.filter.Filter;
+import com.spotify.heroic.grammar.DefaultScope;
+import com.spotify.heroic.grammar.Expression;
 import com.spotify.heroic.metadata.FindSeries;
 import com.spotify.heroic.metadata.MetadataBackend;
 import com.spotify.heroic.metadata.MetadataManager;
 import com.spotify.heroic.statistics.MetricBackendGroupReporter;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
-import eu.toolchain.async.Collector;
 import eu.toolchain.async.LazyTransform;
 import eu.toolchain.async.ResolvableFuture;
-import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.NotImplementedException;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @ToString(of = {})
 public class LocalMetricManager implements MetricManager {
     private static final QueryTrace.Identifier QUERY =
         QueryTrace.identifier(LocalMetricManager.class, "query");
+    private static final QueryTrace.Identifier ANALYZE =
+        QueryTrace.identifier(LocalMetricManager.class, "analyze");
     private static final QueryTrace.Identifier FETCH =
         QueryTrace.identifier(LocalMetricManager.class, "fetch");
     private static final QueryTrace.Identifier KEYS =
@@ -192,22 +188,58 @@ public class LocalMetricManager implements MetricManager {
         }
 
         @Override
-        public AsyncFuture<ResultGroups> query(
-            MetricType source, final Filter filter, final DateRange range,
-            final AggregationInstance aggregation, final QueryOptions options
-        ) {
+        public AsyncFuture<AnalyzeResult> analyze(final FullQuery query) {
+            /* groupLoadLimit + 1, so that we return one too many results when more than
+             * groupLoadLimit series are available. This will cause the query engine to reject the
+             * request because of too large group. */
+            final RangeFilter rangeFilter =
+                RangeFilter.filterFor(query.getFilter(), Optional.of(query.getRange()),
+                    seriesLimit + 1);
+
+            final QueryTrace.Tracer tracer = QueryTrace.trace(ANALYZE);
+            final Expression.Scope scope = new DefaultScope(query.getNow());
+
+            final LazyTransform<FindSeries, AnalyzeResult> transform =
+                (final FindSeries result) -> {
+                    final List<AggregationState> input =
+                        emptyStates(result.getSeries(), query.getSource(), query.getRange(),
+                            query.getOptions());
+
+                    final AggregationContext context = AggregationContext
+                        .tracing(async, input, query.getRange(), e -> e.eval(scope))
+                        .withOptions(query.getOptions())
+                        .withCadence(query.getCadence());
+
+                    return query.getAggregation().setup(context).directTransform(out -> {
+                        return AnalyzeResult.analyze(out, tracer::end, ImmutableList.of());
+                    });
+                };
+
+            return metadata
+                .findSeries(rangeFilter)
+                .onDone(reporter.reportFindSeries())
+                .lazyTransform(transform);
+        }
+
+        @Override
+        public AsyncFuture<QueryResult> query(final FullQuery query) {
             final FetchQuotaWatcher watcher = new LimitedFetchQuotaWatcher(dataLimit);
 
             /* groupLoadLimit + 1, so that we return one too many results when more than
              * groupLoadLimit series are available. This will cause the query engine to reject the
              * request because of too large group. */
             final RangeFilter rangeFilter =
-                RangeFilter.filterFor(filter, Optional.ofNullable(range), seriesLimit + 1);
+                RangeFilter.filterFor(query.getFilter(), Optional.of(query.getRange()),
+                    seriesLimit + 1);
 
-            final LazyTransform<FindSeries, ResultGroups> transform = (final FindSeries result) -> {
+            final QueryTrace.Tracer tracer = QueryTrace.trace(QUERY);
+
+            final Expression.Scope scope = new DefaultScope(query.getNow());
+
+            final LazyTransform<FindSeries, QueryResult> transform = (final FindSeries result) -> {
                 /* if empty, there are not time series on this shard */
                 if (result.isEmpty()) {
-                    return async.resolved(ResultGroups.empty(QUERY));
+                    return async.resolved(QueryResult.empty(tracer.end()));
                 }
 
                 if (result.getSize() >= seriesLimit) {
@@ -217,108 +249,68 @@ public class LocalMetricManager implements MetricManager {
                             seriesLimit);
                 }
 
-                final long estimate = aggregation.estimate(range);
+                final List<AggregationState> input =
+                    states(result.getSeries(), query.getSource(), query.getRange(), watcher,
+                        query.getOptions());
 
-                if (estimate > aggregationLimit) {
-                    throw new IllegalArgumentException(String.format(
-                        "aggregation is estimated more points [%d/%d] than what is allowed",
-                        estimate, aggregationLimit));
-                }
+                final AggregationContext context = AggregationContext
+                    .of(async, input, query.getRange(), e -> e.eval(scope))
+                    .withOptions(query.getOptions())
+                    .withCadence(query.getCadence());
 
-                final AggregationTraversal traversal =
-                    aggregation.session(states(result.getSeries()), range);
-
-                if (traversal.getStates().size() > groupLimit) {
-                    throw new IllegalArgumentException(
-                        "The current query is too heavy! (More than " + groupLimit + " " +
-                            "timeseries would be sent to your client).");
-                }
-
-                final AggregationSession session = traversal.getSession();
-
-                final List<AsyncObservable<FetchData>> fetches = new ArrayList<>();
-
-                final Map<Map<String, String>, Set<Series>> lookup = new HashMap<>();
-
-                /* setup fetches */
-
-                for (final AggregationState state : traversal.getStates()) {
-                    final Set<Series> series = state.getSeries();
-                    lookup.put(state.getKey(), series);
-
-                    if (series.isEmpty()) {
-                        continue;
+                return query.getAggregation().setup(context).lazyTransform(out -> {
+                    if (out.states().size() > groupLimit) {
+                        throw new IllegalArgumentException(
+                            "The current query is too heavy! (More than " + groupLimit + " " +
+                                "timeseries would be sent to your client).");
                     }
 
-                    runVoid(b -> {
-                        for (final Series serie : series) {
-                            fetches.add(b.fetch(source, serie, range, watcher, options));
+                    out.estimate().ifPresent(estimate -> {
+                        if (estimate > aggregationLimit) {
+                            throw new IllegalArgumentException(String.format(
+                                "aggregation is estimated more points [%d/%d] than what is allowed",
+                                estimate, aggregationLimit));
                         }
-
-                        return null;
                     });
-                }
 
-                /* setup collector */
+                    final List<Observable<AggregationData>> observables =
+                        new ArrayList<>(out.states().size());
 
-                final ResultCollector collector;
+                    for (final AggregationState s : out.states()) {
+                        observables.add(s
+                            .getObservable()
+                            .transform(d -> new AggregationData(s.getKey(), s.getSeries(), d,
+                                out.range())));
+                    }
 
-                final Stopwatch w = Stopwatch.createStarted();
+                    final ResolvableFuture<QueryResult> future = async.future();
 
-                if (options.isTracing()) {
-                    // tracing enabled, keeps track of each individual FetchData trace.
-                    collector = new ResultCollector(watcher, aggregation, session, lookup) {
-                        final ConcurrentLinkedQueue<QueryTrace> traces =
+                    Observable.concurrently(observables).observe(new Observer<AggregationData>() {
+                        final ConcurrentLinkedQueue<AggregationData> results =
                             new ConcurrentLinkedQueue<>();
 
                         @Override
-                        public void resolved(FetchData result) throws Exception {
-                            traces.add(result.getTrace());
-                            super.resolved(result);
+                        public void observe(final AggregationData d) throws Exception {
+                            results.add(d);
                         }
 
                         @Override
-                        public QueryTrace buildTrace() {
-                            return new QueryTrace(QUERY, w.elapsed(TimeUnit.NANOSECONDS),
-                                ImmutableList.copyOf(traces));
+                        public void fail(final Throwable cause) throws Exception {
+                            future.fail(cause);
                         }
-                    };
-                } else {
-                    // very limited tracing, does not collected each individual FetchData trace.
-                    collector = new ResultCollector(watcher, aggregation, session, lookup) {
+
                         @Override
-                        public QueryTrace buildTrace() {
-                            return new QueryTrace(QUERY, w.elapsed(TimeUnit.NANOSECONDS));
+                        public void end() throws Exception {
+                            final List<AggregationData> groups = ImmutableList.copyOf(results);
+
+                            future.resolve(
+                                new QueryResult(out.cadence(), groups, ImmutableList.of(),
+                                    Statistics.empty(), tracer.end()));
                         }
-                    };
-                }
+                    });
 
-                final ResolvableFuture<ResultGroups> future = async.future();
-
-                AsyncObservable.chain(fetches).observe(new AsyncObserver<FetchData>() {
-                    @Override
-                    public AsyncFuture<Void> observe(final FetchData value) throws Exception {
-                        collector.resolved(value);
-                        return async.resolved();
-                    }
-
-                    @Override
-                    public void cancel() throws Exception {
-                        future.cancel();
-                    }
-
-                    @Override
-                    public void fail(final Throwable cause) throws Exception {
-                        future.fail(cause);
-                    }
-
-                    @Override
-                    public void end() throws Exception {
-                        future.resolve(collector.collect());
-                    }
+                    return future;
                 });
-
-                return future;
             };
 
             return metadata
@@ -326,6 +318,32 @@ public class LocalMetricManager implements MetricManager {
                 .onDone(reporter.reportFindSeries())
                 .lazyTransform(transform)
                 .onDone(reporter.reportQueryMetrics());
+        }
+
+        private List<AggregationState> emptyStates(
+            final Set<Series> series, final MetricType source, final DateRange range,
+            final QueryOptions options
+        ) {
+            final List<AggregationState> states = new ArrayList<>(series.size());
+
+            for (final Series s : series) {
+                states.add(AggregationState.forSeries(s, Observable.empty()));
+            }
+
+            return states;
+        }
+
+        private List<AggregationState> states(
+            final Set<Series> series, final MetricType source, final DateRange range,
+            final FetchQuotaWatcher watcher, final QueryOptions options
+        ) {
+            final List<AggregationState> states = new ArrayList<>(series.size());
+
+            for (final Series s : series) {
+                states.add(state(source, s, range, watcher, options));
+            }
+
+            return states;
         }
 
         @Override
@@ -441,18 +459,14 @@ public class LocalMetricManager implements MetricManager {
         public AsyncFuture<MetricCollection> fetchRow(final BackendKey key) {
             final List<AsyncFuture<MetricCollection>> callbacks = run(b -> b.fetchRow(key));
 
-            return async.collect(callbacks, new Collector<MetricCollection, MetricCollection>() {
-                @Override
-                public MetricCollection collect(Collection<MetricCollection> results)
-                    throws Exception {
-                    final List<List<? extends Metric>> collections = new ArrayList<>();
+            return async.collect(callbacks, (Collection<MetricCollection> results) -> {
+                final List<List<? extends Metric>> collections = new ArrayList<>();
 
-                    for (final MetricCollection result : results) {
-                        collections.add(result.getData());
-                    }
-
-                    return MetricCollection.mergeSorted(key.getType(), collections);
+                for (final MetricCollection result : results) {
+                    collections.add(result.getData());
                 }
+
+                return MetricCollection.mergeSorted(key.getType(), collections);
             });
         }
 
@@ -484,62 +498,49 @@ public class LocalMetricManager implements MetricManager {
 
             return result.build();
         }
-    }
 
-    private static List<AggregationState> states(Set<Series> series) {
-        return ImmutableList.copyOf(series
-            .stream()
-            .map(s -> new AggregationState(s.getTags(), ImmutableSet.of(s)))
-            .iterator());
-    }
+        private AggregationState state(
+            final MetricType source, final Series series, final DateRange range,
+            final FetchQuotaWatcher watcher, final QueryOptions options
+        ) {
+            final List<AsyncObservable<MetricCollection>> fetches = new ArrayList<>();
 
-    @RequiredArgsConstructor
-    private abstract static class ResultCollector {
-        final FetchQuotaWatcher watcher;
-        final AggregationInstance aggregation;
-        final AggregationSession session;
-        final Map<Map<String, String>, Set<Series>> lookup;
+            runVoid(b -> {
+                fetches.add(observer -> {
+                    b
+                        .fetch(source, series, range, watcher, options)
+                        .observe(new AsyncObserver<FetchData>() {
+                            @Override
+                            public AsyncFuture<Void> observe(final FetchData value)
+                                throws Exception {
+                                for (final MetricCollection c : value.getGroups()) {
+                                    observer.observe(c);
+                                }
 
-        public void resolved(FetchData result) throws Exception {
-            for (final MetricCollection g : result.getGroups()) {
-                g.updateAggregation(session, result.getSeries().getTags());
-            }
-        }
+                                return async.resolved();
+                            }
 
-        public abstract QueryTrace buildTrace();
+                            @Override
+                            public void fail(final Throwable cause) throws Exception {
+                                observer.fail(cause);
+                            }
 
-        private ResultGroups collect() throws Exception {
-            final QueryTrace trace = buildTrace();
+                            @Override
+                            public void end() throws Exception {
+                                observer.end();
+                            }
+                        });
+                });
 
-            final AggregationResult result = session.result();
+                return null;
+            });
 
-            final List<ResultGroup> groups = new ArrayList<>();
-
-            for (final AggregationData group : result.getResult()) {
-                /* skip empty groups (no valid values) */
-                if (group.isEmpty()) {
-                    continue;
-                }
-
-                final Set<Series> s = lookup.get(group.getGroup());
-
-                if (s == null) {
-                    throw new IllegalStateException(
-                        "Series not available for result group: " + group.getGroup());
-                }
-
-                final SeriesValues series = SeriesValues.fromSeries(s.iterator());
-
-                groups.add(new ResultGroup(group.getGroup(), series, group.getMetrics(),
-                    aggregation.cadence()));
-            }
-
-            final Statistics stat = result.getStatistics();
-            return new ResultGroups(groups, ImmutableList.of(), stat, trace);
+            return new AggregationState(series.getTags(), ImmutableList.of(series),
+                AsyncObservable.chain(fetches).toSync(async));
         }
     }
 
-    private static interface InternalOperation<T> {
+    private interface InternalOperation<T> {
         T run(MetricBackend backend) throws Exception;
     }
 }

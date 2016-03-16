@@ -25,10 +25,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.spotify.heroic.QueryManager;
 import com.spotify.heroic.QueryOptions;
+import com.spotify.heroic.aggregation.AggregationData;
 import com.spotify.heroic.dagger.CoreComponent;
 import com.spotify.heroic.metric.MetricCollection;
-import com.spotify.heroic.metric.RequestError;
-import com.spotify.heroic.metric.ShardedResultGroup;
+import com.spotify.heroic.metric.NodeError;
 import com.spotify.heroic.shell.AbstractShellTaskParams;
 import com.spotify.heroic.shell.ShellIO;
 import com.spotify.heroic.shell.ShellTask;
@@ -78,20 +78,20 @@ public class Query implements ShellTask {
 
         return query
             .useGroup(params.group)
-            .query(query.newQueryFromString(queryString).options(Optional.of(options)).build())
+            .query(query.newQueryFromString(queryString).withOptionsIfAbsent(Optional.of(options)))
             .directTransform(result -> {
-                for (final RequestError e : result.getErrors()) {
+                for (final NodeError e : result.getErrors()) {
                     io.out().println(String.format("ERR: %s", e.toString()));
                 }
 
-                for (final ShardedResultGroup resultGroup : result.getGroups()) {
-                    final MetricCollection group = resultGroup.getGroup();
+                for (final AggregationData data : result.getData()) {
+                    final MetricCollection c = data.getMetrics();
 
                     io
                         .out()
-                        .println(String.format("%s: %s %s", group.getType(), resultGroup.getShard(),
-                            indent.writeValueAsString(resultGroup.getSeries())));
-                    io.out().println(indent.writeValueAsString(group.getData()));
+                        .println(String.format("%s: %s: %s", c.getType(), data.getKey(),
+                            data.getSeries()));
+                    io.out().println(indent.writeValueAsString(c.getData()));
                     io.out().flush();
                 }
 

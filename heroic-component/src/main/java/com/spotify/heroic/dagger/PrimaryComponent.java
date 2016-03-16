@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spotify.heroic.HeroicContext;
 import com.spotify.heroic.HeroicCoreInstance;
 import com.spotify.heroic.ShellTasks;
+import com.spotify.heroic.grammar.ExpressionEvaluator;
 import com.spotify.heroic.grammar.QueryParser;
 import com.spotify.heroic.lifecycle.LifeCycleManager;
 import com.spotify.heroic.statistics.HeroicReporter;
@@ -64,4 +65,6 @@ public interface PrimaryComponent extends EarlyComponent {
     LifeCycleManager lifeCycleManager();
 
     HeroicContext context();
+
+    ExpressionEvaluator expressionParser();
 }

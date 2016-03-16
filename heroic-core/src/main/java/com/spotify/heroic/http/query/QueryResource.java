@@ -24,10 +24,13 @@ package com.spotify.heroic.http.query;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
-import com.spotify.heroic.Query;
-import com.spotify.heroic.QueryBuilder;
+import com.spotify.heroic.QueryDateRange;
+import com.spotify.heroic.QueryInstance;
 import com.spotify.heroic.QueryManager;
+import com.spotify.heroic.common.DateRange;
+import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.common.JavaxRestFramework;
+import com.spotify.heroic.grammar.Expression;
 import com.spotify.heroic.metric.QueryResult;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
@@ -45,19 +48,28 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.container.AsyncResponse;
 import javax.ws.rs.container.Suspended;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.UriInfo;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 @Path("query")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class QueryResource {
+    public static final String TEXT_GRAPHVIZ = "text/vnd.graphviz";
+    public static final String COMPACT_TRACING = "compactTracing";
+
     private final JavaxRestFramework httpAsync;
     private final QueryManager query;
     private final AsyncFramework async;
@@ -75,9 +87,9 @@ public class QueryResource {
     @POST
     @Path("metrics/stream")
     public List<StreamId> metricsStream(
-        @QueryParam("backend") String backendGroup, QueryMetrics query
+        @Context UriInfo uri, @QueryParam("backend") String backendGroup, QueryMetrics query
     ) {
-        final Query request = setupQuery(query).build();
+        final QueryInstance request = setupQuery(query, uri);
 
         final Collection<? extends QueryManager.Group> groups =
             this.query.useGroupPerNode(backendGroup);
@@ -107,9 +119,8 @@ public class QueryResource {
             throw new NotFoundException("Stream query not found with id: " + id);
         }
 
-        final Query q = streamQuery.getQuery();
-        final QueryManager.Group group = streamQuery.getGroup();
-        final AsyncFuture<QueryResult> callback = group.query(q);
+        final AsyncFuture<QueryResult> callback =
+            streamQuery.getGroup().query(streamQuery.getQuery());
 
         callback.onResolved(r -> streamQueries.invalidate(id));
 
@@ -117,47 +128,87 @@ public class QueryResource {
     }
 
     @POST
+    @Path("analyze")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(TEXT_GRAPHVIZ)
+    public void analyzeJsonToGraphviz(
+        @Suspended final AsyncResponse response, @QueryParam("group") String group,
+        @Context UriInfo uri, QueryMetrics input
+    ) {
+        bindAnalyzeGraphviz(response, query.useGroup(group), setupQuery(input, uri));
+    }
+
+    @POST
+    @Path("analyze")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public void analyzeJsonToJson(
+        @Suspended final AsyncResponse response, @Context UriInfo uri,
+        @QueryParam("group") String group, QueryMetrics input
+    ) {
+        httpAsync.bind(response, query.useGroup(group).analyze(setupQuery(input, uri)));
+    }
+
+    @POST
+    @Path("analyze")
+    @Consumes(MediaType.TEXT_PLAIN)
+    @Produces(TEXT_GRAPHVIZ)
+    public void analyzeTextToGraphviz(
+        @Suspended final AsyncResponse response, @Context UriInfo uri,
+        @QueryParam("group") String group, String input
+    ) {
+        bindAnalyzeGraphviz(response, query.useGroup(group), setupQuery(input, uri));
+    }
+
+    @POST
+    @Path("analyze")
+    @Consumes(MediaType.TEXT_PLAIN)
+    @Produces(MediaType.APPLICATION_JSON)
+    public void analyzeTextToJson(
+        @Suspended final AsyncResponse response, @Context UriInfo uri,
+        @QueryParam("group") String group, String input
+    ) {
+        httpAsync.bind(response, query.useGroup(group).analyze(setupQuery(input, uri)));
+    }
+
+    @POST
     @Path("metrics")
     @Consumes(MediaType.TEXT_PLAIN)
+    @Produces(MediaType.APPLICATION_JSON)
     public void metricsText(
-        @Suspended final AsyncResponse response, @QueryParam("group") String group, String query
+        @Suspended final AsyncResponse response, @Context UriInfo uri,
+        @QueryParam("group") String group, String input
     ) {
-        final Query q = this.query.newQueryFromString(query).build();
-
-        final QueryManager.Group g = this.query.useGroup(group);
-        final AsyncFuture<QueryResult> callback = g.query(q);
-
-        bindMetricsResponse(response, callback);
+        bindMetricsResponse(response, query.useGroup(group).query(setupQuery(input, uri)));
     }
 
     @POST
     @Path("metrics")
     @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
     public void metrics(
         @Suspended final AsyncResponse response, @QueryParam("group") String group,
-        QueryMetrics query
+        @Context UriInfo uri, QueryMetrics input
     ) {
-        final Query q = setupQuery(query).build();
-
-        final QueryManager.Group g = this.query.useGroup(group);
-        final AsyncFuture<QueryResult> callback = g.query(q);
-
-        bindMetricsResponse(response, callback);
+        bindMetricsResponse(response, query.useGroup(group).query(setupQuery(input, uri)));
     }
 
     @POST
     @Path("batch")
     public void metrics(
         @Suspended final AsyncResponse response, @QueryParam("backend") String backendGroup,
-        final QueryBatch query
+        @Context UriInfo uri, final QueryBatch query
     ) {
         final QueryManager.Group group = this.query.useGroup(backendGroup);
 
         final List<AsyncFuture<Pair<String, QueryResult>>> futures = new ArrayList<>();
 
         for (final Map.Entry<String, QueryMetrics> e : query.getQueries().entrySet()) {
-            final Query q = setupQuery(e.getValue()).rangeIfAbsent(query.getRange()).build();
-            futures.add(group.query(q).directTransform(r -> Pair.of(e.getKey(), r)));
+            final QueryInstance instance = setupQuery(e.getValue(), uri).withRangeIfAbsent(
+                query.getRange().map(QueryDateRange::asExpression));
+
+            // final QueryInstance q = new QueryInstance(Optional.of(instance));
+            futures.add(group.query(instance).directTransform(r -> Pair.of(e.getKey(), r)));
         }
 
         final AsyncFuture<QueryBatchResponse> future =
@@ -168,7 +219,7 @@ public class QueryResource {
                 for (final Pair<String, QueryResult> e : entries) {
                     final QueryResult r = e.getRight();
                     results.put(e.getLeft(),
-                        new QueryMetricsResponse(r.getRange(), r.getGroups(), r.getErrors(),
+                        new QueryMetricsResponse(r.getData(), Duration.empty(), r.getErrors(),
                             r.getTrace()));
                 }
 
@@ -186,32 +237,68 @@ public class QueryResource {
         response.setTimeout(300, TimeUnit.SECONDS);
 
         httpAsync.bind(response, callback,
-            r -> new QueryMetricsResponse(r.getRange(), r.getGroups(), r.getErrors(),
+            r -> new QueryMetricsResponse(r.getData(), Duration.empty(), r.getErrors(),
                 r.getTrace()));
     }
 
-    @SuppressWarnings("deprecation")
-    private QueryBuilder setupQuery(final QueryMetrics q) {
-        Supplier<? extends QueryBuilder> supplier = () -> {
-            return query
-                .newQuery()
-                .key(q.getKey())
-                .tags(q.getTags())
-                .groupBy(q.getGroupBy())
-                .filter(q.getFilter())
-                .range(q.getRange())
-                .aggregation(q.getAggregation())
-                .source(q.getSource())
-                .options(q.getOptions());
-        };
+    private void bindAnalyzeGraphviz(
+        final AsyncResponse response, final QueryManager.Group g, final QueryInstance q
+    ) {
+        final AsyncFuture<String> callback = g.analyze(q).directTransform(r -> {
+            final StringWriter writer = new StringWriter();
 
-        return q
+            try (final PrintWriter out = new PrintWriter(writer)) {
+                r.writeGraphviz(out);
+            }
+
+            return writer.toString();
+        });
+
+        httpAsync.bind(response, callback);
+    }
+
+    @SuppressWarnings("deprecation")
+    private QueryInstance setupQuery(final QueryMetrics q, final UriInfo uri) {
+        final Supplier<QueryInstance> supplier = () -> query
+            .newQuery()
+            .key(q.getKey())
+            .tags(q.getTags())
+            .groupBy(q.getGroupBy())
+            .filter(q.getFilter())
+            .range(q.getRange())
+            .aggregation(q.getAggregation())
+            .source(q.getSource())
+            .options(q.getOptions())
+            .build();
+
+        final QueryInstance base = q
             .getQuery()
             .map(query::newQueryFromString)
             .orElseGet(supplier)
-            .rangeIfAbsent(q.getRange())
-            .optionsIfAbsent(q.getOptions())
-            .features(q.getFeatures());
+            .withNow(System.currentTimeMillis());
+
+        final Optional<Function<Expression.Scope, DateRange>> rangeBuilder =
+            q.getRange().map(QueryDateRange::asExpression);
+
+        final QueryInstance modified = base
+            .withRangeIfAbsent(rangeBuilder)
+            .withOptionsIfAbsent(q.getOptions())
+            .withAddedFeatures(q.getFeatures());
+
+        return modifyInstanceWithUri(modified, uri);
+    }
+
+    private QueryInstance setupQuery(final String q, final UriInfo uri) {
+        return modifyInstanceWithUri(
+            query.newQueryFromString(q).withNow(System.currentTimeMillis()), uri);
+    }
+
+    private QueryInstance modifyInstanceWithUri(final QueryInstance query, final UriInfo uri) {
+        final Optional<Boolean> compactTracing = Optional
+            .ofNullable(uri.getQueryParameters().getFirst(COMPACT_TRACING))
+            .map(Boolean::parseBoolean);
+
+        return query.modifyOptions(o -> compactTracing.map(o::withCompactTracing).orElse(o));
     }
 
     @Data
@@ -223,6 +310,6 @@ public class QueryResource {
     @Data
     private static final class StreamQuery {
         private final QueryManager.Group group;
-        private final Query query;
+        private final QueryInstance query;
     }
 }

@@ -23,10 +23,16 @@ package com.spotify.heroic.aggregation.simple;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.spotify.heroic.aggregation.AggregationContext;
+import com.google.common.collect.ImmutableSet;
+import com.spotify.heroic.aggregation.Aggregation;
+import com.spotify.heroic.aggregation.BucketAggregation;
 import com.spotify.heroic.aggregation.SamplingQuery;
 import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.common.Optionals;
+import com.spotify.heroic.grammar.Expression;
+import com.spotify.heroic.metric.Metric;
+import com.spotify.heroic.metric.MetricType;
+import com.spotify.heroic.metric.Point;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -34,26 +40,44 @@ import java.util.Optional;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class Max extends SamplingAggregation {
+public class Max extends BucketAggregation<StripedMaxBucket> {
     public static final String NAME = "max";
 
     @JsonCreator
     public Max(
         @JsonProperty("sampling") Optional<SamplingQuery> sampling,
         @JsonProperty("size") Optional<Duration> size,
-        @JsonProperty("extent") Optional<Duration> extent
+        @JsonProperty("extent") Optional<Duration> extent,
+        @JsonProperty("reference") final Optional<Expression> reference
     ) {
         super(Optionals.firstPresent(size, sampling.flatMap(SamplingQuery::getSize)),
-            Optionals.firstPresent(extent, sampling.flatMap(SamplingQuery::getExtent)));
+            Optionals.firstPresent(extent, sampling.flatMap(SamplingQuery::getExtent)), reference,
+            ImmutableSet.of(MetricType.POINT, MetricType.SPREAD), MetricType.POINT);
     }
 
     @Override
-    public MaxInstance apply(final AggregationContext contex, final long size, final long extent) {
-        return new MaxInstance(size, extent);
+    protected StripedMaxBucket buildBucket(long timestamp) {
+        return new StripedMaxBucket(timestamp);
     }
 
     @Override
-    public String toDSL() {
-        return samplingDSL(NAME);
+    protected Metric build(StripedMaxBucket bucket) {
+        final double value = bucket.value();
+
+        if (Double.isNaN(value)) {
+            return Metric.invalid();
+        }
+
+        return new Point(bucket.timestamp(), value);
+    }
+
+    @Override
+    public Aggregation distributed() {
+        return new Max(Optional.empty(), size, extent, Optional.empty());
+    }
+
+    @Override
+    public Aggregation combiner() {
+        return new Max(Optional.empty(), size, extent, Optional.empty());
     }
 }

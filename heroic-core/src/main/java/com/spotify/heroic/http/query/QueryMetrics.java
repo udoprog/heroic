@@ -26,7 +26,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.spotify.heroic.QueryDateRange;
 import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.aggregation.Aggregation;
-import com.spotify.heroic.aggregation.Chain;
+import com.spotify.heroic.aggregation.Aggregations;
 import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.metric.MetricType;
 import jersey.repackaged.com.google.common.collect.ImmutableSet;
@@ -74,19 +74,19 @@ public class QueryMetrics {
 
     @JsonCreator
     public QueryMetrics(
-        @JsonProperty("query") String query, @JsonProperty("aggregation") Aggregation aggregation,
-        @JsonProperty("aggregators") List<Aggregation> aggregators,
+        @JsonProperty("query") String query,
+        @JsonProperty("aggregation") Optional<Aggregation> aggregation,
+        @JsonProperty("aggregators") Optional<List<Aggregation>> aggregators,
         @JsonProperty("source") String source, @JsonProperty("range") QueryDateRange range,
         @JsonProperty("filter") Filter filter, @JsonProperty("key") String key,
         @JsonProperty("tags") Map<String, String> tags,
         @JsonProperty("groupBy") List<String> groupBy,
         @JsonProperty("options") QueryOptions options,
-        @JsonProperty("features") Set<String> features,
-            /* ignored */ @JsonProperty("noCache") Boolean noCache
+        @JsonProperty("features") Set<String> features
     ) {
         this.query = ofNullable(query);
-        this.aggregation = firstPresent(ofNullable(aggregation),
-            ofNullable(aggregators).filter(c -> !c.isEmpty()).map(Chain::new));
+        this.aggregation = firstPresent(aggregation,
+            aggregators.filter(c -> !c.isEmpty()).flatMap(Aggregations::chain));
         this.source = MetricType.fromIdentifier(source);
         this.range = ofNullable(range);
         this.filter = ofNullable(filter);

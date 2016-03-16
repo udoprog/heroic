@@ -23,6 +23,7 @@ package com.spotify.heroic.metric;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import org.apache.commons.lang3.time.FastDateFormat;
 
 import java.util.Comparator;
 
@@ -52,4 +53,12 @@ public class Point implements Metric {
             return Long.compare(a.getTimestamp(), b.getTimestamp());
         }
     };
+
+    private static final FastDateFormat FORMAT =
+        FastDateFormat.getInstance("yyyy-MM-dd HH:mm:ss.SSS");
+
+    @Override
+    public String toString() {
+        return "Point(timestamp=" + FORMAT.format(timestamp) + ", value=" + value + ")";
+    }
 }

@@ -21,10 +21,13 @@
 
 package com.spotify.heroic.aggregation;
 
-import com.spotify.heroic.grammar.ListValue;
-import com.spotify.heroic.grammar.Value;
+import com.spotify.heroic.grammar.Expression;
+import com.spotify.heroic.grammar.ListExpression;
+import com.spotify.heroic.grammar.ReferenceExpression;
 
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Factory to dynamically build aggregations.
@@ -43,5 +46,37 @@ public interface AggregationFactory {
      * @return The built aggregation.
      * @throws MissingAggregation If the given name does not reflect an available aggregation.
      */
-    public Aggregation build(String name, ListValue args, Map<String, Value> keywords);
+    Aggregation build(String name, ListExpression args, Map<String, Expression> keywords);
+
+    /**
+     * Build an aggregation from an expression.
+     *
+     * @param e Expresison to build from.
+     * @return A new aggregation built from the given expression.
+     */
+    Optional<Aggregation> fromExpression(Expression e);
+
+    /**
+     * Same as {@link #fromExpression(com.spotify.heroic.grammar.Expression)} but defaults
+     * references to the {@link com.spotify.heroic.aggregation.Empty} aggregation.
+     *
+     * @param e Expression to build aggregation from.
+     * @return An new aggregation matching the given expression.
+     * @throws java.lang.IllegalArgumentException if the given expression cannot be converted.
+     */
+    default Aggregation fromExpressionWithEmpty(Expression e) {
+        Objects.requireNonNull(e);
+
+        return fromExpression(e).orElseGet(() -> e.visit(new Expression.Visitor<Aggregation>() {
+            @Override
+            public Aggregation visitReference(final ReferenceExpression e) {
+                return new Empty(Optional.of(e));
+            }
+
+            @Override
+            public Aggregation defaultAction(final Expression e) {
+                throw new IllegalArgumentException("Not an aggregation (" + e + ")");
+            }
+        }));
+    }
 }

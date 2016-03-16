@@ -21,28 +21,32 @@
 
 package com.spotify.heroic.aggregation.simple;
 
-import com.spotify.heroic.aggregation.AbstractAggregationDSL;
 import com.spotify.heroic.aggregation.Aggregation;
 import com.spotify.heroic.aggregation.AggregationArguments;
-import com.spotify.heroic.aggregation.AggregationFactory;
-import com.spotify.heroic.grammar.AggregationValue;
+import com.spotify.heroic.grammar.Expression;
 
-public abstract class FilterAggregationBuilder<T extends Aggregation>
-    extends AbstractAggregationDSL {
+import java.util.Optional;
+import java.util.function.Function;
 
-    public FilterAggregationBuilder(AggregationFactory factory) {
-        super(factory);
+public abstract class FilterAggregationBuilder<T extends Aggregation, K>
+    implements Function<AggregationArguments, Aggregation> {
+    private final Class<K> kType;
+
+    public FilterAggregationBuilder(Class<K> kType) {
+        this.kType = kType;
     }
 
     @Override
-    public Aggregation build(AggregationArguments args) {
-        final AggregationValue of = args
-            .positional(AggregationValue.class)
-            .orElseThrow(
-                () -> new IllegalArgumentException("missing required child aggregation 'of'"));
+    public Aggregation apply(AggregationArguments args) {
+        final K k = args
+            .getNext("k", kType)
+            .orElseThrow(() -> new IllegalArgumentException("missing required 'k' argument"));
 
-        return buildAggregation(args, asAggregation(of));
+        final Optional<Expression> reference = args.getNext("reference", Expression.class);
+        return build(args, k, reference);
     }
 
-    protected abstract T buildAggregation(AggregationArguments args, Aggregation of);
+    protected abstract T build(
+        AggregationArguments args, K k, Optional<Expression> reference
+    );
 }

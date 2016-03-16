@@ -23,35 +23,50 @@ package com.spotify.heroic.metric;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import lombok.AccessLevel;
 import lombok.Data;
+import lombok.RequiredArgsConstructor;
 
 import java.io.PrintWriter;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 @Data
+@RequiredArgsConstructor(access = AccessLevel.PUBLIC)
 public class QueryTrace {
     private final Identifier what;
     private final long elapsed;
     private final List<QueryTrace> children;
 
-    @JsonCreator
     public QueryTrace(
-        @JsonProperty("what") final QueryTrace.Identifier what,
-        @JsonProperty("elapsed") final long elapsed,
-        @JsonProperty("children") final List<QueryTrace> children
+        final QueryTrace.Identifier what, final Stopwatch w, final List<QueryTrace> children
     ) {
-        this.what = what;
-        this.elapsed = elapsed;
-        this.children = children;
+        this(what, w.elapsed(TimeUnit.MICROSECONDS), children);
     }
 
     public QueryTrace(final QueryTrace.Identifier what) {
         this(what, 0L, ImmutableList.of());
     }
 
-    public QueryTrace(final QueryTrace.Identifier what, final long elapsed) {
-        this(what, elapsed, ImmutableList.of());
+    public QueryTrace(final QueryTrace.Identifier what, final Stopwatch w) {
+        this(what, w, ImmutableList.of());
+    }
+
+    public QueryTrace(final QueryTrace.Identifier what, final long elapsedMicros) {
+        this(what, elapsedMicros, ImmutableList.of());
+    }
+
+    @JsonCreator
+    public static QueryTrace jsonCreate(
+        @JsonProperty("what") final QueryTrace.Identifier what,
+        @JsonProperty("elapsed") final Optional<Long> elapsed,
+        @JsonProperty("children") final List<QueryTrace> children
+    ) {
+        return new QueryTrace(what,
+            elapsed.orElseThrow(() -> new IllegalArgumentException("elapsed")), children);
     }
 
     public void formatTrace(PrintWriter out) {
@@ -76,6 +91,10 @@ public class QueryTrace {
 
     public static Identifier identifier(String description) {
         return new Identifier(description);
+    }
+
+    public static Tracer trace(final Identifier identifier) {
+        return new Tracer(identifier, Stopwatch.createStarted());
     }
 
     private String readableTime(long elapsed) {
@@ -110,6 +129,25 @@ public class QueryTrace {
         @Override
         public String toString() {
             return name;
+        }
+    }
+
+    @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
+    public static class Tracer {
+        private final Identifier identifier;
+        private final Stopwatch w;
+
+        public QueryTrace end() {
+            return end(ImmutableList.of());
+        }
+
+        public QueryTrace end(QueryTrace child) {
+            return end(ImmutableList.of(child));
+        }
+
+        public QueryTrace end(List<QueryTrace> children) {
+            final long elapsed = w.elapsed(TimeUnit.MICROSECONDS);
+            return new QueryTrace(identifier, elapsed, children);
         }
     }
 }

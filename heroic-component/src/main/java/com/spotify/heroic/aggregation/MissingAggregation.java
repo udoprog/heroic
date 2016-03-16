@@ -30,7 +30,7 @@ public class MissingAggregation extends RuntimeException {
     private final String name;
 
     public MissingAggregation(final String name) {
-        super("Missing aggregation " + name);
+        super("Missing aggregation (" + name + ")");
         this.name = name;
     }
 }

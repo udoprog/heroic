@@ -21,45 +21,71 @@
 
 package com.spotify.heroic.aggregation;
 
+import com.google.common.collect.ImmutableSet;
+import com.spotify.heroic.common.Duration;
+import eu.toolchain.async.AsyncFuture;
+
 import java.util.Optional;
-import java.util.function.Function;
+import java.util.Set;
 
 /**
- * Describes an aggregation.
+ * A metric manipulation framework.
  * <p>
- * Aggregations are responsible for down-sampling time-series data into more compact representations
- * that are easier to reason about.
+ * Aggregations are responsible for shaping metrics into a more desirable format. They can perform
+ * down-sampling, e.g. {@link com.spotify.heroic.aggregation.BucketAggregation} or filter data.
  * <p>
- * All members must be fully thread-safe. This class describes and contains the configuration for a
- * given aggregation, in order to perform one you would use the {@link #apply(AggregationContext)}
- * method which will return an instance of the current aggregation.
+ * All members must be fully thread-safe. In order to perform one you would use the {@link
+ * #setup(com.spotify.heroic.aggregation.AggregationContext)}} and read data from the returned
+ * {@link com.spotify.heroic.async.Observable} instances. The returned Observable's are not
+ * sequential and can be called from multiple threads.
  *
  * @author udoprog
- * @see AggregationInstance
  */
-public interface Aggregation extends Function<AggregationContext, AggregationInstance> {
+public interface Aggregation {
     /**
-     * Get the size of the aggregation.
-     * <p>
-     * The size is the space of time between subsequent samples.
+     * Indicate at which interval the current aggregation will output data.
      *
-     * @return The size if available, otherwise an empty result.
+     * @return An optional with the interval, or empty if it cannot be determined.
      */
-    Optional<Long> size();
+    default Optional<Duration> cadence() {
+        return Optional.empty();
+    }
 
     /**
-     * Get the extent of the aggregation.
+     * Get a set of required tags.
      * <p>
-     * The extent is the space of time in milliseconds that an aggregation takes samples.
+     * This is used to elide a set of required tags that needs to be forwarded for a certain
+     * aggregation.
      *
-     * @return The extent if available, otherwise an empty result.
+     * @return Return the set of required tags for this aggregation.
      */
-    Optional<Long> extent();
+    default Set<String> requiredTags() {
+        return ImmutableSet.of();
+    }
 
     /**
-     * Convert to Heroic DSL.
+     * Convert the aggregation into the corresponding distributed aggregation.
+     * <p>
+     * The distributed aggregation is the aggregation that will be sent over the wire.
      *
-     * @return A DSL version of the current aggregation.
+     * @return The distributed aggregation.
      */
-    String toDSL();
+    default Aggregation distributed() {
+        return this;
+    }
+
+    default Aggregation combiner() {
+        return Empty.INSTANCE;
+    }
+
+    /**
+     * @return {@code true} if this aggregation references another expression. {@code false}
+     * otherwise.
+     */
+    boolean referential();
+
+    /**
+     * Traverse the possible aggregations and build the necessary graph out of them.
+     */
+    AsyncFuture<AggregationContext> setup(AggregationContext context);
 }

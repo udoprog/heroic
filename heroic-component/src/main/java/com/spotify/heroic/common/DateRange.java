@@ -88,19 +88,17 @@ public class DateRange implements Comparable<DateRange> {
             return this;
         }
 
-        return new DateRange(start - start % interval, end - (end  % interval));
+        return new DateRange(start - start % interval, end - end % interval);
     }
 
-    public boolean overlap(DateRange other) {
-        if (end < other.start) {
-            return false;
+    public DateRange roundedOutwards(long interval) {
+        if (interval <= 0) {
+            return this;
         }
 
-        if (start > other.end) {
-            return false;
-        }
-
-        return true;
+        final long start = this.start - this.start % interval;
+        final long end = this.end + interval - (this.end % interval);
+        return new DateRange(start - interval, end);
     }
 
     @Override
@@ -150,8 +148,12 @@ public class DateRange implements Comparable<DateRange> {
         return new DateRange(this.start, end);
     }
 
-    public DateRange shift(long extent) {
-        return new DateRange(Math.max(start + extent, 0), Math.max(end + extent, 0));
+    public DateRange shift(final long shift) {
+        return new DateRange(Math.max(start + shift, 0), Math.max(end + shift, 0));
+    }
+
+    public DateRange shiftEnd(long extent) {
+        return new DateRange(start, Math.max(end + extent, 0));
     }
 
     @Override

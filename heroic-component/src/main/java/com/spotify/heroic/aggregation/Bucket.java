@@ -21,22 +21,7 @@
 
 package com.spotify.heroic.aggregation;
 
-import com.spotify.heroic.metric.Event;
-import com.spotify.heroic.metric.MetricGroup;
-import com.spotify.heroic.metric.Point;
-import com.spotify.heroic.metric.Spread;
-
-import java.util.Map;
-
-public interface Bucket {
-    void updatePoint(Map<String, String> tags, Point sample);
-
-    void updateEvent(Map<String, String> tags, Event sample);
-
-    void updateSpread(Map<String, String> tags, Spread sample);
-
-    void updateGroup(Map<String, String> tags, MetricGroup sample);
-
+public interface Bucket extends MetricCollector {
     /**
      * Get the timestamp for the bucket.
      *
