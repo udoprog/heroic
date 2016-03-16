@@ -235,15 +235,6 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
                         }
 
                         @Override
-                        public void cancel() throws Exception {
-                            try {
-                                observer.cancel();
-                            } finally {
-                                b.release();
-                            }
-                        }
-
-                        @Override
                         public void fail(Throwable cause) throws Exception {
                             try {
                                 observer.fail(cause);
@@ -357,15 +348,6 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
                 @Override
                 public AsyncFuture<Void> observe(List<Point> value) throws Exception {
                     return observer.observe(MetricCollection.points(value));
-                }
-
-                @Override
-                public void cancel() throws Exception {
-                    try {
-                        observer.cancel();
-                    } finally {
-                        b.release();
-                    }
                 }
 
                 @Override
@@ -683,7 +665,7 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
 
         @Override
         public void cancelled() throws Exception {
-            observer.cancel();
+            observer.end();
         }
 
         @Override
@@ -729,7 +711,7 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
 
                 @Override
                 public void cancelled() throws Exception {
-                    observer.cancel();
+                    observer.end();
                 }
 
                 @Override

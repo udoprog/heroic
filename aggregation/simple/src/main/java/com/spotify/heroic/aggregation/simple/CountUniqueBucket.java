@@ -26,7 +26,6 @@ import com.spotify.heroic.metric.Metric;
 import lombok.RequiredArgsConstructor;
 
 import java.util.Collections;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -49,8 +48,8 @@ public class CountUniqueBucket extends AbstractAnyBucket {
     }
 
     @Override
-    public void update(Map<String, String> tags, Metric d) {
-        if (seen.add(tags.hashCode() ^ d.valueHash())) {
+    public void collectAny(Metric d) {
+        if (seen.add(d.valueHash())) {
             count.incrementAndGet();
         }
     }

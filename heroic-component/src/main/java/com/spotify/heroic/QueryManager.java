@@ -22,11 +22,11 @@
 package com.spotify.heroic;
 
 import com.spotify.heroic.cluster.ClusterNode;
+import com.spotify.heroic.metric.AnalyzeResult;
 import com.spotify.heroic.metric.QueryResult;
 import eu.toolchain.async.AsyncFuture;
 
 import java.util.Collection;
-import java.util.Optional;
 
 public interface QueryManager {
     Group useGroup(String group);
@@ -39,16 +39,12 @@ public interface QueryManager {
 
     QueryBuilder newQuery();
 
-    QueryBuilder newQueryFromString(String query);
+    QueryInstance newQueryFromString(String query);
 
-    String queryToString(final Query query);
+    interface Group extends Iterable<ClusterNode.Group> {
+        AsyncFuture<QueryResult> query(QueryInstance query);
 
-    String queryToString(final Query query, Optional<Integer> indent);
-
-    AsyncFuture<Void> initialized();
-
-    public interface Group extends Iterable<ClusterNode.Group> {
-        AsyncFuture<QueryResult> query(Query query);
+        AsyncFuture<AnalyzeResult> analyze(QueryInstance query);
 
         ClusterNode.Group first();
     }

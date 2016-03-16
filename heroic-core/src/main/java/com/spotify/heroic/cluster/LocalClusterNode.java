@@ -21,12 +21,10 @@
 
 package com.spotify.heroic.cluster;
 
-import com.spotify.heroic.QueryOptions;
-import com.spotify.heroic.aggregation.AggregationInstance;
+import com.spotify.heroic.FullQuery;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.RangeFilter;
 import com.spotify.heroic.common.Series;
-import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.metadata.CountSeries;
 import com.spotify.heroic.metadata.DeleteSeries;
 import com.spotify.heroic.metadata.FindKeys;
@@ -34,10 +32,10 @@ import com.spotify.heroic.metadata.FindSeries;
 import com.spotify.heroic.metadata.FindTags;
 import com.spotify.heroic.metadata.MetadataBackend;
 import com.spotify.heroic.metadata.MetadataManager;
+import com.spotify.heroic.metric.AnalyzeResult;
 import com.spotify.heroic.metric.MetricBackendGroup;
 import com.spotify.heroic.metric.MetricManager;
-import com.spotify.heroic.metric.MetricType;
-import com.spotify.heroic.metric.ResultGroups;
+import com.spotify.heroic.metric.QueryResult;
 import com.spotify.heroic.metric.WriteMetric;
 import com.spotify.heroic.metric.WriteResult;
 import com.spotify.heroic.suggest.KeySuggest;
@@ -51,13 +49,11 @@ import com.spotify.heroic.suggest.TagValuesSuggest;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import lombok.RequiredArgsConstructor;
-import lombok.ToString;
 
 import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
-@ToString(exclude = {"async", "metrics", "metadata", "suggest"})
 public class LocalClusterNode implements ClusterNode {
     private final AsyncFramework async;
     private final NodeMetadata localMetadata;
@@ -92,6 +88,11 @@ public class LocalClusterNode implements ClusterNode {
         return new TracingClusterNodeGroup(LocalClusterNode.class, new LocalGroup(group));
     }
 
+    @Override
+    public String toString() {
+        return String.format("local://%s", localMetadata.getId());
+    }
+
     @RequiredArgsConstructor
     private final class LocalGroup implements ClusterNode.Group {
         private final String group;
@@ -102,11 +103,15 @@ public class LocalClusterNode implements ClusterNode {
         }
 
         @Override
-        public AsyncFuture<ResultGroups> query(
-            MetricType source, Filter filter, DateRange range, AggregationInstance aggregation,
-            QueryOptions options
+        public AsyncFuture<AnalyzeResult> analyze(
+            final FullQuery query
         ) {
-            return metrics().query(source, filter, range, aggregation, options);
+            return metrics().analyze(query);
+        }
+
+        @Override
+        public AsyncFuture<QueryResult> query(FullQuery query) {
+            return metrics().query(query);
         }
 
         @Override

@@ -21,12 +21,12 @@
 
 package com.spotify.heroic.metric;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
-import com.spotify.heroic.aggregation.AggregationSession;
-import com.spotify.heroic.aggregation.Bucket;
-import com.spotify.heroic.aggregation.ReducerSession;
+import com.spotify.heroic.aggregation.MetricCollector;
+import com.spotify.heroic.aggregation.MetricsCollector;
 import lombok.AccessLevel;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -43,8 +43,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * Metrics are constrained to the implemented types below, so far these are {@link Point}, {@link
  * Event}, {@link Spread} , and {@link MetricGroup}.
  * <p>
- * There is a JSON serialization available in {@link MetricCollectionSerialization} which correctly
- * preserves the type information of these collections.
+ * There is a JSON serialization which correctly preserves the type information of these
+ * collections.
  * <p>
  * This class is a carrier for _any_ of these metrics, the canonical way for accessing the
  * underlying data is to first check it's type using {@link #getType()}, and then access the data
@@ -92,29 +92,21 @@ public abstract class MetricCollection {
     /**
      * Update the given aggregation with the content of this collection.
      */
-    public abstract void updateAggregation(
-        final AggregationSession session, final Map<String, String> tags
+    public abstract void update(final MetricsCollector collector);
+
+    public abstract void update(final MetricCollector collector);
+
+    public abstract MetricCollection apply(
+        final MetricCollectionBiFunction function, final MetricCollection right
     );
 
-    /**
-     * Update the given bucket with the content of this collection.
-     *
-     * @param bucket The bucket to update.
-     * @param tags
-     */
-    public abstract void updateBucket(final Bucket bucket, final Map<String, String> tags);
-
-    /**
-     * Update the given reducer session.
-     */
-    public abstract void updateReducer(
-        final ReducerSession session, final Map<String, String> tags
-    );
+    public abstract <T> T apply(final MetricCollectionFunction<T> function);
 
     public int size() {
         return data.size();
     }
 
+    @JsonIgnore
     public boolean isEmpty() {
         return data.isEmpty();
     }
@@ -175,20 +167,25 @@ public abstract class MetricCollection {
         }
 
         @Override
-        public void updateAggregation(
-            AggregationSession session, Map<String, String> tags
+        public void update(MetricsCollector collector) {
+            collector.collectPoints(adapt());
+        }
+
+        @Override
+        public void update(MetricCollector collector) {
+            adapt().forEach(collector::collectPoint);
+        }
+
+        @Override
+        public MetricCollection apply(
+            final MetricCollectionBiFunction function, final MetricCollection right
         ) {
-            session.updatePoints(tags, adapt());
+            return new PointCollection(function.applyPoints(adapt(), right.getDataAs(Point.class)));
         }
 
         @Override
-        public void updateReducer(ReducerSession session, final Map<String, String> tags) {
-            session.updatePoints(tags, adapt());
-        }
-
-        @Override
-        public void updateBucket(Bucket bucket, Map<String, String> tags) {
-            adapt().forEach((m) -> bucket.updatePoint(tags, m));
+        public <T> T apply(final MetricCollectionFunction<T> function) {
+            return function.applyPoints(adapt());
         }
 
         private List<Point> adapt() {
@@ -203,20 +200,25 @@ public abstract class MetricCollection {
         }
 
         @Override
-        public void updateAggregation(
-            AggregationSession session, Map<String, String> tags
+        public void update(MetricsCollector collector) {
+            collector.collectEvents(adapt());
+        }
+
+        @Override
+        public void update(MetricCollector collector) {
+            adapt().forEach(collector::collectEvent);
+        }
+
+        @Override
+        public MetricCollection apply(
+            final MetricCollectionBiFunction function, final MetricCollection right
         ) {
-            session.updateEvents(tags, adapt());
+            return new EventCollection(function.applyEvents(adapt(), right.getDataAs(Event.class)));
         }
 
         @Override
-        public void updateReducer(ReducerSession session, final Map<String, String> tags) {
-            session.updateEvents(tags, adapt());
-        }
-
-        @Override
-        public void updateBucket(Bucket bucket, Map<String, String> tags) {
-            adapt().forEach((m) -> bucket.updateEvent(tags, m));
+        public <T> T apply(final MetricCollectionFunction<T> function) {
+            return function.applyEvents(adapt());
         }
 
         private List<Event> adapt() {
@@ -231,20 +233,26 @@ public abstract class MetricCollection {
         }
 
         @Override
-        public void updateAggregation(
-            AggregationSession session, Map<String, String> tags
+        public void update(MetricsCollector collector) {
+            collector.collectSpreads(adapt());
+        }
+
+        @Override
+        public void update(MetricCollector collector) {
+            adapt().forEach(collector::collectSpread);
+        }
+
+        @Override
+        public MetricCollection apply(
+            final MetricCollectionBiFunction function, final MetricCollection right
         ) {
-            session.updateSpreads(tags, adapt());
+            return new SpreadCollection(
+                function.applySpreads(adapt(), right.getDataAs(Spread.class)));
         }
 
         @Override
-        public void updateReducer(ReducerSession session, final Map<String, String> tags) {
-            session.updateSpreads(tags, adapt());
-        }
-
-        @Override
-        public void updateBucket(Bucket bucket, Map<String, String> tags) {
-            adapt().forEach((m) -> bucket.updateSpread(tags, m));
+        public <T> T apply(final MetricCollectionFunction<T> function) {
+            return function.applySpreads(adapt());
         }
 
         private List<Spread> adapt() {
@@ -259,20 +267,26 @@ public abstract class MetricCollection {
         }
 
         @Override
-        public void updateAggregation(
-            AggregationSession session, Map<String, String> tags
+        public void update(MetricsCollector collector) {
+            collector.collectGroups(adapt());
+        }
+
+        @Override
+        public void update(MetricCollector collector) {
+            adapt().forEach(collector::collectGroup);
+        }
+
+        @Override
+        public MetricCollection apply(
+            final MetricCollectionBiFunction function, final MetricCollection right
         ) {
-            session.updateGroup(tags, adapt());
+            return new GroupCollection(
+                function.applyGroups(adapt(), right.getDataAs(MetricGroup.class)));
         }
 
         @Override
-        public void updateReducer(ReducerSession session, final Map<String, String> tags) {
-            session.updateGroup(tags, adapt());
-        }
-
-        @Override
-        public void updateBucket(Bucket bucket, Map<String, String> tags) {
-            adapt().forEach((m) -> bucket.updateGroup(tags, m));
+        public <T> T apply(final MetricCollectionFunction<T> function) {
+            return function.applyGroups(adapt());
         }
 
         private List<MetricGroup> adapt() {

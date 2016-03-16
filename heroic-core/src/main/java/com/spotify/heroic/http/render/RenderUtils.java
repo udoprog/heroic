@@ -21,10 +21,10 @@
 
 package com.spotify.heroic.http.render;
 
+import com.spotify.heroic.aggregation.AggregationData;
 import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.Point;
-import com.spotify.heroic.metric.ShardedResultGroup;
 import com.spotify.heroic.metric.Spread;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.DateAxis;
@@ -55,7 +55,7 @@ public final class RenderUtils {
     }
 
     public static JFreeChart createChart(
-        final List<ShardedResultGroup> groups, final String title, Map<String, String> highlight,
+        final List<AggregationData> groups, final String title, Map<String, String> highlight,
         Double threshold, int height
     ) {
         final XYLineAndShapeRenderer lineAndShapeRenderer = new XYLineAndShapeRenderer(true, true);
@@ -67,11 +67,11 @@ public final class RenderUtils {
         int lineAndShapeCount = 0;
         int intervalCount = 0;
 
-        for (final ShardedResultGroup resultGroup : groups) {
-            final MetricCollection group = resultGroup.getGroup();
+        for (final AggregationData aggregationData : groups) {
+            final MetricCollection group = aggregationData.getMetrics();
 
             if (group.getType() == MetricType.POINT) {
-                final XYSeries series = new XYSeries(resultGroup.getGroup().toString());
+                final XYSeries series = new XYSeries(aggregationData.getKey().toString());
 
                 final List<Point> data = group.getDataAs(Point.class);
 
@@ -88,7 +88,7 @@ public final class RenderUtils {
 
             if (group.getType() == MetricType.SPREAD) {
                 final YIntervalSeries series =
-                    new YIntervalSeries(resultGroup.getGroup().toString());
+                    new YIntervalSeries(aggregationData.getKey().toString());
 
                 final List<Spread> data = group.getDataAs(Spread.class);
 

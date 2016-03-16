@@ -45,6 +45,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
+import org.kohsuke.args4j.OptionHandlerRegistry;
 
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
@@ -362,7 +363,8 @@ public class HeroicShell {
      */
     private static CmdLineParser setupParser(final TaskParameters params) {
         final CmdLineParser parser = new CmdLineParser(params);
-        parser.registerHandler(Duration.class, DurationOptionHandler.class);
+        final OptionHandlerRegistry registry = OptionHandlerRegistry.getRegistry();
+        registry.registerHandler(Duration.class, DurationOptionHandler.class);
         return parser;
     }
 
@@ -383,7 +385,7 @@ public class HeroicShell {
         private String connect = null;
 
         @Option(name = "-X", usage = "Define an extra parameter", metaVar = "<key>=<value>")
-        private final List<String> parameters = new ArrayList<>();
+        private List<String> parameters = new ArrayList<>();
     }
 
     @RequiredArgsConstructor

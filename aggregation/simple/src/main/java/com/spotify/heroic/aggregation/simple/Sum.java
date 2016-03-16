@@ -23,10 +23,15 @@ package com.spotify.heroic.aggregation.simple;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.spotify.heroic.aggregation.AggregationContext;
+import com.google.common.collect.ImmutableSet;
+import com.spotify.heroic.aggregation.Aggregation;
+import com.spotify.heroic.aggregation.BucketAggregation;
 import com.spotify.heroic.aggregation.SamplingQuery;
 import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.common.Optionals;
+import com.spotify.heroic.grammar.Expression;
+import com.spotify.heroic.metric.MetricType;
+import com.spotify.heroic.metric.Point;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -34,26 +39,38 @@ import java.util.Optional;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class Sum extends SamplingAggregation {
+public class Sum extends BucketAggregation<StripedSumBucket> {
     public static final String NAME = "sum";
 
     @JsonCreator
     public Sum(
         @JsonProperty("sampling") Optional<SamplingQuery> sampling,
         @JsonProperty("size") Optional<Duration> size,
-        @JsonProperty("extent") Optional<Duration> extent
+        @JsonProperty("extent") Optional<Duration> extent,
+        @JsonProperty("reference") final Optional<Expression> reference
     ) {
         super(Optionals.firstPresent(size, sampling.flatMap(SamplingQuery::getSize)),
-            Optionals.firstPresent(extent, sampling.flatMap(SamplingQuery::getExtent)));
+            Optionals.firstPresent(extent, sampling.flatMap(SamplingQuery::getExtent)), reference,
+            ImmutableSet.of(MetricType.POINT, MetricType.SPREAD), MetricType.POINT);
     }
 
     @Override
-    public SumInstance apply(AggregationContext context, final long size, final long extent) {
-        return new SumInstance(size, extent);
+    protected StripedSumBucket buildBucket(long timestamp) {
+        return new StripedSumBucket(timestamp);
     }
 
     @Override
-    public String toDSL() {
-        return samplingDSL(NAME);
+    protected Point build(StripedSumBucket bucket) {
+        return new Point(bucket.timestamp(), bucket.value());
+    }
+
+    @Override
+    public Aggregation distributed() {
+        return new Sum(Optional.empty(), size, extent, Optional.empty());
+    }
+
+    @Override
+    public Aggregation combiner() {
+        return new Sum(Optional.empty(), size, extent, Optional.empty());
     }
 }

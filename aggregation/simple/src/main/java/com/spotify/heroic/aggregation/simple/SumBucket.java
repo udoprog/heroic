@@ -28,8 +28,6 @@ import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
 import lombok.RequiredArgsConstructor;
 
-import java.util.Map;
-
 /**
  * Bucket that keeps track of the amount of data points seen, and there summed value.
  * <p>
@@ -53,13 +51,13 @@ public class SumBucket extends AbstractBucket implements DoubleBucket {
     }
 
     @Override
-    public void updatePoint(Map<String, String> tags, Point d) {
+    public void collectPoint(Point d) {
         valid = true;
         sum.addAndGet(d.getValue());
     }
 
     @Override
-    public void updateSpread(Map<String, String> tags, Spread d) {
+    public void collectSpread(Spread d) {
         valid = true;
         sum.addAndGet(d.getSum());
     }

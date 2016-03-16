@@ -1,0 +1,3 @@
+let $a = max by host from points(8h) where host = "1.example.com";
+
+shift($a, -1h) - $a

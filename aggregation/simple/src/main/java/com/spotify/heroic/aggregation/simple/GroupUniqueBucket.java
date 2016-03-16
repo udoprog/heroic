@@ -33,7 +33,6 @@ import com.spotify.heroic.metric.Spread;
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
-import java.util.Map;
 import java.util.SortedSet;
 import java.util.concurrent.ConcurrentSkipListSet;
 
@@ -71,22 +70,22 @@ public class GroupUniqueBucket extends AbstractBucket implements Bucket {
     }
 
     @Override
-    public void updatePoint(Map<String, String> tags, Point sample) {
+    public void collectPoint(Point sample) {
         points.add(sample);
     }
 
     @Override
-    public void updateEvent(Map<String, String> tags, Event sample) {
+    public void collectEvent(Event sample) {
         events.add(sample);
     }
 
     @Override
-    public void updateSpread(Map<String, String> tags, Spread sample) {
+    public void collectSpread(Spread sample) {
         spreads.add(sample);
     }
 
     @Override
-    public void updateGroup(Map<String, String> tags, MetricGroup sample) {
+    public void collectGroup(MetricGroup sample) {
         groups.add(sample);
     }
 

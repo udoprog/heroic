@@ -43,48 +43,33 @@ public class CoreAggregationRegistry implements AggregationRegistry {
     final Serializer<String> string;
 
     final Map<Class<? extends Aggregation>, String> definitionMap = new HashMap<>();
-    final Map<Class<? extends AggregationInstance>, String> instanceMap = new HashMap<>();
-    final Map<String, Serializer<? extends AggregationInstance>> serializerMap = new HashMap<>();
     final Map<String, AggregationDSL> builderMap = new HashMap<>();
 
     private final Object lock = new Object();
 
     @Override
-    public <A extends Aggregation, I extends AggregationInstance> void register(
-        final String id, final Class<A> type, final Class<I> instanceType,
-        final Serializer<I> instanceSerializer, final AggregationDSL dsl
+    public <A extends Aggregation> void register(
+        final String id, final Class<A> type, final AggregationDSL dsl
     ) {
         synchronized (lock) {
-            if (serializerMap.containsKey(id)) {
-                throw new IllegalArgumentException(
-                    "An aggregation with the same id (" + id + ") is already registered");
-            }
-
             if (definitionMap.containsKey(type)) {
                 throw new IllegalArgumentException(
                     "An aggregation with the same type (" + type.getCanonicalName() +
                         ") is already registered");
             }
 
-            if (instanceMap.containsKey(instanceType)) {
-                throw new IllegalArgumentException("An aggregation instance with the same type (" +
-                    instanceType.getCanonicalName() + ") is already registered");
+            if (builderMap.containsKey(id)) {
+                throw new IllegalArgumentException("An aggregation with the same id (" + id +
+                    ") is already registered");
             }
 
             definitionMap.put(type, id);
-            instanceMap.put(instanceType, id);
             builderMap.put(id, dsl);
-            serializerMap.put(id, instanceSerializer);
         }
     }
 
     public Module module() {
         final SimpleModule m = new SimpleModule("aggregationRegistry");
-
-        for (final Map.Entry<Class<? extends AggregationInstance>, String> e : instanceMap
-            .entrySet()) {
-            m.registerSubtypes(new NamedType(e.getKey(), e.getValue()));
-        }
 
         for (final Map.Entry<Class<? extends Aggregation>, String> e : definitionMap.entrySet()) {
             m.registerSubtypes(new NamedType(e.getKey(), e.getValue()));
@@ -96,10 +81,5 @@ public class CoreAggregationRegistry implements AggregationRegistry {
     @Override
     public AggregationFactory newAggregationFactory() {
         return new CoreAggregationFactory(builderMap);
-    }
-
-    @Override
-    public AggregationSerializer newAggregationSerializer() {
-        return new CoreAggregationSerializer(string, instanceMap, serializerMap);
     }
 }

@@ -187,17 +187,14 @@ public class BigtableDataClientImpl implements BigtableDataClient {
                 }
 
                 if (f.isCancelled()) {
-                    observer.cancel();
+                    observer.end();
                     break;
                 }
 
                 continue;
             }
 
-            f
-                .onResolved(ign -> scanAsync(scanner, observer))
-                .onFailed(observer::fail)
-                .onCancelled(observer::cancel);
+            f.onResolved(ign -> scanAsync(scanner, observer)).onFailed(observer::fail);
         }
     }
 
@@ -216,6 +213,7 @@ public class BigtableDataClientImpl implements BigtableDataClient {
             }
         });
 
+        future.onCancelled(() -> request.cancel(true));
         return future;
     }
 

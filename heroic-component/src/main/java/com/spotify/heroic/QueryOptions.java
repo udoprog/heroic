@@ -25,23 +25,18 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.spotify.heroic.metric.QueryTrace;
 import lombok.EqualsAndHashCode;
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 import java.util.Optional;
-
-import static java.util.Optional.ofNullable;
 
 @RequiredArgsConstructor
 @EqualsAndHashCode(of = {"tracing", "fetchSize"})
 public class QueryOptions {
     public static final boolean DEFAULT_TRACING = false;
+    public static final boolean DEFAULT_COMPACT_TRACING = false;
 
-    public static final QueryOptions DEFAULTS = new QueryOptions(DEFAULT_TRACING, Optional.empty());
-
-    // XXX: remove ones deployed everywhere.
-    @Getter
-    private final String type = "core";
+    public static final QueryOptions DEFAULTS =
+        new QueryOptions(Optional.empty(), Optional.empty(), Optional.empty());
 
     /**
      * Indicates if tracing is enabled.
@@ -54,21 +49,32 @@ public class QueryOptions {
     private final boolean tracing;
 
     /**
+     * Generate a more compact, but less accurate trace.
+     */
+    private final boolean compactTracing;
+
+    /**
      * The number of entries to fetch for every batch.
      */
     private final Optional<Integer> fetchSize;
 
     @JsonCreator
     public QueryOptions(
-        @JsonProperty("tracing") Boolean tracing,
+        @JsonProperty("tracing") Optional<Boolean> tracing,
+        @JsonProperty("compactTracing") Optional<Boolean> compactTracing,
         @JsonProperty("fetchSize") Optional<Integer> fetchSize
     ) {
-        this.tracing = ofNullable(tracing).orElse(DEFAULT_TRACING);
+        this.tracing = tracing.orElse(DEFAULT_TRACING);
+        this.compactTracing = compactTracing.orElse(DEFAULT_COMPACT_TRACING);
         this.fetchSize = fetchSize;
     }
 
     public boolean isTracing() {
         return tracing;
+    }
+
+    public boolean isCompactTracing() {
+        return compactTracing;
     }
 
     public Optional<Integer> getFetchSize() {
@@ -83,12 +89,22 @@ public class QueryOptions {
         return new Builder();
     }
 
+    public QueryOptions withCompactTracing(final boolean compactTracing) {
+        return new QueryOptions(tracing, compactTracing, fetchSize);
+    }
+
     public static class Builder {
-        private boolean tracing = false;
+        private Optional<Boolean> tracing = Optional.empty();
+        private Optional<Boolean> compactTracing = Optional.empty();
         private Optional<Integer> fetchSize = Optional.empty();
 
         public Builder tracing(boolean tracing) {
-            this.tracing = tracing;
+            this.tracing = Optional.of(tracing);
+            return this;
+        }
+
+        public Builder compactTracing(boolean compactTracing) {
+            this.compactTracing = Optional.of(compactTracing);
             return this;
         }
 
@@ -98,7 +114,7 @@ public class QueryOptions {
         }
 
         public QueryOptions build() {
-            return new QueryOptions(tracing, fetchSize);
+            return new QueryOptions(tracing, compactTracing, fetchSize);
         }
     }
 }

@@ -21,78 +21,116 @@
 
 package com.spotify.heroic.metric;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
-import com.spotify.heroic.aggregation.AggregationCombiner;
-import com.spotify.heroic.common.DateRange;
+import com.google.common.collect.Iterables;
+import com.spotify.heroic.aggregation.AggregationData;
+import com.spotify.heroic.aggregation.AggregationState;
+import com.spotify.heroic.async.Observable;
+import com.spotify.heroic.cluster.ClusterNode;
+import com.spotify.heroic.common.Duration;
+import com.spotify.heroic.common.Statistics;
+import com.spotify.heroic.metric.QueryTrace.Identifier;
 import eu.toolchain.async.Collector;
+import eu.toolchain.async.Transform;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
+import java.util.Objects;
+import java.util.Optional;
 
+@Slf4j
 @Data
-public class QueryResult {
-    /**
-     * The range in which all result groups metric's should be contained in.
-     */
-    private final DateRange range;
+public final class QueryResult {
+    private static final List<AggregationData> EMPTY_GROUPS = new ArrayList<>();
+    public static final List<RequestError> EMPTY_ERRORS = new ArrayList<>();
 
-    /**
-     * Groups of results.
-     * <p>
-     * Failed groups are omitted from here, {@link #errors} for these.
-     */
-    private final List<ShardedResultGroup> groups;
-
-    /**
-     * Errors that happened during the query.
-     */
+    private final Optional<Duration> cadence;
+    private final List<AggregationData> data;
     private final List<RequestError> errors;
-
-    /**
-     * Improve shard latencies.
-     */
-    private final List<ShardTrace> traces;
-
-    /**
-     * Query trace, if available.
-     */
+    private final Statistics statistics;
     private final QueryTrace trace;
 
-    /**
-     * Collect result parts into a complete result.
-     *
-     * @param range The range which the result represents.
-     * @return A complete QueryResult.
-     */
-    public static Collector<QueryResultPart, QueryResult> collectParts(
-        final QueryTrace.Identifier what, final DateRange range, final AggregationCombiner combiner
+    @JsonCreator
+    public QueryResult(
+        @JsonProperty("cadence") Optional<Duration> cadence,
+        @JsonProperty("data") List<AggregationData> data,
+        @JsonProperty("errors") List<RequestError> errors,
+        @JsonProperty("statistics") Statistics statistics, @JsonProperty("trace") QueryTrace trace
     ) {
+        this.cadence = Objects.requireNonNull(cadence, "cadence");
+        this.data = Objects.requireNonNull(data, "data");
+        this.errors = Objects.requireNonNull(errors, "errors");
+        this.statistics = Objects.requireNonNull(statistics, "statistics");
+        this.trace = Objects.requireNonNull(trace, "trace");
+    }
+
+    public Iterable<AggregationState> toStates() {
+        return Iterables.transform(data, d -> new AggregationState(d.getKey(), d.getSeries(),
+            Observable.ofValues(d.getMetrics())));
+    }
+
+    @JsonIgnore
+    public boolean isEmpty() {
+        return data.stream().allMatch(AggregationData::isEmpty);
+    }
+
+    public static QueryResult empty(final QueryTrace.Identifier what) {
+        return new QueryResult(Optional.empty(), ImmutableList.of(), ImmutableList.of(),
+            Statistics.empty(), new QueryTrace(what));
+    }
+
+    public static Collector<QueryResult, QueryResult> collect(final QueryTrace.Identifier what) {
         final Stopwatch w = Stopwatch.createStarted();
 
-        return parts -> {
-            final List<List<ShardedResultGroup>> all = new ArrayList<>();
-            final List<RequestError> errors = new ArrayList<>();
-            final List<ShardTrace> traces = new ArrayList<>();
-            final ImmutableList.Builder<QueryTrace> queryTraces = ImmutableList.builder();
+        return results -> {
+            final Optional<Duration> cadence =
+                results.stream().findAny().flatMap(QueryResult::getCadence);
+            final ImmutableList.Builder<AggregationData> data = ImmutableList.builder();
+            final ImmutableList.Builder<RequestError> errors = ImmutableList.builder();
+            final ImmutableList.Builder<QueryTrace> traces = ImmutableList.builder();
 
-            for (final QueryResultPart part : parts) {
-                errors.addAll(part.getErrors());
-                traces.add(part.getTrace());
-                queryTraces.add(part.getQueryTrace());
+            Statistics statistics = Statistics.empty();
 
-                if (part.isEmpty()) {
-                    continue;
-                }
-
-                all.add(part.getGroups());
+            for (final QueryResult r : results) {
+                data.addAll(r.data);
+                errors.addAll(r.errors);
+                traces.add(r.trace);
+                statistics = statistics.merge(r.statistics);
             }
 
-            final List<ShardedResultGroup> groups = combiner.combine(all);
-            return new QueryResult(range, groups, errors, traces,
-                new QueryTrace(what, w.elapsed(TimeUnit.NANOSECONDS), queryTraces.build()));
+            return new QueryResult(cadence, data.build(), errors.build(), statistics,
+                new QueryTrace(what, w, traces.build()));
         };
+    }
+
+    public static Transform<Throwable, QueryResult> nodeError(
+        final QueryTrace.Identifier what, final ClusterNode.Group group
+    ) {
+        return (Throwable e) -> {
+            final List<RequestError> errors =
+                ImmutableList.<RequestError>of(NodeError.fromThrowable(group.node(), e));
+            return new QueryResult(Optional.empty(), EMPTY_GROUPS, errors, Statistics.empty(),
+                new QueryTrace(what));
+        };
+    }
+
+    public static Transform<QueryResult, QueryResult> trace(final Identifier what) {
+        final QueryTrace.Tracer tracer = QueryTrace.trace(what);
+
+        return r -> new QueryResult(r.cadence, r.data, r.errors, r.statistics,
+            tracer.end(ImmutableList.of(r.trace)));
+    }
+
+    public static Transform<QueryResult, QueryResult> step(final Identifier identifier) {
+        final QueryTrace.Tracer tracer = QueryTrace.trace(identifier);
+
+        return r -> new QueryResult(r.cadence, r.data, r.errors, r.statistics,
+            tracer.end(ImmutableList.of(r.trace)));
     }
 }

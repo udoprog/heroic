@@ -113,11 +113,6 @@ public abstract class AbstractMetricBackend implements MetricBackend {
             }
 
             @Override
-            public void cancel() throws Exception {
-                observer.cancel();
-            }
-
-            @Override
             public void fail(Throwable cause) throws Exception {
                 observer.fail(cause);
             }

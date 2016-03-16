@@ -61,8 +61,8 @@ import static java.util.Optional.ofNullable;
 @RequiredArgsConstructor
 public class MetricManagerModule {
     public static final boolean DEFAULT_UPDATE_METADATA = false;
-    public static final int DEFAULT_GROUP_LIMIT = 500;
-    public static final int DEFAULT_SERIES_LIMIT = 10000;
+    public static final int DEFAULT_GROUP_LIMIT = 5000;
+    public static final int DEFAULT_SERIES_LIMIT = 100000;
     public static final long DEFAULT_FLUSHING_INTERVAL = 1000;
     public static final long DEFAULT_AGGREGATION_LIMIT = 10000;
     public static final long DEFAULT_DATA_LIMIT = 30000000;

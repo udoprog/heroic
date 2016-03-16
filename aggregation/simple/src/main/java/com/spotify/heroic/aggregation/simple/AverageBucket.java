@@ -29,7 +29,6 @@ import com.spotify.heroic.metric.Spread;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Data
@@ -44,13 +43,13 @@ public class AverageBucket extends AbstractBucket implements DoubleBucket {
     }
 
     @Override
-    public void updatePoint(Map<String, String> tags, Point d) {
+    public void collectPoint(Point d) {
         value.addAndGet(d.getValue());
         count.incrementAndGet();
     }
 
     @Override
-    public void updateSpread(Map<String, String> tags, Spread sample) {
+    public void collectSpread(Spread sample) {
         value.addAndGet(sample.getSum());
         count.addAndGet(sample.getCount());
     }

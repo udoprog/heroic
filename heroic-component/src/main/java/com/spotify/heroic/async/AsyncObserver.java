@@ -37,8 +37,6 @@ import eu.toolchain.async.Transform;
 public interface AsyncObserver<T> {
     AsyncFuture<Void> observe(final T value) throws Exception;
 
-    void cancel() throws Exception;
-
     void fail(Throwable cause) throws Exception;
 
     void end() throws Exception;
@@ -64,11 +62,6 @@ public interface AsyncObserver<T> {
             }
 
             @Override
-            public void cancel() throws Exception {
-                future.cancel();
-            }
-
-            @Override
             public void fail(Throwable cause) throws Exception {
                 future.fail(cause);
             }
@@ -85,11 +78,6 @@ public interface AsyncObserver<T> {
             @Override
             public AsyncFuture<Void> observe(T value) throws Exception {
                 return AsyncObserver.this.observe(value);
-            }
-
-            @Override
-            public void cancel() throws Exception {
-                Throwing.call(AsyncObserver.this::cancel, finished::finished);
             }
 
             @Override
@@ -115,7 +103,7 @@ public interface AsyncObserver<T> {
 
             @Override
             public void cancelled() throws Exception {
-                cancel();
+                end();
             }
 
             @Override

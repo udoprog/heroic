@@ -28,8 +28,6 @@ import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
 import lombok.RequiredArgsConstructor;
 
-import java.util.Map;
-
 /**
  * A bucket implementation that retains the smallest (min) value seen.
  *
@@ -46,7 +44,7 @@ public class MinBucket extends AbstractBucket implements DoubleBucket {
     }
 
     @Override
-    public void updatePoint(Map<String, String> tags, Point d) {
+    public void collectPoint(Point d) {
         while (true) {
             double current = value.get();
 
@@ -61,7 +59,7 @@ public class MinBucket extends AbstractBucket implements DoubleBucket {
     }
 
     @Override
-    public void updateSpread(Map<String, String> tags, Spread d) {
+    public void collectSpread(Spread d) {
         while (true) {
             double current = value.get();
 

@@ -21,19 +21,17 @@
 
 package com.spotify.heroic.cluster;
 
-import com.spotify.heroic.QueryOptions;
-import com.spotify.heroic.aggregation.AggregationInstance;
+import com.spotify.heroic.FullQuery;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.RangeFilter;
 import com.spotify.heroic.common.Series;
-import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.metadata.CountSeries;
 import com.spotify.heroic.metadata.DeleteSeries;
 import com.spotify.heroic.metadata.FindKeys;
 import com.spotify.heroic.metadata.FindSeries;
 import com.spotify.heroic.metadata.FindTags;
-import com.spotify.heroic.metric.MetricType;
-import com.spotify.heroic.metric.ResultGroups;
+import com.spotify.heroic.metric.AnalyzeResult;
+import com.spotify.heroic.metric.QueryResult;
 import com.spotify.heroic.metric.WriteMetric;
 import com.spotify.heroic.metric.WriteResult;
 import com.spotify.heroic.suggest.KeySuggest;
@@ -57,10 +55,9 @@ public interface ClusterNode {
     interface Group {
         ClusterNode node();
 
-        AsyncFuture<ResultGroups> query(
-            MetricType source, Filter filter, DateRange range, AggregationInstance aggregation,
-            QueryOptions options
-        );
+        AsyncFuture<AnalyzeResult> analyze(FullQuery query);
+
+        AsyncFuture<QueryResult> query(FullQuery query);
 
         AsyncFuture<FindTags> findTags(RangeFilter filter);
 

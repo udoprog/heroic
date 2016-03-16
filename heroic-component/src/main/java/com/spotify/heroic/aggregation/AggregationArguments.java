@@ -23,7 +23,7 @@ package com.spotify.heroic.aggregation;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.spotify.heroic.grammar.Value;
+import com.spotify.heroic.grammar.Expression;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,11 +37,11 @@ import java.util.Optional;
  * parameters and guarantee that all are consumed.
  */
 public class AggregationArguments {
-    private final LinkedList<Value> args;
-    private final Map<String, Value> kw;
+    private final LinkedList<Expression> args;
+    private final Map<String, Expression> kw;
 
     public AggregationArguments(
-        final List<? extends Value> args, final Map<String, ? extends Value> kw
+        final List<? extends Expression> args, final Map<String, ? extends Expression> kw
     ) {
         this.args = new LinkedList<>(args);
         this.kw = new HashMap<>(kw);

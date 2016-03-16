@@ -4,12 +4,7 @@ import com.spotify.heroic.metric.Point;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.HashMap;
-import java.util.Map;
-
 public class MinBucketTest {
-    private static final Map<String, String> TAGS = new HashMap<>();
-
     @Test
     public void testInitialValue() {
         final StripedMinBucket b = new StripedMinBucket(0);
@@ -19,8 +14,8 @@ public class MinBucketTest {
     @Test
     public void testMinValues() {
         final StripedMinBucket b = new StripedMinBucket(0);
-        b.updatePoint(TAGS, new Point(0, 10.0));
-        b.updatePoint(TAGS, new Point(0, 20.0));
+        b.collectPoint(new Point(0, 10.0));
+        b.collectPoint(new Point(0, 20.0));
         Assert.assertEquals(10.0, b.value(), 0.0);
     }
 }

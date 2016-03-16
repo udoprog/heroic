@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.google.common.base.Joiner;
 import com.spotify.heroic.dagger.CoreComponent;
 import com.spotify.heroic.grammar.QueryParser;
+import com.spotify.heroic.grammar.Statements;
 import com.spotify.heroic.shell.AbstractShellTaskParams;
 import com.spotify.heroic.shell.ShellIO;
 import com.spotify.heroic.shell.ShellTask;
@@ -74,9 +75,10 @@ public class ParseQuery implements ShellTask {
             m.enable(SerializationFeature.INDENT_OUTPUT);
         }
 
-        io
-            .out()
-            .println(m.writeValueAsString(parser.parseQuery(Joiner.on(" ").join(params.query))));
+        final String queryString = Joiner.on(" ").join(params.query);
+
+        final Statements statements = parser.parse(queryString);
+        io.out().println(m.writeValueAsString(statements));
         return async.resolved();
     }
 
