@@ -146,7 +146,8 @@ public class QueryTrace {
         }
 
         public QueryTrace end(List<QueryTrace> children) {
-            return new QueryTrace(identifier, w.elapsed(TimeUnit.MICROSECONDS), children);
+            final long elapsed = w.elapsed(TimeUnit.MICROSECONDS);
+            return new QueryTrace(identifier, elapsed, children);
         }
     }
 }

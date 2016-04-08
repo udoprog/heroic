@@ -21,7 +21,6 @@
 
 package com.spotify.heroic.metric;
 
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.spotify.heroic.FullQuery;
@@ -212,7 +211,7 @@ public class LocalMetricManager implements MetricManager {
                         .withCadence(query.getCadence());
 
                     return query.getAggregation().setup(context).directTransform(out -> {
-                        return AnalyzeResult.analyze(out, tracer::end);
+                        return AnalyzeResult.analyze(out, tracer::end, ImmutableList.of());
                     });
                 };
 
@@ -240,7 +239,7 @@ public class LocalMetricManager implements MetricManager {
             final LazyTransform<FindSeries, QueryResult> transform = (final FindSeries result) -> {
                 /* if empty, there are not time series on this shard */
                 if (result.isEmpty()) {
-                    return async.resolved(QueryResult.empty(QUERY));
+                    return async.resolved(QueryResult.empty(tracer.end()));
                 }
 
                 if (result.getSize() >= seriesLimit) {
@@ -284,36 +283,31 @@ public class LocalMetricManager implements MetricManager {
                                 out.range())));
                     }
 
-                    /* setup collector */
-                    final Stopwatch w = Stopwatch.createStarted();
-
                     final ResolvableFuture<QueryResult> future = async.future();
 
-                    Observable
-                        .chainConcurrent(observables, 20)
-                        .observe(new Observer<AggregationData>() {
-                            final ConcurrentLinkedQueue<AggregationData> results =
-                                new ConcurrentLinkedQueue<>();
+                    Observable.concurrently(observables).observe(new Observer<AggregationData>() {
+                        final ConcurrentLinkedQueue<AggregationData> results =
+                            new ConcurrentLinkedQueue<>();
 
-                            @Override
-                            public void observe(final AggregationData d) throws Exception {
-                                results.add(d);
-                            }
+                        @Override
+                        public void observe(final AggregationData d) throws Exception {
+                            results.add(d);
+                        }
 
-                            @Override
-                            public void fail(final Throwable cause) throws Exception {
-                                future.fail(cause);
-                            }
+                        @Override
+                        public void fail(final Throwable cause) throws Exception {
+                            future.fail(cause);
+                        }
 
-                            @Override
-                            public void end() throws Exception {
-                                final List<AggregationData> groups = ImmutableList.copyOf(results);
+                        @Override
+                        public void end() throws Exception {
+                            final List<AggregationData> groups = ImmutableList.copyOf(results);
 
-                                future.resolve(
-                                    new QueryResult(out.cadence(), groups, ImmutableList.of(),
-                                        Statistics.empty(), tracer.end()));
-                            }
-                        });
+                            future.resolve(
+                                new QueryResult(out.cadence(), groups, ImmutableList.of(),
+                                    Statistics.empty(), tracer.end()));
+                        }
+                    });
 
                     return future;
                 });
@@ -512,31 +506,28 @@ public class LocalMetricManager implements MetricManager {
             final List<AsyncObservable<MetricCollection>> fetches = new ArrayList<>();
 
             runVoid(b -> {
-                fetches.add(observer -> {
-                    b
-                        .fetch(source, series, range, watcher, options)
-                        .observe(new AsyncObserver<FetchData>() {
-                            @Override
-                            public AsyncFuture<Void> observe(final FetchData value)
-                                throws Exception {
-                                for (final MetricCollection c : value.getGroups()) {
-                                    observer.observe(c);
-                                }
-
-                                return async.resolved();
+                fetches.add(observer -> b
+                    .fetch(source, series, range, watcher, options)
+                    .observe(new AsyncObserver<FetchData>() {
+                        @Override
+                        public AsyncFuture<Void> observe(final FetchData value) throws Exception {
+                            for (final MetricCollection c : value.getGroups()) {
+                                observer.observe(c);
                             }
 
-                            @Override
-                            public void fail(final Throwable cause) throws Exception {
-                                observer.fail(cause);
-                            }
+                            return async.resolved();
+                        }
 
-                            @Override
-                            public void end() throws Exception {
-                                observer.end();
-                            }
-                        });
-                });
+                        @Override
+                        public void fail(final Throwable cause) throws Exception {
+                            observer.fail(cause);
+                        }
+
+                        @Override
+                        public void end() throws Exception {
+                            observer.end();
+                        }
+                    }));
 
                 return null;
             });

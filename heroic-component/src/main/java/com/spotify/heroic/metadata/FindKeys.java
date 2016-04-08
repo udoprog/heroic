@@ -29,7 +29,6 @@ import com.spotify.heroic.cluster.ClusterNode;
 import com.spotify.heroic.cluster.NodeMetadata;
 import com.spotify.heroic.cluster.NodeRegistryEntry;
 import com.spotify.heroic.metric.NodeError;
-import com.spotify.heroic.metric.RequestError;
 import eu.toolchain.async.Collector;
 import eu.toolchain.async.Transform;
 import lombok.Data;
@@ -42,12 +41,12 @@ import java.util.Set;
 
 @Data
 public class FindKeys {
-    public static final List<RequestError> EMPTY_ERRORS = new ArrayList<>();
+    public static final List<NodeError> EMPTY_ERRORS = new ArrayList<>();
     public static final Set<String> EMPTY_KEYS = new HashSet<String>();
 
     public static final FindKeys EMPTY = new FindKeys(EMPTY_ERRORS, EMPTY_KEYS, 0, 0);
 
-    private final List<RequestError> errors;
+    private final List<NodeError> errors;
     private final Set<String> keys;
     private final int size;
     private final int duplicates;
@@ -55,7 +54,7 @@ public class FindKeys {
     public static class SelfReducer implements Collector<FindKeys, FindKeys> {
         @Override
         public FindKeys collect(Collection<FindKeys> results) throws Exception {
-            final List<RequestError> errors = new ArrayList<>();
+            final List<NodeError> errors = new ArrayList<>();
             final Set<String> keys = new HashSet<>();
             int size = 0;
             int duplicates = 0;
@@ -85,7 +84,7 @@ public class FindKeys {
 
     @JsonCreator
     public FindKeys(
-        @JsonProperty("errors") List<RequestError> errors, @JsonProperty("keys") Set<String> keys,
+        @JsonProperty("errors") List<NodeError> errors, @JsonProperty("keys") Set<String> keys,
         @JsonProperty("size") int size, @JsonProperty("duplicates") int duplicates
     ) {
         this.errors = Optional.fromNullable(errors).or(EMPTY_ERRORS);
@@ -99,28 +98,24 @@ public class FindKeys {
     }
 
     public static Transform<Throwable, ? extends FindKeys> nodeError(final NodeRegistryEntry node) {
-        return new Transform<Throwable, FindKeys>() {
-            @Override
-            public FindKeys transform(Throwable e) throws Exception {
-                final NodeMetadata m = node.getMetadata();
-                final ClusterNode c = node.getClusterNode();
-                return new FindKeys(ImmutableList.<RequestError>of(
-                    NodeError.fromThrowable(m.getId(), c.toString(), m.getTags(), e)), EMPTY_KEYS,
-                    0, 0);
-            }
+        return e -> {
+            final NodeMetadata m = node.getMetadata();
+            final ClusterNode c = node.getClusterNode();
+
+            return new FindKeys(
+                ImmutableList.of(NodeError.fromThrowable(m.getId(), c.toString(), m.getTags(), e)),
+                EMPTY_KEYS, 0, 0);
         };
     }
 
     public static Transform<Throwable, ? extends FindKeys> nodeError(
         final ClusterNode.Group group
     ) {
-        return new Transform<Throwable, FindKeys>() {
-            @Override
-            public FindKeys transform(Throwable e) throws Exception {
-                final List<RequestError> errors =
-                    ImmutableList.<RequestError>of(NodeError.fromThrowable(group.node(), e));
-                return new FindKeys(errors, EMPTY_KEYS, 0, 0);
-            }
+        return e -> {
+            final List<NodeError> errors1 =
+                ImmutableList.of(NodeError.fromThrowable(group.node(), e));
+
+            return new FindKeys(errors1, EMPTY_KEYS, 0, 0);
         };
     }
 }

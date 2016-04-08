@@ -22,13 +22,11 @@
 package com.spotify.heroic.aggregation.simple;
 
 import com.spotify.heroic.HeroicModule;
-import com.spotify.heroic.aggregation.AbstractAggregationDSL;
 import com.spotify.heroic.aggregation.Aggregation;
 import com.spotify.heroic.aggregation.AggregationArguments;
+import com.spotify.heroic.aggregation.AggregationDSL;
 import com.spotify.heroic.aggregation.AggregationFactory;
 import com.spotify.heroic.aggregation.AggregationRegistry;
-import com.spotify.heroic.aggregation.BiFunctionAggregationDSL;
-import com.spotify.heroic.aggregation.FunctionAggregationDSL;
 import com.spotify.heroic.aggregation.SamplingQuery;
 import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.dagger.LoadingComponent;
@@ -37,6 +35,8 @@ import dagger.Component;
 
 import javax.inject.Inject;
 import java.util.Optional;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 public class Module implements HeroicModule {
     @Override
@@ -65,23 +65,14 @@ public class Module implements HeroicModule {
         public void setup() {
             /* example aggregation */
             c.register(Template.NAME, Template.class, samplingBuilder(Template::new));
-
             c.register(Spread.NAME, Spread.class, samplingBuilder(Spread::new));
-
             c.register(Sum.NAME, Sum.class, samplingBuilder(Sum::new));
-
             c.register(Average.NAME, Average.class, samplingBuilder(Average::new));
-
             c.register(Min.NAME, Min.class, samplingBuilder(Min::new));
-
             c.register(Max.NAME, Max.class, samplingBuilder(Max::new));
-
             c.register(StdDev.NAME, StdDev.class, samplingBuilder(StdDev::new));
-
             c.register(CountUnique.NAME, CountUnique.class, samplingBuilder(CountUnique::new));
-
             c.register(Count.NAME, Count.class, samplingBuilder(Count::new));
-
             c.register(GroupUnique.NAME, GroupUnique.class, samplingBuilder(GroupUnique::new));
 
             c.register(Quantile.NAME, Quantile.class,
@@ -91,39 +82,11 @@ public class Module implements HeroicModule {
                         final AggregationArguments args, final Optional<Duration> size,
                         final Optional<Duration> extent, final Optional<Expression> reference
                     ) {
-                        final Optional<Double> q =
-                            args.getNext("q", Long.class).map(v -> ((double) v) / 100.0);
-                        final Optional<Double> error =
-                            args.getNext("error", Long.class).map(v -> ((double) v) / 100.0);
+                        final Optional<Double> q = args.getNext("q", Double.class);
+                        final Optional<Double> error = args.getNext("error", Double.class);
                         return new Quantile(Optional.empty(), size, extent, reference, q, error);
                     }
                 });
-
-            c.register(Subtract.NAME, Subtract.class,
-                new BiFunctionAggregationDSL(factory, Subtract::new));
-
-            c.register(Add.NAME, Add.class, new BiFunctionAggregationDSL(factory, Add::new));
-
-            c.register(Multiply.NAME, Multiply.class,
-                new BiFunctionAggregationDSL(factory, Multiply::new));
-
-            c.register(Divide.NAME, Divide.class, new AbstractAggregationDSL(factory) {
-                @Override
-                public Aggregation build(final AggregationArguments args) {
-                    final Optional<Expression> left = args.getNext("left", Expression.class);
-                    final Optional<Expression> right = args.getNext("right", Expression.class);
-                    final Optional<Double> defaultValue = args.getNext("default", Double.class);
-                    return new Divide(left, right, defaultValue);
-                }
-            });
-
-            c.register(Difference.NAME, Difference.class,
-                new BiFunctionAggregationDSL(factory, Difference::new));
-
-            c.register(Absolute.NAME, Absolute.class,
-                new FunctionAggregationDSL(factory, Absolute::new));
-
-            c.register(Negate.NAME, Negate.class, new FunctionAggregationDSL(factory, Negate::new));
 
             c.register(TopK.NAME, TopK.class,
                 new FilterAggregationBuilder<TopK, Long>(factory, Long.class) {
@@ -164,6 +127,32 @@ public class Module implements HeroicModule {
                         return new BelowK(k, reference);
                     }
                 });
+
+            c.register(Subtract.NAME, Subtract.class, biFunction(Subtract::new));
+            c.register(Add.NAME, Add.class, biFunction(Add::new));
+            c.register(Multiply.NAME, Multiply.class, biFunction(Multiply::new));
+            c.register(Divide.NAME, Divide.class, biFunction(Divide::new));
+            c.register(Difference.NAME, Difference.class, biFunction(Difference::new));
+
+            c.register(Absolute.NAME, Absolute.class, function(Absolute::new));
+            c.register(Negate.NAME, Negate.class, function(Negate::new));
+        }
+
+        private AggregationDSL biFunction(
+            final BiFunction<Optional<Expression>, Optional<Expression>, Aggregation> builder
+        ) {
+            return args -> {
+                final Optional<Expression> left = args.getNext("left", Expression.class);
+                final Optional<Expression> right = args.getNext("right", Expression.class);
+                return builder.apply(left, right);
+            };
+        }
+
+        private AggregationDSL function(final Function<Optional<Expression>, Aggregation> builder) {
+            return args -> {
+                final Optional<Expression> reference = args.getNext("reference", Expression.class);
+                return builder.apply(reference);
+            };
         }
 
         private <T extends Number> T fetchK(AggregationArguments args, Class<T> doubleClass) {

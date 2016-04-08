@@ -22,6 +22,7 @@
 package com.spotify.heroic.aggregation;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.spotify.heroic.async.Observable;
 import com.spotify.heroic.async.Observer;
 import com.spotify.heroic.common.DateRange;
@@ -38,6 +39,7 @@ import com.spotify.heroic.metric.Spread;
 import eu.toolchain.async.AsyncFuture;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -47,7 +49,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -206,41 +210,88 @@ public abstract class BiFunctionAggregation implements Aggregation {
         private final DateRange rightRange;
         private final AggregationState r;
 
-        volatile MetricCollection left = null;
-        volatile MetricCollection right = null;
+        private final Queue<List<Point>> left = new ConcurrentLinkedQueue<>();
+        private final Queue<List<Point>> right = new ConcurrentLinkedQueue<>();
+
+        private final MetricsCollector leftCollector = new MetricsCollector() {
+            @Override
+            public void collectPoints(final List<Point> values) {
+                left.add(values);
+            }
+
+            @Override
+            public void collectEvents(final List<Event> values) {
+            }
+
+            @Override
+            public void collectSpreads(final List<Spread> values) {
+            }
+
+            @Override
+            public void collectGroups(final List<MetricGroup> values) {
+            }
+        };
+
+        private final MetricsCollector rightCollector = new MetricsCollector() {
+            @Override
+            public void collectPoints(final List<Point> values) {
+                right.add(values);
+            }
+
+            @Override
+            public void collectEvents(final List<Event> values) {
+            }
+
+            @Override
+            public void collectSpreads(final List<Spread> values) {
+            }
+
+            @Override
+            public void collectGroups(final List<MetricGroup> values) {
+            }
+        };
 
         @Override
         public void observe(
             final Observer<MetricCollection> observer
         ) throws Exception {
-            final List<Observable<Runnable>> parts =
-                ImmutableList.of(l.getObservable().transform(m -> () -> left = m),
-                    r.getObservable().transform(m -> () -> right = m));
+            ImmutableList<Observable<Pair<MetricCollection, MetricsCollector>>> parts =
+                ImmutableList.of(l.getObservable().transform(m -> Pair.of(m, leftCollector)),
+                    r.getObservable().transform(m -> Pair.of(m, rightCollector)));
 
-            Observable.chain(parts).observe(new Observer<Runnable>() {
-                @Override
-                public void observe(final Runnable action) throws Exception {
-                    action.run();
-                }
-
-                @Override
-                public void fail(final Throwable cause) throws Exception {
-                    observer.fail(cause);
-                }
-
-                @Override
-                public void end() throws Exception {
-                    if (left != null && right != null) {
-                        final MetricCollection c = left.apply(BiFunctionObservable.this, right);
-
-                        if (!c.isEmpty()) {
-                            observer.observe(c);
-                        }
+            Observable
+                .concurrently(parts)
+                .observe(new Observer<Pair<MetricCollection, MetricsCollector>>() {
+                    @Override
+                    public void observe(final Pair<MetricCollection, MetricsCollector> action)
+                        throws Exception {
+                        action.getLeft().update(action.getRight());
                     }
 
-                    observer.end();
-                }
-            });
+                    @Override
+                    public void fail(final Throwable cause) throws Exception {
+                        observer.fail(cause);
+                    }
+
+                    @Override
+                    public void end() throws Exception {
+                        if (!left.isEmpty() && !right.isEmpty()) {
+                            final MetricCollection l = MetricCollection.points(
+                                ImmutableList.copyOf(Iterables.concat(left)));
+
+                            final MetricCollection r = MetricCollection.points(
+                                ImmutableList.copyOf(Iterables.concat(right)));
+
+                            final MetricCollection c = l.apply(BiFunctionObservable.this, r);
+
+                            if (!c.isEmpty()) {
+                                observer.observe(c);
+                            }
+                        }
+
+                        observer.end();
+                    }
+                });
         }
 
         @Override
@@ -355,7 +406,13 @@ public abstract class BiFunctionAggregation implements Aggregation {
             final List<Point> points = new ArrayList<>();
 
             for (final Point p : m) {
-                points.add(new Point(p.getTimestamp(), function.apply(p.getValue())));
+                final double value = function.apply(p.getValue());
+
+                if (!Double.isFinite(value)) {
+                    continue;
+                }
+
+                points.add(new Point(p.getTimestamp(), value));
             }
 
             return Optional.of(MetricCollection.points(points));

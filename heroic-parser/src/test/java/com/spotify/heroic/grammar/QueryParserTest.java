@@ -198,8 +198,8 @@ public class QueryParserTest {
     @Test
     public void testMultipleStatements() {
         final StringBuilder query = new StringBuilder();
-        query.append("let $a = * from points(1d);");
-        query.append("let $b = * from points($now - 2d, $now - 1d);");
+        query.append("let $a = * from points(1d);\n");
+        query.append("let $b = * from points($now - 2d, $now - 1d);\n");
         query.append("$a + $b");
 
         final Statements statements = parser.parse(CoreQueryParser.STATEMENTS, query.toString());

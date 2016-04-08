@@ -31,7 +31,6 @@ import com.spotify.heroic.cluster.NodeMetadata;
 import com.spotify.heroic.cluster.NodeRegistryEntry;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.metric.NodeError;
-import com.spotify.heroic.metric.RequestError;
 import eu.toolchain.async.Collector;
 import eu.toolchain.async.Transform;
 import lombok.Data;
@@ -45,11 +44,11 @@ import java.util.Set;
 
 @Data
 public class FindSeries {
-    public static final List<RequestError> EMPTY_ERRORS = new ArrayList<>();
+    public static final List<NodeError> EMPTY_ERRORS = new ArrayList<>();
     public static final Set<Series> EMPTY_SERIES = new HashSet<Series>();
     public static final FindSeries EMPTY = new FindSeries(EMPTY_ERRORS, EMPTY_SERIES, 0, 0);
 
-    private final List<RequestError> errors;
+    private final List<NodeError> errors;
     private final Set<Series> series;
     private final int size;
     private final int duplicates;
@@ -60,7 +59,7 @@ public class FindSeries {
 
         @Override
         public FindSeries collect(Collection<FindSeries> results) throws Exception {
-            final List<RequestError> errors = new ArrayList<>();
+            final List<NodeError> errors = new ArrayList<>();
             final Set<Series> series = new HashSet<Series>();
             int size = 0;
             int duplicates = 0;
@@ -93,7 +92,7 @@ public class FindSeries {
 
     @JsonCreator
     public FindSeries(
-        @JsonProperty("errors") List<RequestError> errors,
+        @JsonProperty("errors") List<NodeError> errors,
         @JsonProperty("series") Set<Series> series, @JsonProperty("size") int size,
         @JsonProperty("duplicates") int duplicates
     ) {
@@ -115,7 +114,7 @@ public class FindSeries {
             public FindSeries transform(Throwable e) throws Exception {
                 final NodeMetadata m = node.getMetadata();
                 final ClusterNode c = node.getClusterNode();
-                return new FindSeries(ImmutableList.<RequestError>of(
+                return new FindSeries(ImmutableList.<NodeError>of(
                     NodeError.fromThrowable(m.getId(), c.toString(), m.getTags(), e)), EMPTY_SERIES,
                     0, 0);
             }
@@ -128,8 +127,8 @@ public class FindSeries {
         return new Transform<Throwable, FindSeries>() {
             @Override
             public FindSeries transform(Throwable e) throws Exception {
-                final List<RequestError> errors =
-                    ImmutableList.<RequestError>of(NodeError.fromThrowable(group.node(), e));
+                final List<NodeError> errors =
+                    ImmutableList.<NodeError>of(NodeError.fromThrowable(group.node(), e));
                 return new FindSeries(errors, EMPTY_SERIES, 0, 0);
             }
         };

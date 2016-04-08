@@ -28,10 +28,12 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.TimeUtils;
+import com.spotify.heroic.grammar.Expression;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -90,4 +92,8 @@ public interface QueryDateRange {
     }
 
     DateRange buildDateRange(final long now);
+
+    default Function<Expression.Scope, DateRange> asExpression() {
+        return scope -> buildDateRange(scope.lookup(Expression.NOW).cast(Long.class));
+    }
 }

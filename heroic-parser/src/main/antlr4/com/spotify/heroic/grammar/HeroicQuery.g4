@@ -3,12 +3,8 @@
  */
 grammar HeroicQuery;
 
-@lexer::members {
-    boolean ignore=true;
-}
-
 statements
-    : (statement (StatementSeparator | NewLines))* statement EOF
+    : (statement StatementSeparator)* statement EOF
     ;
 
 statement
@@ -216,10 +212,6 @@ Digits
     : [0-9]+
     ;
 
-NewLines
-    : { ignore = false; } NL { ignore = true; }
-    ;
-NL : [\n\r]+ { if (ignore) skip(); } ;
 WS : [ \t\n\r]+ -> skip ;
 
 // is used to specifically match string where the end quote is missing

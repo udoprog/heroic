@@ -76,6 +76,42 @@ public class DurationExpression implements Expression {
     }
 
     @Override
+    public Expression divide(final Expression other) {
+        final long den = other.cast(Long.class);
+
+        long value = this.value;
+        TimeUnit unit = this.unit;
+
+        outer:
+        while (value % den != 0) {
+            if (unit == TimeUnit.MILLISECONDS) {
+                break;
+            }
+
+            final TimeUnit next = nextSmallerUnit(unit);
+            value = next.convert(value, unit);
+            unit = next;
+        }
+
+        return new DurationExpression(ctx, unit, value / den);
+    }
+
+    private TimeUnit nextSmallerUnit(final TimeUnit unit) {
+        switch (unit) {
+            case DAYS:
+                return TimeUnit.HOURS;
+            case HOURS:
+                return TimeUnit.MINUTES;
+            case MINUTES:
+                return TimeUnit.SECONDS;
+            case SECONDS:
+                return TimeUnit.MILLISECONDS;
+            default:
+                throw new IllegalArgumentException("No supported smaller unit: " + unit);
+        }
+    }
+
+    @Override
     public Expression negate() {
         return new DurationExpression(ctx, unit, -value);
     }

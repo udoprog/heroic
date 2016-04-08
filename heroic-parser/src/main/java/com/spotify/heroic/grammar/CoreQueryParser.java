@@ -38,7 +38,7 @@ import javax.inject.Inject;
 import java.util.Optional;
 
 public class CoreQueryParser implements QueryParser {
-    public static final Operation<Statements> STATEMENTS = new Operation<Statements>() {
+    static final Operation<Statements> STATEMENTS = new Operation<Statements>() {
         @Override
         public ParserRuleContext context(HeroicQueryParser parser) {
             return parser.statements();
@@ -49,7 +49,7 @@ public class CoreQueryParser implements QueryParser {
         }
     };
 
-    public static final Operation<Expression> EXPRESSION = new Operation<Expression>() {
+    static final Operation<Expression> EXPRESSION = new Operation<Expression>() {
         @Override
         public ParserRuleContext context(HeroicQueryParser parser) {
             return parser.expressionOnly();
@@ -60,7 +60,7 @@ public class CoreQueryParser implements QueryParser {
         }
     };
 
-    public static final Operation<QueryExpression> QUERY = new Operation<QueryExpression>() {
+    static final Operation<QueryExpression> QUERY = new Operation<QueryExpression>() {
         @Override
         public ParserRuleContext context(HeroicQueryParser parser) {
             return parser.query();
@@ -72,7 +72,7 @@ public class CoreQueryParser implements QueryParser {
         }
     };
 
-    public static final Operation<Filter> FILTER = new Operation<Filter>() {
+    static final Operation<Filter> FILTER = new Operation<Filter>() {
         @Override
         public ParserRuleContext context(HeroicQueryParser parser) {
             return parser.filterOnly();
@@ -84,7 +84,7 @@ public class CoreQueryParser implements QueryParser {
         }
     };
 
-    public static final Operation<FunctionExpression> AGGREGATION =
+    static final Operation<FunctionExpression> AGGREGATION =
         new Operation<FunctionExpression>() {
             @Override
             public ParserRuleContext context(HeroicQueryParser parser) {
@@ -97,7 +97,7 @@ public class CoreQueryParser implements QueryParser {
             }
         };
 
-    public static final Operation<FromDSL> FROM = new Operation<FromDSL>() {
+    static final Operation<FromDSL> FROM = new Operation<FromDSL>() {
         @Override
         public ParserRuleContext context(HeroicQueryParser parser) {
             return parser.from();

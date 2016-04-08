@@ -228,6 +228,68 @@ public interface Observable<T> {
         };
     }
 
+    static <T> Observable<T> concurrently(final List<Observable<T>> observables) {
+        return (final Observer<T> observer) -> {
+            if (observables.isEmpty()) {
+                observer.end();
+                return;
+            }
+
+            final AtomicInteger running = new AtomicInteger(observables.size());
+
+            final Observer<T> obs = new Observer<T>() {
+                final ConcurrentLinkedQueue<Throwable> errors = new ConcurrentLinkedQueue<>();
+                volatile boolean error = false;
+
+                @Override
+                public void observe(T value) throws Exception {
+                    observer.observe(value);
+                }
+
+                @Override
+                public void fail(Throwable cause) throws Exception {
+                    error = true;
+                    errors.add(cause);
+                    end();
+                }
+
+                @Override
+                public void end() throws Exception {
+                    if (running.decrementAndGet() != 0) {
+                        return;
+                    }
+
+                    doEnd();
+                }
+
+                void doEnd() throws Exception {
+                    if (errors.size() > 0) {
+                        final Throwable first = errors.poll();
+
+                        while (true) {
+                            final Throwable next = errors.poll();
+
+                            if (next == null) {
+                                break;
+                            }
+
+                            first.addSuppressed(next);
+                        }
+
+                        observer.fail(first);
+                        return;
+                    }
+
+                    observer.end();
+                }
+            };
+
+            for (final Observable<T> o : observables) {
+                o.observe(obs);
+            }
+        };
+    }
+
     static <T> Observable<T> empty() {
         return new Observable<T>() {
             @Override

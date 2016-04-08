@@ -27,6 +27,7 @@ import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.grammar.Expression;
+import com.spotify.heroic.metric.NodeError;
 import com.spotify.heroic.metric.QueryTrace;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
@@ -61,11 +62,15 @@ public interface AggregationContext {
 
     QueryOptions options();
 
+    List<NodeError> errors();
+
     List<QueryTrace> traces();
 
     AggregationLookup lookup(final Optional<Expression> reference);
 
     AggregationContext withRange(final DateRange range);
+
+    AggregationContext withErrors(final List<NodeError> errors);
 
     AggregationContext withTraces(final List<QueryTrace> traces);
 
@@ -127,9 +132,9 @@ public interface AggregationContext {
         final AsyncFramework async, final List<AggregationState> input, final DateRange range,
         final Function<Expression, Expression> evaluator
     ) {
-        return new DefaultAggregationContext(async, ImmutableList.of(), new DefaultLookup(),
-            QueryOptions.DEFAULTS, input, range, Optional.empty(), ImmutableSet.of(),
-            Optional.empty(), evaluator);
+        return new DefaultAggregationContext(async, ImmutableList.of(), ImmutableList.of(),
+            new DefaultLookup(), QueryOptions.DEFAULTS, input, range, Optional.empty(),
+            ImmutableSet.of(), Optional.empty(), evaluator);
     }
 
     static AggregationContext tracing(
@@ -145,8 +150,8 @@ public interface AggregationContext {
         final Step root = new Step("in", "in", ImmutableList.of(), keys.build());
 
         return new TracingAggregationContext(root, new AtomicInteger(), async, ImmutableList.of(),
-            new DefaultLookup(), QueryOptions.DEFAULTS, input, range, Optional.empty(),
-            ImmutableSet.of(), Optional.empty(), evaluator);
+            ImmutableList.of(), new DefaultLookup(), QueryOptions.DEFAULTS, input, range,
+            Optional.empty(), ImmutableSet.of(), Optional.empty(), evaluator);
     }
 
     @ToString
@@ -156,6 +161,7 @@ public interface AggregationContext {
         private final AtomicInteger counter;
         private final AsyncFramework async;
         private final List<QueryTrace> traces;
+        private final List<NodeError> errors;
         private final Function<Expression, AggregationLookup> lookup;
         private final QueryOptions options;
         private final List<AggregationState> input;
@@ -206,6 +212,11 @@ public interface AggregationContext {
         }
 
         @Override
+        public List<NodeError> errors() {
+            return errors;
+        }
+
+        @Override
         public List<QueryTrace> traces() {
             return traces;
         }
@@ -224,28 +235,28 @@ public interface AggregationContext {
 
         @Override
         public AggregationContext withRange(final DateRange range) {
-            return new TracingAggregationContext(step, counter, async, traces, lookup, options,
-                input, range, cadence, requiredTags, estimate, evaluator);
+            return new TracingAggregationContext(step, counter, async, traces, errors, lookup,
+                options, input, range, cadence, requiredTags, estimate, evaluator);
         }
 
         @Override
         public AggregationContext withOptions(final QueryOptions options) {
-            return new TracingAggregationContext(step, counter, async, traces, lookup, options,
-                input, range, cadence, requiredTags, estimate, evaluator);
+            return new TracingAggregationContext(step, counter, async, traces, errors, lookup,
+                options, input, range, cadence, requiredTags, estimate, evaluator);
         }
 
         @Override
         public AggregationContext withLookup(
             final Function<Expression, AggregationLookup> lookup
         ) {
-            return new TracingAggregationContext(step, counter, async, traces, lookup, options,
-                input, range, cadence, requiredTags, estimate, evaluator);
+            return new TracingAggregationContext(step, counter, async, traces, errors, lookup,
+                options, input, range, cadence, requiredTags, estimate, evaluator);
         }
 
         @Override
         public AggregationContext withCadence(final Optional<Duration> cadence) {
-            return new TracingAggregationContext(step, counter, async, traces, lookup, options,
-                input, range, cadence, requiredTags, estimate, evaluator);
+            return new TracingAggregationContext(step, counter, async, traces, errors, lookup,
+                options, input, range, cadence, requiredTags, estimate, evaluator);
         }
 
         @Override
@@ -255,34 +266,42 @@ public interface AggregationContext {
             final String id = Integer.toString(counter.incrementAndGet());
             final Step next = new Step(id, name, parents, keys);
 
-            return new TracingAggregationContext(next, counter, async, traces, lookup, options,
-                input, range, cadence, requiredTags, estimate, evaluator);
+            return new TracingAggregationContext(next, counter, async, traces, errors, lookup,
+                options, input, range, cadence, requiredTags, estimate, evaluator);
         }
 
         @Override
         public AggregationContext withInput(final List<AggregationState> input) {
-            return new TracingAggregationContext(step, counter, async, traces, lookup, options,
-                input, range, cadence, requiredTags, estimate, evaluator);
+            return new TracingAggregationContext(step, counter, async, traces, errors, lookup,
+                options, input, range, cadence, requiredTags, estimate, evaluator);
         }
 
         @Override
         public AggregationContext withRequiredTags(final Set<String> requiredTags) {
-            return new TracingAggregationContext(step, counter, async, traces, lookup, options,
-                input, range, cadence, requiredTags, estimate, evaluator);
+            return new TracingAggregationContext(step, counter, async, traces, errors, lookup,
+                options, input, range, cadence, requiredTags, estimate, evaluator);
         }
 
         @Override
         public AggregationContext withEstimate(final Optional<Long> estimate) {
-            return new TracingAggregationContext(step, counter, async, traces, lookup, options,
-                input, range, cadence, requiredTags, estimate, evaluator);
+            return new TracingAggregationContext(step, counter, async, traces, errors, lookup,
+                options, input, range, cadence, requiredTags, estimate, evaluator);
+        }
+
+        @Override
+        public AggregationContext withErrors(
+            final List<NodeError> errors
+        ) {
+            return new TracingAggregationContext(step, counter, async, traces, errors, lookup,
+                options, input, range, cadence, requiredTags, estimate, evaluator);
         }
 
         @Override
         public AggregationContext withTraces(
             final List<QueryTrace> trace
         ) {
-            return new TracingAggregationContext(step, counter, async, traces, lookup, options,
-                input, range, cadence, requiredTags, estimate, evaluator);
+            return new TracingAggregationContext(step, counter, async, traces, errors, lookup,
+                options, input, range, cadence, requiredTags, estimate, evaluator);
         }
     }
 
@@ -291,6 +310,7 @@ public interface AggregationContext {
     class DefaultAggregationContext implements AggregationContext {
         private final AsyncFramework async;
         private final List<QueryTrace> traces;
+        private final List<NodeError> errors;
         private final Function<Expression, AggregationLookup> lookup;
         private final QueryOptions options;
         private final List<AggregationState> input;
@@ -336,6 +356,11 @@ public interface AggregationContext {
         }
 
         @Override
+        public List<NodeError> errors() {
+            return errors;
+        }
+
+        @Override
         public List<QueryTrace> traces() {
             return traces;
         }
@@ -354,54 +379,62 @@ public interface AggregationContext {
 
         @Override
         public AggregationContext withRange(final DateRange range) {
-            return new DefaultAggregationContext(async, traces, lookup, options, input, range,
-                cadence, requiredTags, estimate, evaluator);
+            return new DefaultAggregationContext(async, traces, errors, lookup, options, input,
+                range, cadence, requiredTags, estimate, evaluator);
         }
 
         @Override
         public AggregationContext withOptions(final QueryOptions options) {
-            return new DefaultAggregationContext(async, traces, lookup, options, input, range,
-                cadence, requiredTags, estimate, evaluator);
+            return new DefaultAggregationContext(async, traces, errors, lookup, options, input,
+                range, cadence, requiredTags, estimate, evaluator);
         }
 
         @Override
         public AggregationContext withLookup(
             final Function<Expression, AggregationLookup> lookup
         ) {
-            return new DefaultAggregationContext(async, traces, lookup, options, input, range,
-                cadence, requiredTags, estimate, evaluator);
+            return new DefaultAggregationContext(async, traces, errors, lookup, options, input,
+                range, cadence, requiredTags, estimate, evaluator);
         }
 
         @Override
         public AggregationContext withCadence(final Optional<Duration> cadence) {
-            return new DefaultAggregationContext(async, traces, lookup, options, input, range,
-                cadence, requiredTags, estimate, evaluator);
+            return new DefaultAggregationContext(async, traces, errors, lookup, options, input,
+                range, cadence, requiredTags, estimate, evaluator);
         }
 
         @Override
         public AggregationContext withInput(final List<AggregationState> input) {
-            return new DefaultAggregationContext(async, traces, lookup, options, input, range,
-                cadence, requiredTags, estimate, evaluator);
+            return new DefaultAggregationContext(async, traces, errors, lookup, options, input,
+                range, cadence, requiredTags, estimate, evaluator);
         }
 
         @Override
         public AggregationContext withRequiredTags(final Set<String> requiredTags) {
-            return new DefaultAggregationContext(async, traces, lookup, options, input, range,
-                cadence, requiredTags, estimate, evaluator);
+            return new DefaultAggregationContext(async, traces, errors, lookup, options, input,
+                range, cadence, requiredTags, estimate, evaluator);
         }
 
         @Override
         public AggregationContext withEstimate(final Optional<Long> estimate) {
-            return new DefaultAggregationContext(async, traces, lookup, options, input, range,
-                cadence, requiredTags, estimate, evaluator);
+            return new DefaultAggregationContext(async, traces, errors, lookup, options, input,
+                range, cadence, requiredTags, estimate, evaluator);
+        }
+
+        @Override
+        public AggregationContext withErrors(
+            final List<NodeError> errors
+        ) {
+            return new DefaultAggregationContext(async, traces, errors, lookup, options, input,
+                range, cadence, requiredTags, estimate, evaluator);
         }
 
         @Override
         public AggregationContext withTraces(
             final List<QueryTrace> traces
         ) {
-            return new DefaultAggregationContext(async, traces, lookup, options, input, range,
-                cadence, requiredTags, estimate, evaluator);
+            return new DefaultAggregationContext(async, traces, errors, lookup, options, input,
+                range, cadence, requiredTags, estimate, evaluator);
         }
     }
 

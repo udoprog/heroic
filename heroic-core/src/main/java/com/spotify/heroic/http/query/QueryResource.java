@@ -24,6 +24,7 @@ package com.spotify.heroic.http.query;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
+import com.spotify.heroic.QueryDateRange;
 import com.spotify.heroic.QueryInstance;
 import com.spotify.heroic.QueryManager;
 import com.spotify.heroic.common.DateRange;
@@ -203,9 +204,11 @@ public class QueryResource {
         final List<AsyncFuture<Pair<String, QueryResult>>> futures = new ArrayList<>();
 
         for (final Map.Entry<String, QueryMetrics> e : query.getQueries().entrySet()) {
-            final QueryInstance instance = setupQuery(e.getValue(), uri);
-            final QueryInstance q = new QueryInstance(Optional.of(instance));
-            futures.add(group.query(q).directTransform(r -> Pair.of(e.getKey(), r)));
+            final QueryInstance instance = setupQuery(e.getValue(), uri).withRangeIfAbsent(
+                query.getRange().map(QueryDateRange::asExpression));
+
+            // final QueryInstance q = new QueryInstance(Optional.of(instance));
+            futures.add(group.query(instance).directTransform(r -> Pair.of(e.getKey(), r)));
         }
 
         final AsyncFuture<QueryBatchResponse> future =
@@ -275,9 +278,7 @@ public class QueryResource {
             .withNow(System.currentTimeMillis());
 
         final Optional<Function<Expression.Scope, DateRange>> rangeBuilder =
-            q.getRange().map(r -> scope -> {
-                return r.buildDateRange(scope.lookup(Expression.NOW).cast(Long.class));
-            });
+            q.getRange().map(QueryDateRange::asExpression);
 
         final QueryInstance modified = base
             .withRangeIfAbsent(rangeBuilder)

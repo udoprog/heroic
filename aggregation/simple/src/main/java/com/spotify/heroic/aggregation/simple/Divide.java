@@ -29,33 +29,20 @@ import lombok.EqualsAndHashCode;
 
 import java.util.Optional;
 
-@EqualsAndHashCode(callSuper = true, of = {"NAME", "defaultValue"})
+@EqualsAndHashCode(callSuper = true, of = {"NAME"})
 public class Divide extends BiFunctionAggregation {
     public static final String NAME = "divide";
 
-    private final double defaultValue;
-
     @Override
     protected double applyPoint(final double a, final double b) {
-        if (b == 0D) {
-            return defaultValue;
-        }
-
         return a / b;
     }
 
     @JsonCreator
     public Divide(
         @JsonProperty("left") Optional<Expression> left,
-        @JsonProperty("right") Optional<Expression> right,
-        @JsonProperty("default") Optional<Double> defaultValue
+        @JsonProperty("right") Optional<Expression> right
     ) {
         super(left, right);
-        this.defaultValue = defaultValue.orElse(0D);
-    }
-
-    @JsonProperty("default")
-    public double getDefaultValue() {
-        return defaultValue;
     }
 }

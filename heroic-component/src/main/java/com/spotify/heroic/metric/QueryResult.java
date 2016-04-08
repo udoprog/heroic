@@ -48,11 +48,11 @@ import java.util.Optional;
 @Data
 public final class QueryResult {
     private static final List<AggregationData> EMPTY_GROUPS = new ArrayList<>();
-    public static final List<RequestError> EMPTY_ERRORS = new ArrayList<>();
+    public static final List<NodeError> EMPTY_ERRORS = new ArrayList<>();
 
     private final Optional<Duration> cadence;
     private final List<AggregationData> data;
-    private final List<RequestError> errors;
+    private final List<NodeError> errors;
     private final Statistics statistics;
     private final QueryTrace trace;
 
@@ -60,7 +60,7 @@ public final class QueryResult {
     public QueryResult(
         @JsonProperty("cadence") Optional<Duration> cadence,
         @JsonProperty("data") List<AggregationData> data,
-        @JsonProperty("errors") List<RequestError> errors,
+        @JsonProperty("errors") List<NodeError> errors,
         @JsonProperty("statistics") Statistics statistics, @JsonProperty("trace") QueryTrace trace
     ) {
         this.cadence = Objects.requireNonNull(cadence, "cadence");
@@ -80,9 +80,9 @@ public final class QueryResult {
         return data.stream().allMatch(AggregationData::isEmpty);
     }
 
-    public static QueryResult empty(final QueryTrace.Identifier what) {
+    public static QueryResult empty(final QueryTrace trace) {
         return new QueryResult(Optional.empty(), ImmutableList.of(), ImmutableList.of(),
-            Statistics.empty(), new QueryTrace(what));
+            Statistics.empty(), trace);
     }
 
     public static Collector<QueryResult, QueryResult> collect(final QueryTrace.Identifier what) {
@@ -92,7 +92,7 @@ public final class QueryResult {
             final Optional<Duration> cadence =
                 results.stream().findAny().flatMap(QueryResult::getCadence);
             final ImmutableList.Builder<AggregationData> data = ImmutableList.builder();
-            final ImmutableList.Builder<RequestError> errors = ImmutableList.builder();
+            final ImmutableList.Builder<NodeError> errors = ImmutableList.builder();
             final ImmutableList.Builder<QueryTrace> traces = ImmutableList.builder();
 
             Statistics statistics = Statistics.empty();
@@ -113,21 +113,14 @@ public final class QueryResult {
         final QueryTrace.Identifier what, final ClusterNode.Group group
     ) {
         return (Throwable e) -> {
-            final List<RequestError> errors =
-                ImmutableList.<RequestError>of(NodeError.fromThrowable(group.node(), e));
+            final List<NodeError> errors =
+                ImmutableList.<NodeError>of(NodeError.fromThrowable(group.node(), e));
             return new QueryResult(Optional.empty(), EMPTY_GROUPS, errors, Statistics.empty(),
                 new QueryTrace(what));
         };
     }
 
-    public static Transform<QueryResult, QueryResult> trace(final Identifier what) {
-        final QueryTrace.Tracer tracer = QueryTrace.trace(what);
-
-        return r -> new QueryResult(r.cadence, r.data, r.errors, r.statistics,
-            tracer.end(ImmutableList.of(r.trace)));
-    }
-
-    public static Transform<QueryResult, QueryResult> step(final Identifier identifier) {
+    public static Transform<QueryResult, QueryResult> trace(final Identifier identifier) {
         final QueryTrace.Tracer tracer = QueryTrace.trace(identifier);
 
         return r -> new QueryResult(r.cadence, r.data, r.errors, r.statistics,

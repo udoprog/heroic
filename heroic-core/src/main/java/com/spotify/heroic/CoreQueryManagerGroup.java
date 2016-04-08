@@ -46,9 +46,9 @@ import com.spotify.heroic.grammar.QueryExpression;
 import com.spotify.heroic.grammar.ReferenceExpression;
 import com.spotify.heroic.metric.AnalyzeResult;
 import com.spotify.heroic.metric.MetricType;
+import com.spotify.heroic.metric.NodeError;
 import com.spotify.heroic.metric.QueryResult;
 import com.spotify.heroic.metric.QueryTrace;
-import com.spotify.heroic.metric.RequestError;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import eu.toolchain.async.LazyTransform;
@@ -139,9 +139,8 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
 
                 Observable
                     .chain(observables)
-                    .observe(
-                        new ResultObserver(() -> tracer.end(out.traces()), out.cadence(), result,
-                            ImmutableList.of(), Statistics.empty()));
+                    .observe(new ResultObserver(() -> tracer.end(out.traces()), out.errors(),
+                        out.cadence(), result, Statistics.empty()));
 
                 return result;
             });
@@ -157,7 +156,7 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
 
         return r.directTransform(
             result -> AnalyzeResult.analyze(result, () -> tracer.end(result.traces()),
-                ImmutableMap.of(), ImmutableList.of(), ImmutableList.of()));
+                result.errors(), ImmutableMap.of(), ImmutableList.of()));
     }
 
     @Override
@@ -180,7 +179,8 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
             return aggregations
                 .fromExpression(reference)
                 .map(aggregation -> childQuery(
-                    new QueryInstance(Optional.of(parent)).withAggregation(aggregation)))
+                    new QueryInstance(Optional.of(parent)).withAggregation(aggregation),
+                    reference.toString()))
                 .orElseGet(() -> lookupExpression(reference));
         }
 
@@ -190,15 +190,14 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
                 public AggregationLookup visitReference(final ReferenceExpression e) {
                     final QueryInstance statement = parent
                         .lookupStatement(e.getName())
-                        .orElseThrow(() -> new IllegalArgumentException(
-                            "No such reference: $" + e.getName()));
+                        .orElseThrow(() -> new IllegalArgumentException("No such reference: " + e));
 
-                    return childQuery(statement.withParent(parent));
+                    return childQuery(statement.withParent(parent), e.toString());
                 }
 
                 @Override
                 public AggregationLookup visitQuery(final QueryExpression e) {
-                    return childQuery(expressionToQuery.apply(e).withParent(parent));
+                    return childQuery(expressionToQuery.apply(e).withParent(parent), e.toString());
                 }
 
                 @Override
@@ -208,9 +207,16 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
             });
         }
 
-        private AggregationLookup childQuery(final QueryInstance queryInstance) {
-            return new AggregationLookup.Context(overrides -> query.apply(
-                queryInstance.withAddedRangeModifier(overrides.getRange())));
+        private AggregationLookup childQuery(final QueryInstance queryInstance, final String name) {
+            final QueryTrace.Tracer tracer = QueryTrace.trace(QueryTrace.identifier(name));
+
+            return new AggregationLookup.Context(overrides -> {
+                return query
+                    .apply(queryInstance.withAddedRangeModifier(overrides.getRange()))
+                    .directTransform(context -> {
+                        return context.withTraces(ImmutableList.of(tracer.end(context.traces())));
+                    });
+            });
         }
     }
 
@@ -327,7 +333,7 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
             return group
                 .query(full)
                 .catchFailed(QueryResult.nodeError(identifier, group))
-                .directTransform(QueryResult.step(identifier));
+                .directTransform(QueryResult.trace(identifier));
         }, QueryTransform::new, this::newQueryContext);
     }
 
@@ -417,30 +423,30 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
                 all.stream().findAny().flatMap(QueryResult::getCadence);
 
             final List<AggregationState> states = new ArrayList<>();
-            final List<RequestError> errors = new ArrayList<>();
-            Statistics statistics = Statistics.empty();
+            final List<NodeError> errors = new ArrayList<>();
             final List<QueryTrace> traces = new ArrayList<>();
+            Statistics statistics = Statistics.empty();
 
             for (final QueryResult r : all) {
                 r.toStates().forEach(states::add);
                 errors.addAll(r.getErrors());
-                statistics = statistics.merge(r.getStatistics());
                 traces.add(r.getTrace());
+                statistics = statistics.merge(r.getStatistics());
             }
 
             return combiner
                 .setup(contextBuilder.apply(states))
-                .directTransform(ctx -> ctx.withTraces(traces));
+                .directTransform(ctx -> ctx.withErrors(errors).withTraces(traces));
         }
     }
 
     @RequiredArgsConstructor
     static class ResultObserver implements Observer<AggregationData> {
         final Supplier<QueryTrace> trace;
+        final List<NodeError> errors;
 
         final Optional<Duration> cadence;
         final ResolvableFuture<QueryResult> result;
-        final List<RequestError> errors;
         final Statistics statistics;
 
         final Queue<AggregationData> results = new ConcurrentLinkedQueue<>();
@@ -457,8 +463,9 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
 
         @Override
         public void end() throws Exception {
-            result.resolve(new QueryResult(cadence, new ArrayList<>(results), errors, statistics,
-                trace.get()));
+            result.resolve(
+                new QueryResult(cadence, ImmutableList.copyOf(results), errors, statistics,
+                    trace.get()));
         }
     }
 
@@ -472,16 +479,18 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
         public AsyncFuture<AggregationContext> transform(final Collection<AnalyzeResult> all)
             throws Exception {
             final List<AggregationState> states = new ArrayList<>();
+            final List<NodeError> errors = new ArrayList<>();
             final List<QueryTrace> traces = new ArrayList<>();
 
             for (final AnalyzeResult result : all) {
                 result.toStates().forEach(states::add);
+                errors.addAll(result.getErrors());
                 traces.add(result.getTrace());
             }
 
             return combiner
                 .setup(contextBuilder.apply(states))
-                .directTransform(ctx -> ctx.withTraces(traces));
+                .directTransform(ctx -> ctx.withErrors(errors).withTraces(traces));
         }
     }
 }

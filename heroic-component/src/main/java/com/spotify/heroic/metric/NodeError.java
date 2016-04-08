@@ -21,8 +21,6 @@
 
 package com.spotify.heroic.metric;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.spotify.heroic.cluster.ClusterNode;
 import com.spotify.heroic.cluster.NodeMetadata;
 import lombok.Data;
@@ -30,27 +28,13 @@ import lombok.Data;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Indicates that a specific shard of the request failed and information on which and why.
- *
- * @author udoprog
- */
 @Data
-public class NodeError implements RequestError {
+public class NodeError {
     private final UUID nodeId;
     private final String node;
     private final Map<String, String> tags;
     private final String error;
     private final boolean internal;
-
-    @JsonCreator
-    public static NodeError create(
-        @JsonProperty("nodeId") UUID nodeId, @JsonProperty("nodeUri") String node,
-        @JsonProperty("tags") Map<String, String> tags, @JsonProperty("error") String error,
-        @JsonProperty("internal") Boolean internal
-    ) {
-        return new NodeError(nodeId, node, tags, error, internal);
-    }
 
     public static NodeError fromThrowable(ClusterNode c, Throwable e) {
         final NodeMetadata m = c.metadata();

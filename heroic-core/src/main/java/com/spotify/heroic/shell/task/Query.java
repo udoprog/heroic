@@ -28,7 +28,7 @@ import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.aggregation.AggregationData;
 import com.spotify.heroic.dagger.CoreComponent;
 import com.spotify.heroic.metric.MetricCollection;
-import com.spotify.heroic.metric.RequestError;
+import com.spotify.heroic.metric.NodeError;
 import com.spotify.heroic.shell.AbstractShellTaskParams;
 import com.spotify.heroic.shell.ShellIO;
 import com.spotify.heroic.shell.ShellTask;
@@ -80,7 +80,7 @@ public class Query implements ShellTask {
             .useGroup(params.group)
             .query(query.newQueryFromString(queryString).withOptionsIfAbsent(Optional.of(options)))
             .directTransform(result -> {
-                for (final RequestError e : result.getErrors()) {
+                for (final NodeError e : result.getErrors()) {
                     io.out().println(String.format("ERR: %s", e.toString()));
                 }
 

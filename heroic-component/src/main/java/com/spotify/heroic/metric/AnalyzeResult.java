@@ -65,7 +65,7 @@ public final class AnalyzeResult {
     private final Optional<Duration> cadence;
     private final Map<String, AnalyzeNode> nodes;
     private final List<AnalyzeEdge> edges;
-    private final List<RequestError> errors;
+    private final List<NodeError> errors;
     private final QueryTrace trace;
 
     @JsonCreator
@@ -75,7 +75,7 @@ public final class AnalyzeResult {
         @JsonProperty("cadence") Optional<Duration> cadence,
         @JsonProperty("nodes") Map<String, AnalyzeNode> nodes,
         @JsonProperty("edges") List<AnalyzeEdge> edges,
-        @JsonProperty("errors") final List<RequestError> errors,
+        @JsonProperty("errors") final List<NodeError> errors,
         @JsonProperty("trace") QueryTrace trace
     ) {
         this.in = Objects.requireNonNull(in, "in");
@@ -161,7 +161,7 @@ public final class AnalyzeResult {
             final ImmutableList.Builder<AggregationData> data = ImmutableList.builder();
             final ImmutableMap.Builder<String, AnalyzeNode> nodes = ImmutableMap.builder();
             final ImmutableList.Builder<AnalyzeEdge> edges = ImmutableList.builder();
-            final ImmutableList.Builder<RequestError> errors = ImmutableList.builder();
+            final ImmutableList.Builder<NodeError> errors = ImmutableList.builder();
             final ImmutableList.Builder<QueryTrace> traces = ImmutableList.builder();
 
             for (final AnalyzeResult r : results) {
@@ -179,24 +179,21 @@ public final class AnalyzeResult {
     }
 
     public static AnalyzeResult analyze(
-        final AggregationContext out, final Supplier<QueryTrace> trace
+        final AggregationContext out, final Supplier<QueryTrace> trace, final List<NodeError> errors
     ) {
-        return analyze(out, trace, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of());
+        return analyze(out, trace, errors, ImmutableMap.of(), ImmutableList.of());
     }
 
     public static AnalyzeResult analyze(
         final AggregationContext out, final Supplier<QueryTrace> trace,
-        final Map<String, AnalyzeNode> startingNodes, final List<AnalyzeEdge> startingEdges,
-        final List<RequestError> startingErrors
+        final List<NodeError> errors, final Map<String, AnalyzeNode> startingNodes,
+        final List<AnalyzeEdge> startingEdges
     ) {
         final ImmutableMap.Builder<String, AnalyzeNode> nodes = ImmutableMap.builder();
         nodes.putAll(startingNodes);
 
         final ImmutableList.Builder<AnalyzeEdge> edges = ImmutableList.builder();
         edges.addAll(startingEdges);
-
-        final ImmutableList.Builder<RequestError> errors = ImmutableList.builder();
-        errors.addAll(startingErrors);
 
         final Queue<AggregationContext.Step> queue = new LinkedList<>();
         queue.add(out.step());
@@ -233,15 +230,15 @@ public final class AnalyzeResult {
         }
 
         return new AnalyzeResult(AggregationContext.IN, AggregationContext.OUT, data.build(),
-            out.cadence(), nodes.build(), edges.build(), errors.build(), trace.get());
+            out.cadence(), nodes.build(), edges.build(), errors, trace.get());
     }
 
     public static Transform<Throwable, AnalyzeResult> nodeError(
         final Identifier what, final ClusterNode.Group group
     ) {
         return (Throwable e) -> {
-            final List<RequestError> errors =
-                ImmutableList.<RequestError>of(NodeError.fromThrowable(group.node(), e));
+            final List<NodeError> errors =
+                ImmutableList.<NodeError>of(NodeError.fromThrowable(group.node(), e));
             return new AnalyzeResult("", "", EMPTY_DATA, Optional.empty(), EMPTY_NODES, EMPTY_EDGES,
                 errors, new QueryTrace(what));
         };

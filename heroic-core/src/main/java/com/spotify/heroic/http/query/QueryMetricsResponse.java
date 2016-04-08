@@ -31,7 +31,7 @@ import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.QueryTrace;
-import com.spotify.heroic.metric.RequestError;
+import com.spotify.heroic.metric.NodeError;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -54,7 +54,7 @@ public class QueryMetricsResponse {
     private final Duration cadence;
 
     @Getter
-    private final List<RequestError> errors;
+    private final List<NodeError> errors;
 
     @Getter
     private final QueryTrace trace;
@@ -123,11 +123,11 @@ public class QueryMetricsResponse {
             g.writeEndObject();
         }
 
-        private void serializeErrors(final JsonGenerator g, final List<RequestError> errors)
+        private void serializeErrors(final JsonGenerator g, final List<NodeError> errors)
             throws IOException {
             g.writeStartArray();
 
-            for (final RequestError error : errors) {
+            for (final NodeError error : errors) {
                 g.writeObject(error);
             }
 

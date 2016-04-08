@@ -67,9 +67,7 @@ public class TracingClusterNodeGroup implements ClusterNode.Group {
     }
 
     @Override
-    public AsyncFuture<AnalyzeResult> analyze(
-        final FullQuery query
-    ) {
+    public AsyncFuture<AnalyzeResult> analyze(final FullQuery query) {
         return delegate.analyze(query).directTransform(AnalyzeResult.step(this.analyze));
     }
 

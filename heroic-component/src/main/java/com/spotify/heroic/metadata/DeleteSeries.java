@@ -26,7 +26,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.spotify.heroic.cluster.ClusterNode;
 import com.spotify.heroic.metric.NodeError;
-import com.spotify.heroic.metric.RequestError;
 import eu.toolchain.async.Collector;
 import eu.toolchain.async.Transform;
 import lombok.Data;
@@ -37,10 +36,10 @@ import java.util.List;
 
 @Data
 public class DeleteSeries {
-    public static final List<RequestError> EMPTY_ERRORS = ImmutableList.of();
+    public static final List<NodeError> EMPTY_ERRORS = ImmutableList.of();
     public static final DeleteSeries EMPTY = new DeleteSeries(EMPTY_ERRORS, 0, 0);
 
-    private final List<RequestError> errors;
+    private final List<NodeError> errors;
     private final int deleted;
     private final int failed;
 
@@ -52,7 +51,7 @@ public class DeleteSeries {
 
     @JsonCreator
     public DeleteSeries(
-        @JsonProperty("errors") List<RequestError> errors, @JsonProperty("deleted") int deleted,
+        @JsonProperty("errors") List<NodeError> errors, @JsonProperty("deleted") int deleted,
         @JsonProperty("failed") int failed
     ) {
         this.errors = errors;
@@ -64,7 +63,7 @@ public class DeleteSeries {
         new Collector<DeleteSeries, DeleteSeries>() {
             @Override
             public DeleteSeries collect(Collection<DeleteSeries> results) throws Exception {
-                final List<RequestError> errors = new ArrayList<>();
+                final List<NodeError> errors = new ArrayList<>();
                 int deleted = 0;
                 int failed = 0;
 
@@ -86,8 +85,8 @@ public class DeleteSeries {
         return new Transform<Throwable, DeleteSeries>() {
             @Override
             public DeleteSeries transform(Throwable e) throws Exception {
-                final List<RequestError> errors =
-                    ImmutableList.<RequestError>of(NodeError.fromThrowable(group.node(), e));
+                final List<NodeError> errors =
+                    ImmutableList.<NodeError>of(NodeError.fromThrowable(group.node(), e));
                 return new DeleteSeries(errors, 0, 0);
             }
         };

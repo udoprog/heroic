@@ -120,7 +120,7 @@ public abstract class BucketAggregation<B extends Bucket> implements Aggregation
                     final Session s =
                         new Session(buckets, range.start(), Iterables.concat(series), size, extent);
 
-                    Observable.chain(observables).observe(new Observer<MetricCollection>() {
+                    Observable.concurrently(observables).observe(new Observer<MetricCollection>() {
                         @Override
                         public void observe(final MetricCollection value) throws Exception {
                             value.update(s);
