@@ -130,7 +130,7 @@ public class LoadGenerated implements ShellTask {
         private List<String> generators = ImmutableList.of("sine", "random-events");
 
         @Option(name = "-d", usage = "Duration to generate data for")
-        private Duration duration = Duration.of(7, TimeUnit.DAYS);
+        private Duration duration = Duration.of(60, TimeUnit.DAYS);
     }
 
     public static LoadGenerated setup(final CoreComponent core) {

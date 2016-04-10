@@ -1,6 +1,3 @@
-/**
- * Define a grammar called Hello
- */
 grammar HeroicQuery;
 
 statements
@@ -21,7 +18,7 @@ filterOnly
     ;
 
 query
-    : select from? where?
+    : select from? where? with?
     ;
 
 select
@@ -35,6 +32,10 @@ from
 
 where
     : Where filter
+    ;
+
+with
+    : With keyValue (Comma keyValue)*
     ;
 
 filter
@@ -102,6 +103,8 @@ True : 'true' ;
 False : 'false' ;
 
 Where : 'where' ;
+
+With : 'with' ;
 
 From : 'from' ;
 

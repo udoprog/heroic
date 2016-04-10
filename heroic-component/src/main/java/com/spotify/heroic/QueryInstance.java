@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.spotify.heroic.aggregation.Aggregation;
 import com.spotify.heroic.common.DateRange;
+import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.filter.FilterFactory;
 import com.spotify.heroic.grammar.DefaultScope;
@@ -55,11 +56,12 @@ public class QueryInstance {
     private final Optional<Long> now;
     private final Optional<Function<Expression.Scope, DateRange>> rangeBuilder;
     private final Function<DateRange, DateRange> rangeModifier;
+    private final Map<String, Expression> modifiers;
 
     public QueryInstance(final Optional<QueryInstance> parent) {
         this(parent, ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), Optional.empty(),
             Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
-            Function.identity());
+            Function.identity(), ImmutableMap.of());
     }
 
     public boolean hasFeature(final String feature) {
@@ -68,7 +70,7 @@ public class QueryInstance {
 
     public QueryInstance withNow(final long now) {
         return new QueryInstance(parent, statements, features, source, filter, aggregation, options,
-            Optional.of(now), rangeBuilder, rangeModifier);
+            Optional.of(now), rangeBuilder, rangeModifier, modifiers);
     }
 
     public QueryInstance withAddedFeatures(final Set<String> features) {
@@ -76,22 +78,22 @@ public class QueryInstance {
         result.addAll(this.features).addAll(features);
 
         return new QueryInstance(parent, statements, result.build(), source, filter, aggregation,
-            options, now, rangeBuilder, rangeModifier);
+            options, now, rangeBuilder, rangeModifier, modifiers);
     }
 
     public QueryInstance withParent(final QueryInstance parent) {
         return new QueryInstance(Optional.of(parent), statements, features, source, filter,
-            aggregation, options, now, rangeBuilder, rangeModifier);
+            aggregation, options, now, rangeBuilder, rangeModifier, modifiers);
     }
 
     public QueryInstance withAggregation(final Aggregation aggregation) {
         return new QueryInstance(parent, statements, features, source, filter,
-            Optional.of(aggregation), options, now, rangeBuilder, rangeModifier);
+            Optional.of(aggregation), options, now, rangeBuilder, rangeModifier, modifiers);
     }
 
     public QueryInstance withStatements(final Map<String, QueryInstance> statements) {
         return new QueryInstance(parent, statements, features, source, filter, aggregation, options,
-            now, rangeBuilder, rangeModifier);
+            now, rangeBuilder, rangeModifier, modifiers);
     }
 
     public QueryInstance modifyOptions(Function<QueryOptions, QueryOptions> modify) {
@@ -99,7 +101,7 @@ public class QueryInstance {
             this.options.map(modify).orElseGet(() -> modify.apply(QueryOptions.defaults())));
 
         return new QueryInstance(parent, statements, features, source, filter, aggregation, options,
-            now, rangeBuilder, rangeModifier);
+            now, rangeBuilder, rangeModifier, modifiers);
     }
 
     public QueryInstance withRangeIfAbsent(
@@ -110,13 +112,13 @@ public class QueryInstance {
         }
 
         return new QueryInstance(parent, statements, features, source, filter, aggregation, options,
-            now, rangeBuilder, rangeModifier);
+            now, rangeBuilder, rangeModifier, modifiers);
     }
 
     public QueryInstance withOptionsIfAbsent(final Optional<QueryOptions> options) {
         if (!this.options.isPresent()) {
             return new QueryInstance(parent, statements, features, source, filter, aggregation,
-                options, now, rangeBuilder, rangeModifier);
+                options, now, rangeBuilder, rangeModifier, modifiers);
         }
 
         return this;
@@ -126,7 +128,7 @@ public class QueryInstance {
         final Function<DateRange, DateRange> rangeModifier
     ) {
         return new QueryInstance(parent, statements, features, source, filter, aggregation, options,
-            now, rangeBuilder, this.rangeModifier.andThen(rangeModifier));
+            now, rangeBuilder, this.rangeModifier.andThen(rangeModifier), modifiers);
     }
 
     public Optional<Aggregation> getAggregation() {
@@ -223,5 +225,11 @@ public class QueryInstance {
 
     private DateRange defaultDateRange(final long now) {
         return new DateRange(now - TimeUnit.MILLISECONDS.convert(1, TimeUnit.DAYS), now);
+    }
+
+    public Optional<Duration> lookupSize(final Expression.Scope scope) {
+        return Optional
+            .ofNullable(modifiers.get("size"))
+            .map(e -> e.eval(scope).cast(Duration.class));
     }
 }

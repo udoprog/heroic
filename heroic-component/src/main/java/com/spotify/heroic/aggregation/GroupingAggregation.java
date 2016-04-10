@@ -23,7 +23,6 @@ package com.spotify.heroic.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.grammar.Expression;
 import eu.toolchain.async.AsyncFuture;
 import lombok.Data;
@@ -62,11 +61,6 @@ public abstract class GroupingAggregation implements Aggregation {
      * @return The keys for a specific group.
      */
     protected abstract Map<String, String> key(Map<String, String> input, Optional<Set<String>> of);
-
-    @Override
-    public Optional<Duration> cadence() {
-        return each.cadence();
-    }
 
     @Override
     public boolean referential() {

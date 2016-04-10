@@ -22,10 +22,8 @@
 package com.spotify.heroic.aggregation;
 
 import com.google.common.collect.ImmutableSet;
-import com.spotify.heroic.common.Duration;
 import eu.toolchain.async.AsyncFuture;
 
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -42,15 +40,6 @@ import java.util.Set;
  * @author udoprog
  */
 public interface Aggregation {
-    /**
-     * Indicate at which interval the current aggregation will output data.
-     *
-     * @return An optional with the interval, or empty if it cannot be determined.
-     */
-    default Optional<Duration> cadence() {
-        return Optional.empty();
-    }
-
     /**
      * Get a set of required tags.
      * <p>

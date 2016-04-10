@@ -59,21 +59,6 @@ public class Chain implements Aggregation {
     }
 
     @Override
-    public Optional<Duration> cadence() {
-        final ListIterator<Aggregation> it = this.chain.listIterator(this.chain.size());
-
-        while (it.hasPrevious()) {
-            final Optional<Duration> cadence = it.previous().cadence();
-
-            if (cadence.isPresent()) {
-                return cadence;
-            }
-        }
-
-        return Optional.empty();
-    }
-
-    @Override
     public boolean referential() {
         return chain.stream().anyMatch(Aggregation::referential);
     }

@@ -1,6 +1,7 @@
 package com.spotify.heroic.grammar;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.spotify.heroic.aggregation.AggregationFactory;
 import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.filter.FilterFactory;
@@ -211,14 +212,15 @@ public class QueryParserTest {
                     of(range(
                         minus(reference("now"),
                             duration(TimeUnit.DAYS, 1)),
-                        reference("now"))), empty())),
+                        reference("now"))), empty(), ImmutableMap.of())),
             let(reference("b"),
                 query(empty(), of(MetricType.POINT),
                     of(range(
                         minus(reference("now"), duration(TimeUnit.DAYS, 2)),
                         minus(reference("now"), duration(TimeUnit.DAYS, 1)))),
-                    empty())),
-            query(of(plus(reference("a"), reference("b"))), empty(), empty(), empty()));
+                    empty(), ImmutableMap.of())),
+            query(of(plus(reference("a"), reference("b"))), empty(), empty(), empty(),
+                ImmutableMap.of()));
         // @formatter:on
 
         assertEquals(expected, statements.getExpressions());

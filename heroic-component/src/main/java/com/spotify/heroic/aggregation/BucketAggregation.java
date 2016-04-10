@@ -86,11 +86,6 @@ public abstract class BucketAggregation<B extends Bucket> implements Aggregation
     protected final MetricType out;
 
     @Override
-    public Optional<Duration> cadence() {
-        return size;
-    }
-
-    @Override
     public boolean referential() {
         return reference.isPresent();
     }

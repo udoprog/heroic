@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableSet;
 import com.spotify.heroic.QueryInstance;
 import com.spotify.heroic.aggregation.Aggregation;
 import com.spotify.heroic.aggregation.AggregationFactory;
-import com.spotify.heroic.aggregation.Empty;
 import com.spotify.heroic.common.DateRange;
 
 import javax.inject.Inject;
@@ -46,9 +45,8 @@ public class CoreExpressionEvaluator implements ExpressionEvaluator {
         return q.visit(new Expression.Visitor<QueryInstance>() {
             @Override
             public QueryInstance visitQuery(final QueryExpression e) {
-                final Optional<Aggregation> aggregation = e
-                    .getSelect()
-                    .map(aggregations::fromExpressionWithEmpty);
+                final Optional<Aggregation> aggregation =
+                    e.getSelect().flatMap(aggregations::fromExpression);
 
                 /* get aggregation that is part of statement, if any */
                 final Optional<Function<Expression.Scope, DateRange>> range =
@@ -61,7 +59,7 @@ public class CoreExpressionEvaluator implements ExpressionEvaluator {
 
                 return new QueryInstance(Optional.empty(), ImmutableMap.of(), ImmutableSet.of(),
                     e.getSource(), e.getFilter(), aggregation, Optional.empty(), Optional.empty(),
-                    range, Function.identity());
+                    range, Function.identity(), e.getModifiers());
             }
         });
     }

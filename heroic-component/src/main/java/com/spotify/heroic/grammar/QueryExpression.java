@@ -32,6 +32,8 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 @Data
@@ -46,15 +48,17 @@ public class QueryExpression implements Expression {
     private final Optional<MetricType> source;
     private final Optional<RangeExpression> range;
     private final Optional<Filter> filter;
+    private final Map<String, Expression> modifiers;
 
     @JsonCreator
     public QueryExpression(
         @JsonProperty("select") final Optional<Expression> select,
         @JsonProperty("source") final Optional<MetricType> source,
         @JsonProperty("range") final Optional<RangeExpression> range,
-        @JsonProperty("filter") final Optional<Filter> filter
+        @JsonProperty("filter") final Optional<Filter> filter,
+        @JsonProperty("modifiers") final Map<String, Expression> modifiers
     ) {
-        this(Context.empty(), select, source, range, filter);
+        this(Context.empty(), select, source, range, filter, Objects.requireNonNull(modifiers));
     }
 
     @Override

@@ -149,9 +149,10 @@ public interface Expression {
 
     static QueryExpression query(
         final Optional<Expression> select, final Optional<MetricType> source,
-        final Optional<RangeExpression> range, final Optional<Filter> filter
+        final Optional<RangeExpression> range, final Optional<Filter> filter,
+        final Map<String, Expression> modifiers
     ) {
-        return new QueryExpression(Context.empty(), select, source, range, filter);
+        return new QueryExpression(Context.empty(), select, source, range, filter, modifiers);
     }
 
     static Expression empty() {

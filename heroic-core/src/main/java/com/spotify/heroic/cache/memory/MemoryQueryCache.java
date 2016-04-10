@@ -22,17 +22,14 @@
 package com.spotify.heroic.cache.memory;
 
 import com.spotify.heroic.QueryInstance;
-import com.spotify.heroic.aggregation.Aggregation;
 import com.spotify.heroic.cache.CacheScope;
 import com.spotify.heroic.cache.QueryCache;
-import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.metric.QueryResult;
 import eu.toolchain.async.AsyncFuture;
 import net.jodah.expiringmap.ExpirationPolicy;
 import net.jodah.expiringmap.ExpiringMap;
 
 import javax.inject.Inject;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
@@ -51,14 +48,8 @@ public class MemoryQueryCache implements QueryCache {
     public AsyncFuture<QueryResult> load(
         QueryInstance query, Supplier<AsyncFuture<QueryResult>> loader
     ) {
-        final Optional<Long> cadence = query
-            .getAggregation()
-            .flatMap(Aggregation::cadence)
-            .map(Duration::toMilliseconds)
-            .filter(c -> c > 0);
-
         /* can't be cached :( */
-        if (cadence.isPresent()) {
+        if (false) {
             return loader.get();
         }
 
@@ -76,7 +67,7 @@ public class MemoryQueryCache implements QueryCache {
             }
 
             final AsyncFuture<QueryResult> next = loader.get();
-            cache.put(query, next, ExpirationPolicy.ACCESSED, cadence.get(), TimeUnit.MILLISECONDS);
+            cache.put(query, next, ExpirationPolicy.ACCESSED, 10000, TimeUnit.MILLISECONDS);
             return next;
         }
     }

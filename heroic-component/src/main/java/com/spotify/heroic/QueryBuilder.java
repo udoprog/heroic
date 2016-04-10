@@ -168,7 +168,8 @@ public class QueryBuilder {
             });
 
         return new QueryInstance(Optional.empty(), statements, features, source, legacyFilter(),
-            legacyAggregation(), options, Optional.empty(), rangeBuilder, Function.identity());
+            legacyAggregation(), options, Optional.empty(), rangeBuilder, Function.identity(),
+            ImmutableMap.of());
     }
 
     Optional<Aggregation> legacyAggregation() {

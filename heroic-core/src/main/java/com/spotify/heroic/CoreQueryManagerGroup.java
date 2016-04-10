@@ -265,19 +265,24 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
         final QueryInstance query,
         final BiFunction<DateRange, Expression.Scope, AggregationContext> builder
     ) {
-        final DateRange rawRange = query.lookupRange();
-        final Duration cadence =
-            buildCadence(query.getAggregation().flatMap(Aggregation::cadence), rawRange);
-        final DateRange range = rawRange.rounded(cadence.toMilliseconds());
         final Expression.Scope scope = new DefaultScope(query.lookupNow());
+
+        final DateRange rawRange = query.lookupRange();
+        final Optional<Duration> size = query.lookupSize(scope);
+        final Duration cadence = buildCadence(size, rawRange);
+        final DateRange range = rawRange.rounded(cadence.toMilliseconds());
 
         return builder.apply(range, scope).withCadence(cadence);
     }
 
     private FullQuery newFullQuery(final QueryInstance query) {
+        final Expression.Scope scope = new DefaultScope(query.lookupNow());
+
         final DateRange rawRange = query.lookupRange();
-        final Optional<Duration> c = query.getAggregation().flatMap(Aggregation::cadence);
-        final Duration cadence = buildCadence(c, rawRange);
+
+        final Optional<Duration> size = query.lookupSize(scope);
+
+        final Duration cadence = buildCadence(size, rawRange);
         final DateRange range =
             buildShiftedRange(rawRange, cadence.toMilliseconds(), query.lookupNow());
 

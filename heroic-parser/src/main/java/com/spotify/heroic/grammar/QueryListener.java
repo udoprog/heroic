@@ -65,6 +65,7 @@ import org.antlr.v4.runtime.tree.ParseTree;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Stack;
@@ -75,19 +76,19 @@ import java.util.concurrent.TimeUnit;
 public class QueryListener extends HeroicQueryBaseListener {
     private final FilterFactory filters;
 
-    private static final Object LIST_MARK = new Object();
-    private static final Object EXPR_FUNCTION_ENTER = new Object();
+    private static final Object LIST_MARK = new ObjectMark("LIST_MARK");
+    private static final Object EXPR_FUNCTION_ENTER = new ObjectMark("EXPR_FUNCTION_ENTER");
 
-    public static final Object EMPTY = new Object();
-    public static final Object NOT_EMPTY = new Object();
+    public static final Object EMPTY = new ObjectMark("EMPTY");
+    public static final Object NOT_EMPTY = new ObjectMark("NOT_EMPTY");
 
-    public static final Object QUERY_MARK = new Object();
-    public static final Object SELECT_MARK = new Object();
-    public static final Object WHERE_MARK = new Object();
-    public static final Object FROM_MARK = new Object();
+    enum QueryMark {
+        QUERY, SELECT, WHERE, FROM, WITH
+    }
 
-    public static final Object PIPE_MARK = new Object();
-    public static final Object STATEMENTS_MARK = new Object();
+    public static final Object PIPE_MARK = new ObjectMark("PIPE_MARK");
+
+    public static final Object STATEMENTS_MARK = new ObjectMark("STATEMENTS_MARK");
 
     public static final String GROUP = "group";
     public static final String CHAIN = "chain";
@@ -109,8 +110,8 @@ public class QueryListener extends HeroicQueryBaseListener {
     @Override
     public void exitLetStatement(final HeroicQueryParser.LetStatementContext ctx) {
         final Context c = context(ctx);
-        final Expression e = pop(Expression.class);
-        final ReferenceExpression reference = pop(ReferenceExpression.class);
+        final Expression e = pop(c, Expression.class);
+        final ReferenceExpression reference = pop(c, ReferenceExpression.class);
         push(new LetExpression(c, reference, e));
     }
 
@@ -125,7 +126,7 @@ public class QueryListener extends HeroicQueryBaseListener {
 
     @Override
     public void enterQuery(QueryContext ctx) {
-        push(QUERY_MARK);
+        push(QueryMark.QUERY);
     }
 
     @Override
@@ -136,38 +137,39 @@ public class QueryListener extends HeroicQueryBaseListener {
         Optional<MetricType> source = Optional.empty();
         Optional<RangeExpression> range = Optional.empty();
         Optional<Filter> where = Optional.empty();
+        Optional<WithMap> with = Optional.empty();
 
+        outer:
         while (true) {
-            final Object mark = stack.pop();
+            final QueryMark mark = pop(c, QueryMark.class);
 
-            if (mark == QUERY_MARK) {
-                break;
+            switch (mark) {
+                case QUERY:
+                    break outer;
+                case SELECT:
+                    aggregation = popOptional(Expression.class);
+                    break;
+                case WHERE:
+                    where = Optional.of(pop(c, Filter.class));
+                    break;
+                case FROM:
+                    source = Optional.of(pop(c, MetricType.class));
+                    range = popOptional(RangeExpression.class);
+                    break;
+                case WITH:
+                    with = Optional.of(pop(c, WithMap.class));
+                    break;
+                default:
+                    throw c.error(String.format("expected part of query, but got %s", mark));
             }
-
-            if (mark == SELECT_MARK) {
-                aggregation = popOptional(Expression.class);
-                continue;
-            }
-
-            if (mark == WHERE_MARK) {
-                where = Optional.of(pop(Filter.class));
-                continue;
-            }
-
-            if (mark == FROM_MARK) {
-                source = Optional.of(pop(MetricType.class));
-                range = popOptional(RangeExpression.class);
-                continue;
-            }
-
-            throw c.error(String.format("expected part of query, but got %s", mark));
         }
 
         if (source == null) {
             throw c.error("No source clause available");
         }
 
-        push(new QueryExpression(c, aggregation, source, range, where));
+        push(new QueryExpression(c, aggregation, source, range, where,
+            with.map(WithMap::getMap).orElseGet(ImmutableMap::of)));
     }
 
     @Override
@@ -244,21 +246,22 @@ public class QueryListener extends HeroicQueryBaseListener {
     @Override
     public void exitSelectAll(final SelectAllContext ctx) {
         pushOptional(Optional.empty());
-        push(SELECT_MARK);
+        push(QueryMark.SELECT);
     }
 
     @Override
     public void exitSelectExpression(final HeroicQueryParser.SelectExpressionContext ctx) {
-        final Expression aggregation = pop(Expression.class);
+        final Context c = context(ctx);
+        final Expression aggregation = pop(c, Expression.class);
         pushOptional(Optional.of(aggregation));
-        push(SELECT_MARK);
+        push(QueryMark.SELECT);
     }
 
     @Override
     public void exitWhere(WhereContext ctx) {
         final Context c = context(ctx);
         push(pop(c, Filter.class));
-        push(WHERE_MARK);
+        push(QueryMark.WHERE);
     }
 
     @Override
@@ -337,7 +340,25 @@ public class QueryListener extends HeroicQueryBaseListener {
 
         pushOptional(range);
         push(source);
-        push(FROM_MARK);
+        push(QueryMark.FROM);
+    }
+
+    @Override
+    public void enterWith(final HeroicQueryParser.WithContext ctx) {
+        push(QueryMark.WITH);
+    }
+
+    @Override
+    public void exitWith(HeroicQueryParser.WithContext ctx) {
+        final Context c = context(ctx);
+
+        final ImmutableMap.Builder<String, Expression> modifiers = ImmutableMap.builder();
+
+        popUntil(c, QueryMark.WITH, KeywordValue.class).forEach(
+            kv -> modifiers.put(kv.getKey(), kv.getExpression()));
+
+        push(new WithMap(modifiers.build()));
+        push(QueryMark.WITH);
     }
 
     @Override
@@ -637,18 +658,22 @@ public class QueryListener extends HeroicQueryBaseListener {
         return builder.toString();
     }
 
-    public void popMark(Object mark) {
-        final Object actual = pop(Object.class);
+    public <T> T pop(Class<T> type) {
+        if (stack.isEmpty()) {
+            throw new IllegalStateException("Parse stack is empty");
+        }
+
+        final Object popped = stack.pop();
+        checkType(type, popped.getClass());
+        return (T) popped;
+    }
+
+    public <T extends Enum<T>> void popMark(T mark) {
+        final T actual = pop(mark.getDeclaringClass());
 
         if (actual != mark) {
             throw new IllegalStateException("Expected mark " + mark + ", but got " + actual);
         }
-    }
-
-    public <T> List<T> popList(Class<T> type) {
-        final Class<?> typeOn = pop(Class.class);
-        checkType(type, typeOn);
-        return (List<T>) pop(List.class);
     }
 
     public <T> Optional<T> popOptional(Class<T> type) {
@@ -663,18 +688,6 @@ public class QueryListener extends HeroicQueryBaseListener {
         }
 
         throw new IllegalStateException("stack does not contain a legal optional mark");
-    }
-
-    public <T> T pop(Class<T> type) {
-        if (stack.isEmpty()) {
-            throw new IllegalStateException("stack is empty (did you parse something?)");
-        }
-
-        final Object popped = stack.pop();
-
-        checkType(type, popped.getClass());
-
-        return (T) popped;
     }
 
     private <T> void checkType(Class<T> expected, Class<?> actual) {
@@ -709,12 +722,6 @@ public class QueryListener extends HeroicQueryBaseListener {
         return (T) popped;
     }
 
-    @Data
-    private static final class KeywordValue {
-        private final String key;
-        private final Expression expression;
-    }
-
     private static Context context(final ParserRuleContext source) {
         int line = source.getStart().getLine();
         int col = source.getStart().getCharPositionInLine();
@@ -731,5 +738,26 @@ public class QueryListener extends HeroicQueryBaseListener {
         }
 
         return "<" + name.value() + ">";
+    }
+
+    @Data
+    static final class KeywordValue {
+        private final String key;
+        private final Expression expression;
+    }
+
+    @Data
+    static final class WithMap {
+        private final Map<String, Expression> map;
+    }
+
+    @RequiredArgsConstructor
+    static class ObjectMark {
+        private final String name;
+
+        @Override
+        public String toString() {
+            return name;
+        }
     }
 }

@@ -84,18 +84,17 @@ public class CoreQueryParser implements QueryParser {
         }
     };
 
-    static final Operation<FunctionExpression> AGGREGATION =
-        new Operation<FunctionExpression>() {
-            @Override
-            public ParserRuleContext context(HeroicQueryParser parser) {
-                return parser.expressionOnly();
-            }
+    static final Operation<FunctionExpression> AGGREGATION = new Operation<FunctionExpression>() {
+        @Override
+        public ParserRuleContext context(HeroicQueryParser parser) {
+            return parser.expressionOnly();
+        }
 
-            @Override
-            public FunctionExpression convert(QueryListener listener) {
-                return listener.pop(FunctionExpression.class);
-            }
-        };
+        @Override
+        public FunctionExpression convert(QueryListener listener) {
+            return listener.pop(FunctionExpression.class);
+        }
+    };
 
     static final Operation<FromDSL> FROM = new Operation<FromDSL>() {
         @Override
@@ -105,7 +104,7 @@ public class CoreQueryParser implements QueryParser {
 
         @Override
         public FromDSL convert(QueryListener listener) {
-            listener.popMark(QueryListener.FROM_MARK);
+            listener.popMark(QueryListener.QueryMark.FROM);
             final MetricType source = listener.pop(MetricType.class);
             final Optional<RangeExpression> range = listener.popOptional(RangeExpression.class);
             return new FromDSL(source, range);
