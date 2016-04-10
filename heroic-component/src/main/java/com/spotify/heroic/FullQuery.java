@@ -39,7 +39,7 @@ public class FullQuery {
     private final DateRange range;
     private final Aggregation aggregation;
     private final QueryOptions options;
-    private final Duration cadence;
+    private final Duration size;
     private final Set<String> features;
     private final long now;
 
@@ -49,7 +49,7 @@ public class FullQuery {
         @JsonProperty("filter") final Filter filter, @JsonProperty("range") final DateRange range,
         @JsonProperty("aggregation") final Aggregation aggregation,
         @JsonProperty("options") final QueryOptions options,
-        @JsonProperty("cadence") final Duration cadence,
+        @JsonProperty("size") final Duration size,
         @JsonProperty("features") final Set<String> features, @JsonProperty("now") final Long now
     ) {
         this.source = source;
@@ -57,7 +57,7 @@ public class FullQuery {
         this.range = range;
         this.aggregation = aggregation;
         this.options = options;
-        this.cadence = cadence;
+        this.size = size;
         this.features = features;
         this.now = now;
     }

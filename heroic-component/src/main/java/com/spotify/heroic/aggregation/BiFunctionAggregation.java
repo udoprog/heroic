@@ -149,7 +149,7 @@ public abstract class BiFunctionAggregation implements Aggregation {
             return c
                 .withStep(getClass().getSimpleName(), ImmutableList.of(c.step()), c.step().keys())
                 .withRange(c.range())
-                .withCadence(c.cadence())
+                .withSize(c.size())
                 .withInput(output);
         });
     }
@@ -192,7 +192,7 @@ public abstract class BiFunctionAggregation implements Aggregation {
                 .withStep(getClass().getSimpleName(), ImmutableList.of(left.step(), right.step()),
                     left.step().keys())
                 .withRange(right.range())
-                .withCadence(right.cadence())
+                .withSize(right.size())
                 .withInput(output);
         });
     }

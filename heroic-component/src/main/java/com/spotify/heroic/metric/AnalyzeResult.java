@@ -72,7 +72,7 @@ public final class AnalyzeResult {
     public AnalyzeResult(
         @JsonProperty("in") final String in, @JsonProperty("out") final String out,
         @JsonProperty("data") List<AggregationData> data,
-        @JsonProperty("cadence") Optional<Duration> cadence,
+        @JsonProperty("size") Optional<Duration> cadence,
         @JsonProperty("nodes") Map<String, AnalyzeNode> nodes,
         @JsonProperty("edges") List<AnalyzeEdge> edges,
         @JsonProperty("errors") final List<NodeError> errors,
@@ -81,7 +81,7 @@ public final class AnalyzeResult {
         this.in = Objects.requireNonNull(in, "in");
         this.out = Objects.requireNonNull(out, "out");
         this.data = Objects.requireNonNull(data, "data");
-        this.cadence = Objects.requireNonNull(cadence, "cadence");
+        this.cadence = Objects.requireNonNull(cadence, "size");
         this.nodes = Objects.requireNonNull(nodes, "nodes");
         this.edges = Objects.requireNonNull(edges, "edges");
         this.errors = Objects.requireNonNull(errors, "errors");
@@ -230,7 +230,7 @@ public final class AnalyzeResult {
         }
 
         return new AnalyzeResult(AggregationContext.IN, AggregationContext.OUT, data.build(),
-            out.cadence(), nodes.build(), edges.build(), errors, trace.get());
+            out.size(), nodes.build(), edges.build(), errors, trace.get());
     }
 
     public static Transform<Throwable, AnalyzeResult> nodeError(

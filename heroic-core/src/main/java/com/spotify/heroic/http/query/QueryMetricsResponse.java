@@ -30,8 +30,8 @@ import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.metric.MetricCollection;
-import com.spotify.heroic.metric.QueryTrace;
 import com.spotify.heroic.metric.NodeError;
+import com.spotify.heroic.metric.QueryTrace;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -42,7 +42,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.SortedSet;
 
 @RequiredArgsConstructor
 @JsonSerialize(using = QueryMetricsResponse.Serializer.class)
@@ -101,26 +100,6 @@ public class QueryMetricsResponse {
             }
 
             return range;
-        }
-
-        private void serializeCommonTags(
-            final JsonGenerator g, final Map<String, SortedSet<String>> common
-        ) throws IOException {
-            g.writeStartObject();
-
-            for (final Map.Entry<String, SortedSet<String>> e : common.entrySet()) {
-                g.writeFieldName(e.getKey());
-
-                g.writeStartArray();
-
-                for (final String value : e.getValue()) {
-                    g.writeString(value);
-                }
-
-                g.writeEndArray();
-            }
-
-            g.writeEndObject();
         }
 
         private void serializeErrors(final JsonGenerator g, final List<NodeError> errors)

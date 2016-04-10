@@ -44,6 +44,7 @@ import lombok.AccessLevel;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -64,6 +65,7 @@ import java.util.concurrent.atomic.LongAdder;
  * @author udoprog
  * @see Bucket
  */
+@Slf4j
 @Data
 @EqualsAndHashCode(of = {"size", "extent"})
 public abstract class BucketAggregation<B extends Bucket> implements Aggregation {
@@ -95,11 +97,12 @@ public abstract class BucketAggregation<B extends Bucket> implements Aggregation
         return input.lookupContext(reference).directTransform(context -> {
             final DateRange range = context.range();
 
-            final Duration cadence = Optionals
-                .firstPresent(this.size, context.cadence())
-                .orElseThrow(() -> new IllegalStateException("No cadence available"));
-            final long size = cadence.toMilliseconds();
-            final long extent = this.extent.map(Duration::toMilliseconds).orElse(size);
+            final Duration size = Optionals
+                .firstPresent(this.size, context.size())
+                .orElseThrow(() -> new IllegalStateException("No size available"));
+
+            final long sizeMillis = size.toMilliseconds();
+            final long extentMillis = this.extent.map(Duration::toMilliseconds).orElse(sizeMillis);
 
             final List<Iterable<Series>> series = new ArrayList<>();
             final List<Observable<MetricCollection>> observables = new ArrayList<>();
@@ -111,9 +114,10 @@ public abstract class BucketAggregation<B extends Bucket> implements Aggregation
 
             final AggregationState state =
                 new AggregationState(EMPTY, Iterables.concat(series), observer -> {
-                    final List<B> buckets = buildBuckets(range, size);
+                    final List<B> buckets = buildBuckets(range, sizeMillis);
                     final Session s =
-                        new Session(buckets, range.start(), Iterables.concat(series), size, extent);
+                        new Session(buckets, range.start(), Iterables.concat(series), sizeMillis,
+                            extentMillis);
 
                     Observable.concurrently(observables).observe(new Observer<MetricCollection>() {
                         @Override
@@ -136,13 +140,13 @@ public abstract class BucketAggregation<B extends Bucket> implements Aggregation
 
             final List<AggregationState> states = ImmutableList.of(state);
 
-            final Optional<Long> estimate =
-                size <= 0 ? Optional.empty() : Optional.of(range.rounded(size).diff() / size);
+            final Optional<Long> estimate = sizeMillis <= 0 ? Optional.empty()
+                : Optional.of(range.rounded(sizeMillis).diff() / sizeMillis);
 
             return context
                 .withStep(getClass().getSimpleName(), ImmutableList.of(context.step()),
                     context.step().keys())
-                .withCadence(cadence)
+                .withSize(size)
                 .withInput(states)
                 .withEstimate(estimate);
         });
@@ -152,18 +156,19 @@ public abstract class BucketAggregation<B extends Bucket> implements Aggregation
 
     protected abstract Metric build(B bucket);
 
-    private List<B> buildBuckets(final DateRange range, long size) {
+    private List<B> buildBuckets(final DateRange range, long sizeMillis) {
         final long start = range.start();
-        final long count = (range.diff() + size) / size;
+        final long count = (range.diff() + sizeMillis) / sizeMillis;
 
         if (count < 1 || count > MAX_BUCKET_COUNT) {
-            throw new IllegalArgumentException(String.format("range %s, size %d", range, size));
+            throw new IllegalArgumentException(
+                String.format("range %s, size %d", range, sizeMillis));
         }
 
         final List<B> buckets = new ArrayList<>((int) count);
 
         for (int i = 0; i < count; i++) {
-            buckets.add(buildBucket(start + size * i));
+            buckets.add(buildBucket(start + sizeMillis * i));
         }
 
         return buckets;
@@ -180,8 +185,8 @@ public abstract class BucketAggregation<B extends Bucket> implements Aggregation
         private final long offset;
         private final Iterable<Series> series;
 
-        protected final long size;
-        protected final long extent;
+        protected final long sizeMillis;
+        protected final long extentMillis;
 
         @Override
         public void collectPoints(List<Point> values) {
@@ -231,7 +236,7 @@ public abstract class BucketAggregation<B extends Bucket> implements Aggregation
 
         private Iterator<B> matching(final Metric m) {
             final long ts = m.getTimestamp() - offset - 1;
-            final long te = ts + extent;
+            final long te = ts + extentMillis;
 
             if (te < 0) {
                 return Collections.emptyIterator();
@@ -244,18 +249,18 @@ public abstract class BucketAggregation<B extends Bucket> implements Aggregation
 
                 @Override
                 public boolean hasNext() {
-                    while ((current / size) >= buckets.size()) {
-                        current -= size;
+                    while ((current / sizeMillis) >= buckets.size()) {
+                        current -= sizeMillis;
                     }
 
-                    final long m = current % size;
-                    return (current >= 0 && current > ts) && (m >= 0 && m < extent);
+                    final long m = current % sizeMillis;
+                    return (current >= 0 && current > ts) && (m >= 0 && m < extentMillis);
                 }
 
                 @Override
                 public B next() {
-                    final int index = (int) (current / size);
-                    current -= size;
+                    final int index = (int) (current / sizeMillis);
+                    current -= sizeMillis;
                     return buckets.get(index);
                 }
             };

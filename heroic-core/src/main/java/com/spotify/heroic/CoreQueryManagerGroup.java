@@ -140,7 +140,7 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
                 Observable
                     .concurrently(observables)
                     .observe(new ResultObserver(() -> tracer.end(out.traces()), out.errors(),
-                        out.cadence(), result, Statistics.empty()));
+                        out.size(), result, Statistics.empty()));
 
                 return result;
             });
@@ -272,16 +272,14 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
         final Duration cadence = buildCadence(size, rawRange);
         final DateRange range = rawRange.rounded(cadence.toMilliseconds());
 
-        return builder.apply(range, scope).withCadence(cadence);
+        return builder.apply(range, scope).withSize(cadence);
     }
 
     private FullQuery newFullQuery(final QueryInstance query) {
         final Expression.Scope scope = new DefaultScope(query.lookupNow());
 
         final DateRange rawRange = query.lookupRange();
-
         final Optional<Duration> size = query.lookupSize(scope);
-
         final Duration cadence = buildCadence(size, rawRange);
         final DateRange range =
             buildShiftedRange(rawRange, cadence.toMilliseconds(), query.lookupNow());
@@ -371,7 +369,7 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
     }
 
     /**
-     * Given a range and a cadence, return a range that might be shifted in case the end period is
+     * Given a range and a size, return a range that might be shifted in case the end period is
      * too close or after 'now'. This is useful to avoid querying non-complete buckets.
      *
      * @param range Original range.
@@ -401,9 +399,9 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
      * applied to the range to honor the tolerance shift period.
      *
      * @param diff The time difference to apply.
-     * @param cadence The cadence period.
+     * @param cadence The size period.
      * @return The number of milliseconds that the query should be shifted to get within 'now' and
-     * maintain the given cadence.
+     * maintain the given size.
      */
     private long toleranceShiftPeriod(final long diff, final long cadence) {
         // raw query, only shift so that we are within now.

@@ -54,7 +54,7 @@ public interface AggregationContext {
 
     DateRange range();
 
-    Optional<Duration> cadence();
+    Optional<Duration> size();
 
     Set<String> requiredTags();
 
@@ -74,11 +74,11 @@ public interface AggregationContext {
 
     AggregationContext withTraces(final List<QueryTrace> traces);
 
-    default AggregationContext withCadence(final Duration cadence) {
-        return withCadence(Optional.of(cadence));
+    default AggregationContext withSize(final Duration size) {
+        return withSize(Optional.of(size));
     }
 
-    AggregationContext withCadence(final Optional<Duration> cadence);
+    AggregationContext withSize(final Optional<Duration> size);
 
     AggregationContext withInput(final List<AggregationState> input);
 
@@ -166,7 +166,7 @@ public interface AggregationContext {
         private final QueryOptions options;
         private final List<AggregationState> input;
         private final DateRange range;
-        private final Optional<Duration> cadence;
+        private final Optional<Duration> size;
         private final Set<String> requiredTags;
         private final Optional<Long> estimate;
         private final Function<Expression, Expression> evaluator;
@@ -197,8 +197,8 @@ public interface AggregationContext {
         }
 
         @Override
-        public Optional<Duration> cadence() {
-            return cadence;
+        public Optional<Duration> size() {
+            return size;
         }
 
         @Override
@@ -236,13 +236,13 @@ public interface AggregationContext {
         @Override
         public AggregationContext withRange(final DateRange range) {
             return new TracingAggregationContext(step, counter, async, traces, errors, lookup,
-                options, input, range, cadence, requiredTags, estimate, evaluator);
+                options, input, range, size, requiredTags, estimate, evaluator);
         }
 
         @Override
         public AggregationContext withOptions(final QueryOptions options) {
             return new TracingAggregationContext(step, counter, async, traces, errors, lookup,
-                options, input, range, cadence, requiredTags, estimate, evaluator);
+                options, input, range, size, requiredTags, estimate, evaluator);
         }
 
         @Override
@@ -250,13 +250,13 @@ public interface AggregationContext {
             final Function<Expression, AggregationLookup> lookup
         ) {
             return new TracingAggregationContext(step, counter, async, traces, errors, lookup,
-                options, input, range, cadence, requiredTags, estimate, evaluator);
+                options, input, range, size, requiredTags, estimate, evaluator);
         }
 
         @Override
-        public AggregationContext withCadence(final Optional<Duration> cadence) {
+        public AggregationContext withSize(final Optional<Duration> size) {
             return new TracingAggregationContext(step, counter, async, traces, errors, lookup,
-                options, input, range, cadence, requiredTags, estimate, evaluator);
+                options, input, range, size, requiredTags, estimate, evaluator);
         }
 
         @Override
@@ -267,25 +267,25 @@ public interface AggregationContext {
             final Step next = new Step(id, name, parents, keys);
 
             return new TracingAggregationContext(next, counter, async, traces, errors, lookup,
-                options, input, range, cadence, requiredTags, estimate, evaluator);
+                options, input, range, size, requiredTags, estimate, evaluator);
         }
 
         @Override
         public AggregationContext withInput(final List<AggregationState> input) {
             return new TracingAggregationContext(step, counter, async, traces, errors, lookup,
-                options, input, range, cadence, requiredTags, estimate, evaluator);
+                options, input, range, size, requiredTags, estimate, evaluator);
         }
 
         @Override
         public AggregationContext withRequiredTags(final Set<String> requiredTags) {
             return new TracingAggregationContext(step, counter, async, traces, errors, lookup,
-                options, input, range, cadence, requiredTags, estimate, evaluator);
+                options, input, range, size, requiredTags, estimate, evaluator);
         }
 
         @Override
         public AggregationContext withEstimate(final Optional<Long> estimate) {
             return new TracingAggregationContext(step, counter, async, traces, errors, lookup,
-                options, input, range, cadence, requiredTags, estimate, evaluator);
+                options, input, range, size, requiredTags, estimate, evaluator);
         }
 
         @Override
@@ -293,7 +293,7 @@ public interface AggregationContext {
             final List<NodeError> errors
         ) {
             return new TracingAggregationContext(step, counter, async, traces, errors, lookup,
-                options, input, range, cadence, requiredTags, estimate, evaluator);
+                options, input, range, size, requiredTags, estimate, evaluator);
         }
 
         @Override
@@ -301,7 +301,7 @@ public interface AggregationContext {
             final List<QueryTrace> trace
         ) {
             return new TracingAggregationContext(step, counter, async, traces, errors, lookup,
-                options, input, range, cadence, requiredTags, estimate, evaluator);
+                options, input, range, size, requiredTags, estimate, evaluator);
         }
     }
 
@@ -341,7 +341,7 @@ public interface AggregationContext {
         }
 
         @Override
-        public Optional<Duration> cadence() {
+        public Optional<Duration> size() {
             return cadence;
         }
 
@@ -398,7 +398,7 @@ public interface AggregationContext {
         }
 
         @Override
-        public AggregationContext withCadence(final Optional<Duration> cadence) {
+        public AggregationContext withSize(final Optional<Duration> cadence) {
             return new DefaultAggregationContext(async, traces, errors, lookup, options, input,
                 range, cadence, requiredTags, estimate, evaluator);
         }

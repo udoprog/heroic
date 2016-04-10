@@ -58,12 +58,12 @@ public final class QueryResult {
 
     @JsonCreator
     public QueryResult(
-        @JsonProperty("cadence") Optional<Duration> cadence,
+        @JsonProperty("size") Optional<Duration> cadence,
         @JsonProperty("data") List<AggregationData> data,
         @JsonProperty("errors") List<NodeError> errors,
         @JsonProperty("statistics") Statistics statistics, @JsonProperty("trace") QueryTrace trace
     ) {
-        this.cadence = Objects.requireNonNull(cadence, "cadence");
+        this.cadence = Objects.requireNonNull(cadence, "size");
         this.data = Objects.requireNonNull(data, "data");
         this.errors = Objects.requireNonNull(errors, "errors");
         this.statistics = Objects.requireNonNull(statistics, "statistics");

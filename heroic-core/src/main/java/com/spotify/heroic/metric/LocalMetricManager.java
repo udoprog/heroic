@@ -208,7 +208,7 @@ public class LocalMetricManager implements MetricManager {
                     final AggregationContext context = AggregationContext
                         .tracing(async, input, query.getRange(), e -> e.eval(scope))
                         .withOptions(query.getOptions())
-                        .withCadence(query.getCadence());
+                        .withSize(query.getSize());
 
                     return query.getAggregation().setup(context).directTransform(out -> {
                         return AnalyzeResult.analyze(out, tracer::end, ImmutableList.of());
@@ -256,7 +256,7 @@ public class LocalMetricManager implements MetricManager {
                 final AggregationContext context = AggregationContext
                     .of(async, input, query.getRange(), e -> e.eval(scope))
                     .withOptions(query.getOptions())
-                    .withCadence(query.getCadence());
+                    .withSize(query.getSize());
 
                 return query.getAggregation().setup(context).lazyTransform(out -> {
                     if (out.states().size() > groupLimit) {
@@ -304,7 +304,7 @@ public class LocalMetricManager implements MetricManager {
                             final List<AggregationData> groups = ImmutableList.copyOf(results);
 
                             future.resolve(
-                                new QueryResult(out.cadence(), groups, ImmutableList.of(),
+                                new QueryResult(out.size(), groups, ImmutableList.of(),
                                     Statistics.empty(), tracer.end()));
                         }
                     });
