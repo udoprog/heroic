@@ -110,7 +110,7 @@ public class CoreQueryManager implements QueryManager {
     }
 
     @Override
-    public QueryInstance newQueryFromString(final String queryString) {
+    public QueryInstanceGroup newQueryFromString(final String queryString) {
         final Statements parsed = parser.parse(queryString);
 
         final Map<String, QueryInstance> statements = new HashMap<>();
@@ -138,11 +138,9 @@ public class CoreQueryManager implements QueryManager {
             .filter(e -> !(e instanceof LetExpression))
             .collect(Collectors.toList());
 
-        if (queries.size() != 1) {
-            throw new IllegalArgumentException("Expected exactly one non-let expression");
-        }
-
-        return expressions.evaluateQuery(queries.get(0)).withStatements(statements);
+        return new QueryInstanceGroup(queries.stream().map(q -> {
+            return expressions.evaluateQuery(q).withStatements(statements);
+        }).collect(Collectors.toList()));
     }
 
     private CoreQueryManagerGroup newGroup(final Iterable<ClusterNode.Group> groups) {

@@ -23,9 +23,10 @@ package com.spotify.heroic.http.query;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.spotify.heroic.QueryDateRange;
-import com.spotify.heroic.QueryInstance;
+import com.spotify.heroic.QueryInstanceGroup;
 import com.spotify.heroic.QueryManager;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Duration;
@@ -89,7 +90,7 @@ public class QueryResource {
     public List<StreamId> metricsStream(
         @Context UriInfo uri, @QueryParam("backend") String backendGroup, QueryMetrics query
     ) {
-        final QueryInstance request = setupQuery(query, uri);
+        final QueryInstanceGroup request = setupQuery(query, uri);
 
         final Collection<? extends QueryManager.Group> groups =
             this.query.useGroupPerNode(backendGroup);
@@ -204,7 +205,7 @@ public class QueryResource {
         final List<AsyncFuture<Pair<String, QueryResult>>> futures = new ArrayList<>();
 
         for (final Map.Entry<String, QueryMetrics> e : query.getQueries().entrySet()) {
-            final QueryInstance instance = setupQuery(e.getValue(), uri).withRangeIfAbsent(
+            final QueryInstanceGroup instance = setupQuery(e.getValue(), uri).withRangeIfAbsent(
                 query.getRange().map(QueryDateRange::asExpression));
 
             // final QueryInstance q = new QueryInstance(Optional.of(instance));
@@ -242,7 +243,7 @@ public class QueryResource {
     }
 
     private void bindAnalyzeGraphviz(
-        final AsyncResponse response, final QueryManager.Group g, final QueryInstance q
+        final AsyncResponse response, final QueryManager.Group g, final QueryInstanceGroup q
     ) {
         final AsyncFuture<String> callback = g.analyze(q).directTransform(r -> {
             final StringWriter writer = new StringWriter();
@@ -258,20 +259,21 @@ public class QueryResource {
     }
 
     @SuppressWarnings("deprecation")
-    private QueryInstance setupQuery(final QueryMetrics q, final UriInfo uri) {
-        final Supplier<QueryInstance> supplier = () -> query
-            .newQuery()
-            .key(q.getKey())
-            .tags(q.getTags())
-            .groupBy(q.getGroupBy())
-            .filter(q.getFilter())
-            .range(q.getRange())
-            .aggregation(q.getAggregation())
-            .source(q.getSource())
-            .options(q.getOptions())
-            .build();
+    private QueryInstanceGroup setupQuery(final QueryMetrics q, final UriInfo uri) {
+        final Supplier<QueryInstanceGroup> supplier = () -> new QueryInstanceGroup(ImmutableList.of(
+            query
+                .newQuery()
+                .key(q.getKey())
+                .tags(q.getTags())
+                .groupBy(q.getGroupBy())
+                .filter(q.getFilter())
+                .range(q.getRange())
+                .aggregation(q.getAggregation())
+                .source(q.getSource())
+                .options(q.getOptions())
+                .build()));
 
-        final QueryInstance base = q
+        final QueryInstanceGroup base = q
             .getQuery()
             .map(query::newQueryFromString)
             .orElseGet(supplier)
@@ -280,7 +282,7 @@ public class QueryResource {
         final Optional<Function<Expression.Scope, DateRange>> rangeBuilder =
             q.getRange().map(QueryDateRange::asExpression);
 
-        final QueryInstance modified = base
+        final QueryInstanceGroup modified = base
             .withRangeIfAbsent(rangeBuilder)
             .withOptionsIfAbsent(q.getOptions())
             .withAddedFeatures(q.getFeatures());
@@ -288,12 +290,14 @@ public class QueryResource {
         return modifyInstanceWithUri(modified, uri);
     }
 
-    private QueryInstance setupQuery(final String q, final UriInfo uri) {
+    private QueryInstanceGroup setupQuery(final String q, final UriInfo uri) {
         return modifyInstanceWithUri(
             query.newQueryFromString(q).withNow(System.currentTimeMillis()), uri);
     }
 
-    private QueryInstance modifyInstanceWithUri(final QueryInstance query, final UriInfo uri) {
+    private QueryInstanceGroup modifyInstanceWithUri(
+        final QueryInstanceGroup query, final UriInfo uri
+    ) {
         final Optional<Boolean> compactTracing = Optional
             .ofNullable(uri.getQueryParameters().getFirst(COMPACT_TRACING))
             .map(Boolean::parseBoolean);
@@ -310,6 +314,6 @@ public class QueryResource {
     @Data
     private static final class StreamQuery {
         private final QueryManager.Group group;
-        private final QueryInstance query;
+        private final QueryInstanceGroup query;
     }
 }

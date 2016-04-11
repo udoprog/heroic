@@ -22,7 +22,7 @@
 package com.spotify.heroic.http.render;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.spotify.heroic.QueryInstance;
+import com.spotify.heroic.QueryInstanceGroup;
 import com.spotify.heroic.QueryManager;
 import com.spotify.heroic.metric.QueryResult;
 import org.jfree.chart.JFreeChart;
@@ -87,7 +87,7 @@ public class RenderResource {
             highlight = null;
         }
 
-        final QueryInstance q = query.newQueryFromString(queryString);
+        final QueryInstanceGroup q = query.newQueryFromString(queryString);
 
         final QueryResult result = this.query.useGroup(backendGroup).query(q).get();
 

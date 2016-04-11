@@ -55,6 +55,7 @@ class TracingAggregationContext implements AggregationContext {
     private final Set<String> requiredTags;
     private final Optional<Long> estimate;
     private final Function<Expression, Expression> evaluator;
+    private final Map<String, String> as;
 
     @Override
     public AsyncFramework async() {
@@ -69,7 +70,7 @@ class TracingAggregationContext implements AggregationContext {
     @Override
     public AggregationContext withRange(final DateRange range) {
         return new TracingAggregationContext(step, counter, async, traces, errors, lookup, options,
-            input, range, size, requiredTags, estimate, evaluator);
+            input, range, size, requiredTags, estimate, evaluator, as);
     }
 
     @Override
@@ -80,7 +81,7 @@ class TracingAggregationContext implements AggregationContext {
     @Override
     public AggregationContext withOptions(final QueryOptions options) {
         return new TracingAggregationContext(step, counter, async, traces, errors, lookup, options,
-            input, range, size, requiredTags, estimate, evaluator);
+            input, range, size, requiredTags, estimate, evaluator, as);
     }
 
     @Override
@@ -93,7 +94,7 @@ class TracingAggregationContext implements AggregationContext {
         final Function<Expression, AggregationLookup> lookup
     ) {
         return new TracingAggregationContext(step, counter, async, traces, errors, lookup, options,
-            input, range, size, requiredTags, estimate, evaluator);
+            input, range, size, requiredTags, estimate, evaluator, as);
     }
 
     @Override
@@ -106,7 +107,7 @@ class TracingAggregationContext implements AggregationContext {
     @Override
     public AggregationContext withSize(final Optional<Duration> size) {
         return new TracingAggregationContext(step, counter, async, traces, errors, lookup, options,
-            input, range, size, requiredTags, estimate, evaluator);
+            input, range, size, requiredTags, estimate, evaluator, as);
     }
 
     @Override
@@ -122,7 +123,7 @@ class TracingAggregationContext implements AggregationContext {
         final Step next = new Step(id, name, parents, keys);
 
         return new TracingAggregationContext(next, counter, async, traces, errors, lookup, options,
-            input, range, size, requiredTags, estimate, evaluator);
+            input, range, size, requiredTags, estimate, evaluator, as);
     }
 
     @Override
@@ -131,9 +132,20 @@ class TracingAggregationContext implements AggregationContext {
     }
 
     @Override
+    public Map<String, String> as() {
+        return as;
+    }
+
+    @Override
+    public AggregationContext withAs(final Map<String, String> as) {
+        return new TracingAggregationContext(step, counter, async, traces, errors, lookup, options,
+            input, range, size, requiredTags, estimate, evaluator, as);
+    }
+
+    @Override
     public AggregationContext withStates(final List<AggregationState> states) {
         return new TracingAggregationContext(step, counter, async, traces, errors, lookup, options,
-            states, range, size, requiredTags, estimate, evaluator);
+            states, range, size, requiredTags, estimate, evaluator, as);
     }
 
     @Override
@@ -144,7 +156,7 @@ class TracingAggregationContext implements AggregationContext {
     @Override
     public AggregationContext withRequiredTags(final Set<String> requiredTags) {
         return new TracingAggregationContext(step, counter, async, traces, errors, lookup, options,
-            input, range, size, requiredTags, estimate, evaluator);
+            input, range, size, requiredTags, estimate, evaluator, as);
     }
 
     @Override
@@ -155,7 +167,7 @@ class TracingAggregationContext implements AggregationContext {
     @Override
     public AggregationContext withEstimate(final Optional<Long> estimate) {
         return new TracingAggregationContext(step, counter, async, traces, errors, lookup, options,
-            input, range, size, requiredTags, estimate, evaluator);
+            input, range, size, requiredTags, estimate, evaluator, as);
     }
 
     @Override
@@ -168,7 +180,7 @@ class TracingAggregationContext implements AggregationContext {
         final List<NodeError> errors
     ) {
         return new TracingAggregationContext(step, counter, async, traces, errors, lookup, options,
-            input, range, size, requiredTags, estimate, evaluator);
+            input, range, size, requiredTags, estimate, evaluator, as);
     }
 
     @Override
@@ -181,7 +193,7 @@ class TracingAggregationContext implements AggregationContext {
         final List<QueryTrace> trace
     ) {
         return new TracingAggregationContext(step, counter, async, traces, errors, lookup, options,
-            input, range, size, requiredTags, estimate, evaluator);
+            input, range, size, requiredTags, estimate, evaluator, as);
     }
 
     @Override

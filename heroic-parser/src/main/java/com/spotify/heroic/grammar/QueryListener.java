@@ -76,6 +76,7 @@ import java.util.concurrent.TimeUnit;
 public class QueryListener extends HeroicQueryBaseListener {
     private final FilterFactory filters;
 
+    private static final Object KEY_VALUES_MARK = new ObjectMark("KEY_VALUES_MARK");
     private static final Object LIST_MARK = new ObjectMark("LIST_MARK");
     private static final Object EXPR_FUNCTION_ENTER = new ObjectMark("EXPR_FUNCTION_ENTER");
 
@@ -83,7 +84,7 @@ public class QueryListener extends HeroicQueryBaseListener {
     public static final Object NOT_EMPTY = new ObjectMark("NOT_EMPTY");
 
     enum QueryMark {
-        QUERY, SELECT, WHERE, FROM, WITH
+        QUERY, SELECT, WHERE, FROM, WITH, AS
     }
 
     public static final Object PIPE_MARK = new ObjectMark("PIPE_MARK");
@@ -137,7 +138,8 @@ public class QueryListener extends HeroicQueryBaseListener {
         Optional<MetricType> source = Optional.empty();
         Optional<RangeExpression> range = Optional.empty();
         Optional<Filter> where = Optional.empty();
-        Optional<WithMap> with = Optional.empty();
+        Optional<KeywordValues> with = Optional.empty();
+        Optional<KeywordValues> as = Optional.empty();
 
         outer:
         while (true) {
@@ -157,7 +159,10 @@ public class QueryListener extends HeroicQueryBaseListener {
                     range = popOptional(RangeExpression.class);
                     break;
                 case WITH:
-                    with = Optional.of(pop(c, WithMap.class));
+                    with = Optional.of(pop(c, KeywordValues.class));
+                    break;
+                case AS:
+                    as = Optional.of(pop(c, KeywordValues.class));
                     break;
                 default:
                     throw c.error(String.format("expected part of query, but got %s", mark));
@@ -169,7 +174,8 @@ public class QueryListener extends HeroicQueryBaseListener {
         }
 
         push(new QueryExpression(c, aggregation, source, range, where,
-            with.map(WithMap::getMap).orElseGet(ImmutableMap::of)));
+            with.map(KeywordValues::getMap).orElseGet(ImmutableMap::of),
+            as.map(KeywordValues::getMap).orElseGet(ImmutableMap::of)));
     }
 
     @Override
@@ -314,6 +320,23 @@ public class QueryListener extends HeroicQueryBaseListener {
     }
 
     @Override
+    public void enterKeyValues(final HeroicQueryParser.KeyValuesContext ctx) {
+        push(KEY_VALUES_MARK);
+    }
+
+    @Override
+    public void exitKeyValues(final HeroicQueryParser.KeyValuesContext ctx) {
+        final Context c = context(ctx);
+
+        final ImmutableMap.Builder<String, Expression> values = ImmutableMap.builder();
+
+        popUntil(c, KEY_VALUES_MARK, KeywordValue.class).forEach(
+            kv -> values.put(kv.getKey(), kv.getExpression()));
+
+        push(new KeywordValues(values.build()));
+    }
+
+    @Override
     public void exitKeyValue(KeyValueContext ctx) {
         final Expression expression = pop(context(ctx), Expression.class);
         stack.push(new KeywordValue(ctx.getChild(0).getText(), expression));
@@ -344,21 +367,13 @@ public class QueryListener extends HeroicQueryBaseListener {
     }
 
     @Override
-    public void enterWith(final HeroicQueryParser.WithContext ctx) {
+    public void exitWith(HeroicQueryParser.WithContext ctx) {
         push(QueryMark.WITH);
     }
 
     @Override
-    public void exitWith(HeroicQueryParser.WithContext ctx) {
-        final Context c = context(ctx);
-
-        final ImmutableMap.Builder<String, Expression> modifiers = ImmutableMap.builder();
-
-        popUntil(c, QueryMark.WITH, KeywordValue.class).forEach(
-            kv -> modifiers.put(kv.getKey(), kv.getExpression()));
-
-        push(new WithMap(modifiers.build()));
-        push(QueryMark.WITH);
+    public void exitAs(final HeroicQueryParser.AsContext ctx) {
+        push(QueryMark.AS);
     }
 
     @Override
@@ -693,7 +708,8 @@ public class QueryListener extends HeroicQueryBaseListener {
     private <T> void checkType(Class<T> expected, Class<?> actual) {
         if (!expected.isAssignableFrom(actual)) {
             throw new IllegalStateException(
-                String.format("expected %s, but was %s", name(expected), name(actual)));
+                String.format("expected %s, but was %s (rest: %s)", name(expected), name(actual),
+                    stack));
         }
     }
 
@@ -747,7 +763,7 @@ public class QueryListener extends HeroicQueryBaseListener {
     }
 
     @Data
-    static final class WithMap {
+    static final class KeywordValues {
         private final Map<String, Expression> map;
     }
 

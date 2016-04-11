@@ -48,7 +48,8 @@ public class QueryExpression implements Expression {
     private final Optional<MetricType> source;
     private final Optional<RangeExpression> range;
     private final Optional<Filter> filter;
-    private final Map<String, Expression> modifiers;
+    private final Map<String, Expression> with;
+    private final Map<String, Expression> as;
 
     @JsonCreator
     public QueryExpression(
@@ -56,9 +57,11 @@ public class QueryExpression implements Expression {
         @JsonProperty("source") final Optional<MetricType> source,
         @JsonProperty("range") final Optional<RangeExpression> range,
         @JsonProperty("filter") final Optional<Filter> filter,
-        @JsonProperty("modifiers") final Map<String, Expression> modifiers
+        @JsonProperty("with") final Map<String, Expression> with,
+        @JsonProperty("as") final Map<String, Expression> as
     ) {
-        this(Context.empty(), select, source, range, filter, Objects.requireNonNull(modifiers));
+        this(Context.empty(), select, source, range, filter, Objects.requireNonNull(with),
+            Objects.requireNonNull(as));
     }
 
     @Override
@@ -73,7 +76,7 @@ public class QueryExpression implements Expression {
 
     @Override
     public String toString() {
-        return String.format("{select: %s source: %s, range: %s, filter: %s}", select, source,
-            range, filter);
+        return String.format("{select: %s source: %s, range: %s, filter: %s, with: %s, as: %s}",
+            select, source, range, filter, with, as);
     }
 }

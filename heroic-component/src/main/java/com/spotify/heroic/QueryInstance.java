@@ -57,11 +57,12 @@ public class QueryInstance {
     private final Optional<Function<Expression.Scope, DateRange>> rangeBuilder;
     private final Function<DateRange, DateRange> rangeModifier;
     private final Map<String, Expression> modifiers;
+    private final Map<String, Expression> as;
 
     public QueryInstance(final Optional<QueryInstance> parent) {
         this(parent, ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), Optional.empty(),
             Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
-            Function.identity(), ImmutableMap.of());
+            Function.identity(), ImmutableMap.of(), ImmutableMap.of());
     }
 
     public boolean hasFeature(final String feature) {
@@ -70,7 +71,7 @@ public class QueryInstance {
 
     public QueryInstance withNow(final long now) {
         return new QueryInstance(parent, statements, features, source, filter, aggregation, options,
-            Optional.of(now), rangeBuilder, rangeModifier, modifiers);
+            Optional.of(now), rangeBuilder, rangeModifier, modifiers, as);
     }
 
     public QueryInstance withAddedFeatures(final Set<String> features) {
@@ -78,22 +79,22 @@ public class QueryInstance {
         result.addAll(this.features).addAll(features);
 
         return new QueryInstance(parent, statements, result.build(), source, filter, aggregation,
-            options, now, rangeBuilder, rangeModifier, modifiers);
+            options, now, rangeBuilder, rangeModifier, modifiers, as);
     }
 
     public QueryInstance withParent(final QueryInstance parent) {
         return new QueryInstance(Optional.of(parent), statements, features, source, filter,
-            aggregation, options, now, rangeBuilder, rangeModifier, modifiers);
+            aggregation, options, now, rangeBuilder, rangeModifier, modifiers, as);
     }
 
     public QueryInstance withAggregation(final Aggregation aggregation) {
         return new QueryInstance(parent, statements, features, source, filter,
-            Optional.of(aggregation), options, now, rangeBuilder, rangeModifier, modifiers);
+            Optional.of(aggregation), options, now, rangeBuilder, rangeModifier, modifiers, as);
     }
 
     public QueryInstance withStatements(final Map<String, QueryInstance> statements) {
         return new QueryInstance(parent, statements, features, source, filter, aggregation, options,
-            now, rangeBuilder, rangeModifier, modifiers);
+            now, rangeBuilder, rangeModifier, modifiers, as);
     }
 
     public QueryInstance modifyOptions(Function<QueryOptions, QueryOptions> modify) {
@@ -101,7 +102,7 @@ public class QueryInstance {
             this.options.map(modify).orElseGet(() -> modify.apply(QueryOptions.defaults())));
 
         return new QueryInstance(parent, statements, features, source, filter, aggregation, options,
-            now, rangeBuilder, rangeModifier, modifiers);
+            now, rangeBuilder, rangeModifier, modifiers, as);
     }
 
     public QueryInstance withRangeIfAbsent(
@@ -112,13 +113,13 @@ public class QueryInstance {
         }
 
         return new QueryInstance(parent, statements, features, source, filter, aggregation, options,
-            now, rangeBuilder, rangeModifier, modifiers);
+            now, rangeBuilder, rangeModifier, modifiers, as);
     }
 
     public QueryInstance withOptionsIfAbsent(final Optional<QueryOptions> options) {
         if (!this.options.isPresent()) {
             return new QueryInstance(parent, statements, features, source, filter, aggregation,
-                options, now, rangeBuilder, rangeModifier, modifiers);
+                options, now, rangeBuilder, rangeModifier, modifiers, as);
         }
 
         return this;
@@ -128,7 +129,7 @@ public class QueryInstance {
         final Function<DateRange, DateRange> rangeModifier
     ) {
         return new QueryInstance(parent, statements, features, source, filter, aggregation, options,
-            now, rangeBuilder, this.rangeModifier.andThen(rangeModifier), modifiers);
+            now, rangeBuilder, this.rangeModifier.andThen(rangeModifier), modifiers, as);
     }
 
     public Optional<Aggregation> getAggregation() {
@@ -231,5 +232,15 @@ public class QueryInstance {
         return Optional
             .ofNullable(modifiers.get("size"))
             .map(e -> e.eval(scope).cast(Duration.class));
+    }
+
+    public Map<String, String> lookupAs(final Expression.Scope scope) {
+        final ImmutableMap.Builder<String, String> as = ImmutableMap.builder();
+
+        tree().forEach(q -> {
+            q.as.forEach((k, v) -> as.put(k, v.eval(scope).cast(String.class)));
+        });
+
+        return as.build();
     }
 }

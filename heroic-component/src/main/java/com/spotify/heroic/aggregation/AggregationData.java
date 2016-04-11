@@ -30,6 +30,7 @@ import com.spotify.heroic.common.Series;
 import com.spotify.heroic.metric.MetricCollection;
 import lombok.Data;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -61,5 +62,12 @@ public final class AggregationData {
     @JsonProperty("series")
     public List<Series> getSeriesJson() {
         return ImmutableList.copyOf(series);
+    }
+
+    public AggregationData withAs(final Map<String, String> as) {
+        final Map<String, String> modified = new HashMap<>();
+        modified.putAll(key);
+        modified.putAll(as);
+        return new AggregationData(modified, series, metrics, range);
     }
 }

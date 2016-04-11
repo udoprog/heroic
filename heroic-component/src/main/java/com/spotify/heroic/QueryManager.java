@@ -27,6 +27,7 @@ import com.spotify.heroic.metric.QueryResult;
 import eu.toolchain.async.AsyncFuture;
 
 import java.util.Collection;
+import java.util.List;
 
 public interface QueryManager {
     Group useGroup(String group);
@@ -39,12 +40,16 @@ public interface QueryManager {
 
     QueryBuilder newQuery();
 
-    QueryInstance newQueryFromString(String query);
+    QueryInstanceGroup newQueryFromString(String query);
 
     interface Group extends Iterable<ClusterNode.Group> {
         AsyncFuture<QueryResult> query(QueryInstance query);
 
+        AsyncFuture<QueryResult> query(QueryInstanceGroup query);
+
         AsyncFuture<AnalyzeResult> analyze(QueryInstance query);
+
+        AsyncFuture<AnalyzeResult> analyze(QueryInstanceGroup query);
 
         ClusterNode.Group first();
     }

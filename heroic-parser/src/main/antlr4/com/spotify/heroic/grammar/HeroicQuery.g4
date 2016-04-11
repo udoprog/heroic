@@ -1,7 +1,7 @@
 grammar HeroicQuery;
 
 statements
-    : (statement StatementSeparator)* statement EOF
+    : (statement StatementSeparator)* EOF
     ;
 
 statement
@@ -18,7 +18,7 @@ filterOnly
     ;
 
 query
-    : select from? where? with?
+    : select from? where? with? as?
     ;
 
 select
@@ -35,7 +35,15 @@ where
     ;
 
 with
-    : With keyValue (Comma keyValue)*
+    : With keyValues
+    ;
+
+as
+    : As keyValues
+    ;
+
+keyValues
+    : keyValue (Comma keyValue)*
     ;
 
 filter
@@ -97,6 +105,8 @@ sourceRange
 
 // keywords (must come before SimpleString!)
 Let : 'let' ;
+
+As : 'as' ;
 
 True : 'true' ;
 
@@ -215,7 +225,13 @@ Digits
     : [0-9]+
     ;
 
-WS : [ \t\n\r]+ -> skip ;
+LineComment
+    : '#' ~[\r\n]* -> skip
+    ;
+
+Whitespace
+    : [ \t\n\r]+ -> skip
+    ;
 
 // is used to specifically match string where the end quote is missing
 UnterminatedQutoedString : '"' StringCharacters? ;

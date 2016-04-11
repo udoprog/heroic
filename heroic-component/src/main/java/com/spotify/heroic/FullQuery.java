@@ -30,6 +30,7 @@ import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.metric.MetricType;
 import lombok.Data;
 
+import java.util.Map;
 import java.util.Set;
 
 @Data
@@ -42,6 +43,7 @@ public class FullQuery {
     private final Duration size;
     private final Set<String> features;
     private final long now;
+    private final Map<String, String> as;
 
     @JsonCreator
     public FullQuery(
@@ -50,7 +52,8 @@ public class FullQuery {
         @JsonProperty("aggregation") final Aggregation aggregation,
         @JsonProperty("options") final QueryOptions options,
         @JsonProperty("size") final Duration size,
-        @JsonProperty("features") final Set<String> features, @JsonProperty("now") final Long now
+        @JsonProperty("features") final Set<String> features, @JsonProperty("now") final Long now,
+        @JsonProperty("as") final Map<String, String> as
     ) {
         this.source = source;
         this.filter = filter;
@@ -60,5 +63,6 @@ public class FullQuery {
         this.size = size;
         this.features = features;
         this.now = now;
+        this.as = as;
     }
 }

@@ -59,6 +59,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
@@ -118,7 +119,7 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
     private final Iterable<ClusterNode.Group> groups;
 
     @Override
-    public AsyncFuture<QueryResult> query(QueryInstance query) {
+    public AsyncFuture<QueryResult> query(final QueryInstance query) {
         return queryCache.load(query, () -> {
             final QueryTrace.Tracer tracer = QueryTrace.trace(QUERY);
 
@@ -131,20 +132,32 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
                 for (final AggregationState s : out.states()) {
                     observables.add(s
                         .getObservable()
-                        .transform(
-                            m -> new AggregationData(s.getKey(), s.getSeries(), m, out.range())));
+                        .transform(m -> new AggregationData(s.getKey(), s.getSeries(), m,
+                            out.range()).withAs(out.as())));
                 }
 
                 final ResolvableFuture<QueryResult> result = async.future();
 
                 Observable
                     .concurrently(observables)
-                    .observe(new ResultObserver(() -> tracer.end(out.traces()), out.errors(),
-                        out.size(), result, Statistics.empty()));
+                    .observe(
+                        new ResultObserver(() -> tracer.end(out.traces()), out.errors(), out.size(),
+                            result, Statistics.empty()));
 
                 return result;
             });
         });
+    }
+
+    @Override
+    public AsyncFuture<QueryResult> query(final QueryInstanceGroup query) {
+        final List<AsyncFuture<QueryResult>> futures = new ArrayList<>();
+
+        for (final QueryInstance q : query.getQueries()) {
+            futures.add(query(q));
+        }
+
+        return async.collect(futures, QueryResult.collect(QUERY));
     }
 
     @Override
@@ -157,6 +170,17 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
         return r.directTransform(
             result -> AnalyzeResult.analyze(result, () -> tracer.end(result.traces()),
                 result.errors(), ImmutableMap.of(), ImmutableList.of()));
+    }
+
+    @Override
+    public AsyncFuture<AnalyzeResult> analyze(final QueryInstanceGroup query) {
+        final List<AsyncFuture<AnalyzeResult>> futures = new ArrayList<>();
+
+        for (final QueryInstance q : query.getQueries()) {
+            futures.add(analyze(q));
+        }
+
+        return async.collect(futures, AnalyzeResult.collect(ANALYZE));
     }
 
     @Override
@@ -269,10 +293,11 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
 
         final DateRange rawRange = query.lookupRange();
         final Optional<Duration> size = query.lookupSize(scope);
+        final Map<String, String> as = query.lookupAs(scope);
         final Duration cadence = buildCadence(size, rawRange);
         final DateRange range = rawRange.rounded(cadence.toMilliseconds());
 
-        return builder.apply(range, scope).withSize(cadence);
+        return builder.apply(range, scope).withSize(cadence).withAs(as);
     }
 
     private FullQuery newFullQuery(final QueryInstance query) {
@@ -280,6 +305,7 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
 
         final DateRange rawRange = query.lookupRange();
         final Optional<Duration> size = query.lookupSize(scope);
+        final Map<String, String> as = query.lookupAs(scope);
         final Duration cadence = buildCadence(size, rawRange);
         final DateRange range =
             buildShiftedRange(rawRange, cadence.toMilliseconds(), query.lookupNow());
@@ -290,7 +316,7 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
         final QueryOptions options = query.lookupOptions().orElseGet(QueryOptions::defaults);
 
         return new FullQuery(source, filter, range, aggregation, options, cadence,
-            query.lookupFeatures(), query.lookupNow());
+            query.lookupFeatures(), query.lookupNow(), as);
     }
 
     private <T> AsyncFuture<AggregationContext> distribute(
@@ -369,8 +395,8 @@ public class CoreQueryManagerGroup implements QueryManager.Group {
     }
 
     /**
-     * Given a range and a size, return a range that might be shifted in case the end period is
-     * too close or after 'now'. This is useful to avoid querying non-complete buckets.
+     * Given a range and a size, return a range that might be shifted in case the end period is too
+     * close or after 'now'. This is useful to avoid querying non-complete buckets.
      *
      * @param range Original range.
      * @return A possibly shifted range.

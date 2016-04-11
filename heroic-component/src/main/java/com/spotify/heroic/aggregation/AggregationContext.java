@@ -22,6 +22,7 @@
 package com.spotify.heroic.aggregation;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.common.DateRange;
@@ -133,7 +134,7 @@ public interface AggregationContext {
     ) {
         return new DefaultAggregationContext(async, ImmutableList.of(), ImmutableList.of(),
             new DefaultLookup(), QueryOptions.DEFAULTS, input, range, Optional.empty(),
-            ImmutableSet.of(), Optional.empty(), evaluator);
+            ImmutableSet.of(), Optional.empty(), evaluator, ImmutableMap.of());
     }
 
     static AggregationContext tracing(
@@ -150,8 +151,12 @@ public interface AggregationContext {
 
         return new TracingAggregationContext(root, new AtomicInteger(), async, ImmutableList.of(),
             ImmutableList.of(), new DefaultLookup(), QueryOptions.DEFAULTS, input, range,
-            Optional.empty(), ImmutableSet.of(), Optional.empty(), evaluator);
+            Optional.empty(), ImmutableSet.of(), Optional.empty(), evaluator, ImmutableMap.of());
     }
+
+    Map<String, String> as();
+
+    AggregationContext withAs(Map<String, String> as);
 
     @RequiredArgsConstructor
     class DefaultLookup implements Function<Expression, AggregationLookup> {

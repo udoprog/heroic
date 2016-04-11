@@ -33,6 +33,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -51,6 +52,7 @@ class DefaultAggregationContext implements AggregationContext {
     private final Set<String> requiredTags;
     private final Optional<Long> estimate;
     private final Function<Expression, Expression> evaluator;
+    private final Map<String, String> as;
 
     @Override
     public AsyncFramework async() {
@@ -65,7 +67,7 @@ class DefaultAggregationContext implements AggregationContext {
     @Override
     public AggregationContext withRange(final DateRange range) {
         return new DefaultAggregationContext(async, traces, errors, lookup, options, input, range,
-            cadence, requiredTags, estimate, evaluator);
+            cadence, requiredTags, estimate, evaluator, as);
     }
 
     @Override
@@ -76,7 +78,7 @@ class DefaultAggregationContext implements AggregationContext {
     @Override
     public AggregationContext withOptions(final QueryOptions options) {
         return new DefaultAggregationContext(async, traces, errors, lookup, options, input, range,
-            cadence, requiredTags, estimate, evaluator);
+            cadence, requiredTags, estimate, evaluator, as);
     }
 
     @Override
@@ -89,7 +91,7 @@ class DefaultAggregationContext implements AggregationContext {
         final Function<Expression, AggregationLookup> lookup
     ) {
         return new DefaultAggregationContext(async, traces, errors, lookup, options, input, range,
-            cadence, requiredTags, estimate, evaluator);
+            cadence, requiredTags, estimate, evaluator, as);
     }
 
     @Override
@@ -102,7 +104,7 @@ class DefaultAggregationContext implements AggregationContext {
     @Override
     public AggregationContext withSize(final Optional<Duration> cadence) {
         return new DefaultAggregationContext(async, traces, errors, lookup, options, input, range,
-            cadence, requiredTags, estimate, evaluator);
+            cadence, requiredTags, estimate, evaluator, as);
     }
 
     @Override
@@ -113,7 +115,7 @@ class DefaultAggregationContext implements AggregationContext {
     @Override
     public AggregationContext withStates(final List<AggregationState> states) {
         return new DefaultAggregationContext(async, traces, errors, lookup, options, states, range,
-            cadence, requiredTags, estimate, evaluator);
+            cadence, requiredTags, estimate, evaluator, as);
     }
 
     @Override
@@ -124,7 +126,7 @@ class DefaultAggregationContext implements AggregationContext {
     @Override
     public AggregationContext withRequiredTags(final Set<String> requiredTags) {
         return new DefaultAggregationContext(async, traces, errors, lookup, options, input, range,
-            cadence, requiredTags, estimate, evaluator);
+            cadence, requiredTags, estimate, evaluator, as);
     }
 
     @Override
@@ -135,7 +137,7 @@ class DefaultAggregationContext implements AggregationContext {
     @Override
     public AggregationContext withEstimate(final Optional<Long> estimate) {
         return new DefaultAggregationContext(async, traces, errors, lookup, options, input, range,
-            cadence, requiredTags, estimate, evaluator);
+            cadence, requiredTags, estimate, evaluator, as);
     }
 
     @Override
@@ -148,7 +150,7 @@ class DefaultAggregationContext implements AggregationContext {
         final List<NodeError> errors
     ) {
         return new DefaultAggregationContext(async, traces, errors, lookup, options, input, range,
-            cadence, requiredTags, estimate, evaluator);
+            cadence, requiredTags, estimate, evaluator, as);
     }
 
     @Override
@@ -161,11 +163,22 @@ class DefaultAggregationContext implements AggregationContext {
         final List<QueryTrace> traces
     ) {
         return new DefaultAggregationContext(async, traces, errors, lookup, options, input, range,
-            cadence, requiredTags, estimate, evaluator);
+            cadence, requiredTags, estimate, evaluator, as);
     }
 
     @Override
     public List<QueryTrace> traces() {
         return traces;
+    }
+
+    @Override
+    public AggregationContext withAs(final Map<String, String> as) {
+        return new DefaultAggregationContext(async, traces, errors, lookup, options, input, range,
+            cadence, requiredTags, estimate, evaluator, as);
+    }
+
+    @Override
+    public Map<String, String> as() {
+        return as;
     }
 }

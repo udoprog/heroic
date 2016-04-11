@@ -75,7 +75,7 @@ public class AnalyzeQuery implements ShellTask {
         }
 
         final String queryString = Joiner.on(" ").join(params.query);
-        final com.spotify.heroic.QueryInstance q = query.newQueryFromString(queryString);
+        final com.spotify.heroic.QueryInstanceGroup q = query.newQueryFromString(queryString);
 
         return query.useDefaultGroup().analyze(q).directTransform(result -> {
             if (params.json) {

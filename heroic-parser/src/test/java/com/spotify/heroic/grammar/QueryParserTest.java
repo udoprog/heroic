@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -201,26 +202,29 @@ public class QueryParserTest {
         final StringBuilder query = new StringBuilder();
         query.append("let $a = * from points(1d);\n");
         query.append("let $b = * from points($now - 2d, $now - 1d);\n");
-        query.append("$a + $b");
+        query.append("$a + $b as key = \"value\"");
 
         final Statements statements = parser.parse(CoreQueryParser.STATEMENTS, query.toString());
 
         // @formatter:off
-        final List<Expression> expected = ImmutableList.of(
-            let(reference("a"),
+        final List<Expression> expected = new ArrayList<>();
+        expected.add(let(reference("a"),
                 query(empty(), of(MetricType.POINT),
                     of(range(
                         minus(reference("now"),
                             duration(TimeUnit.DAYS, 1)),
-                        reference("now"))), empty(), ImmutableMap.of())),
+                        reference("now"))), empty(), ImmutableMap.of(), ImmutableMap.of())));
+        expected.add(
             let(reference("b"),
                 query(empty(), of(MetricType.POINT),
                     of(range(
                         minus(reference("now"), duration(TimeUnit.DAYS, 2)),
                         minus(reference("now"), duration(TimeUnit.DAYS, 1)))),
-                    empty(), ImmutableMap.of())),
+                    empty(), ImmutableMap.of(), ImmutableMap.of())));
+
+        expected.add(
             query(of(plus(reference("a"), reference("b"))), empty(), empty(), empty(),
-                ImmutableMap.of()));
+                ImmutableMap.of(), ImmutableMap.of("key", string("value"))));
         // @formatter:on
 
         assertEquals(expected, statements.getExpressions());

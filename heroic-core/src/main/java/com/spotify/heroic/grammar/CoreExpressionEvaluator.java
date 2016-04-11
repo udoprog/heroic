@@ -59,7 +59,7 @@ public class CoreExpressionEvaluator implements ExpressionEvaluator {
 
                 return new QueryInstance(Optional.empty(), ImmutableMap.of(), ImmutableSet.of(),
                     e.getSource(), e.getFilter(), aggregation, Optional.empty(), Optional.empty(),
-                    range, Function.identity(), e.getModifiers());
+                    range, Function.identity(), e.getWith(), e.getAs());
             }
         });
     }
