@@ -104,7 +104,7 @@ public class QueryParserTest {
 
         // test grouping
         assertEquals(a("group", list(string("site")),
-            a("chain", a("group", list(string("host")), a("average")), a("sum"))),
+            a("chain", a("group", list(string("host")), a("average")), string("sum"))),
             aggregation("(average by host | sum) by site"));
     }
 

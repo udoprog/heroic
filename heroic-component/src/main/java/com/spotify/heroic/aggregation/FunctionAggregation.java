@@ -63,7 +63,7 @@ public abstract class FunctionAggregation implements Aggregation {
             return out
                 .withStep(getClass().getSimpleName(), ImmutableList.of(out.step()),
                     out.step().keys())
-                .withInput(states);
+                .withStates(states);
         });
     }
 

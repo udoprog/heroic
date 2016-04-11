@@ -58,16 +58,16 @@ public class CoreQueryManagerGroupTest {
 
         final DateRange shiftedRange = group.buildShiftedRange(range, 5_000, 150_000L);
 
-        assertEquals(DateRange.create(40_000L, 140_000L), shiftedRange);
+        assertEquals(DateRange.create(50_000L, 140_000L), shiftedRange);
     }
 
     @Test
     public void testEndRangeIsTooCloseToNow() {
         final DateRange range = DateRange.create(50_000L, 153_000L);
 
-        final DateRange shiftedRange = group.buildShiftedRange(range, 5_000, 154_000L);
+        final DateRange shiftedRange = group.buildShiftedRange(range, 5_000, 155_000L);
 
-        assertEquals(DateRange.create(40_000L, 140_000L), shiftedRange);
+        assertEquals(DateRange.create(50_000L, 145_000L), shiftedRange);
     }
 
     @Test
@@ -76,7 +76,7 @@ public class CoreQueryManagerGroupTest {
 
         final DateRange shiftedRange = group.buildShiftedRange(range, 5_000, 184_000L);
 
-        assertEquals(DateRange.create(50_000L, 150_000L), shiftedRange);
+        assertEquals(DateRange.create(50_000L, 155_000L), shiftedRange);
     }
 
     @Test
@@ -85,7 +85,7 @@ public class CoreQueryManagerGroupTest {
 
         final DateRange shiftedRange = group.buildShiftedRange(range, 5_000, 150_000L);
 
-        assertEquals(DateRange.create(10_000L, 140_000L), shiftedRange);
+        assertEquals(DateRange.create(50_000L, 140_000L), shiftedRange);
     }
 
     @Test(expected = IllegalArgumentException.class)

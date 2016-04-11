@@ -147,7 +147,7 @@ public abstract class BucketAggregation<B extends Bucket> implements Aggregation
                 .withStep(getClass().getSimpleName(), ImmutableList.of(context.step()),
                     context.step().keys())
                 .withSize(size)
-                .withInput(states)
+                .withStates(states)
                 .withEstimate(estimate);
         });
     }

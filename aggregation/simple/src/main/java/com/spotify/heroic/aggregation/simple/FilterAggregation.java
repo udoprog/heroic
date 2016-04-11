@@ -90,7 +90,7 @@ public class FilterAggregation implements Aggregation {
             return context
                 .withStep(getClass().getSimpleName(), ImmutableList.of(context.step()),
                     context.step().keys())
-                .withInput(out.build());
+                .withStates(out.build());
         });
     }
 

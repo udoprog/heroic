@@ -92,7 +92,7 @@ public abstract class GroupingAggregation implements Aggregation {
             for (final Map.Entry<Map<String, String>, List<AggregationState>> e : mappings
                 .entrySet()) {
                 children.add(each
-                    .setup(parent.withInput(e.getValue()))
+                    .setup(parent.withStates(e.getValue()))
                     .directTransform(ctx -> Pair.of(ctx, e.getKey())));
             }
 
@@ -133,7 +133,7 @@ public abstract class GroupingAggregation implements Aggregation {
                     end = parent.withStep(name(of) + " (out)", parents.build(), keys.build());
                 }
 
-                return end.withInput(output);
+                return end.withStates(output);
             });
         });
     }

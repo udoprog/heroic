@@ -45,7 +45,7 @@ import java.util.function.Function;
 public class CoreAggregationRegistry implements AggregationRegistry {
     final Serializer<String> string;
 
-    final Map<Class<? extends Aggregation>, String> definitionMap = new HashMap<>();
+    final Map<Class<?>, String> definitionMap = new HashMap<>();
 
     final Map<String, Function<FunctionExpression, FunctionExpression>> aliasMap =
         new ConcurrentHashMap<>();
@@ -95,9 +95,7 @@ public class CoreAggregationRegistry implements AggregationRegistry {
         synchronized (lock) {
             final SimpleModule m = new SimpleModule("aggregationRegistry");
 
-            for (final Map.Entry<Class<? extends Aggregation>, String> e : definitionMap.entrySet
-                ()) {
-
+            for (final Map.Entry<Class<?>, String> e : definitionMap.entrySet()) {
                 m.registerSubtypes(new NamedType(e.getKey(), e.getValue()));
             }
 

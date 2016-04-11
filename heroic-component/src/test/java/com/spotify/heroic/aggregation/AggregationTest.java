@@ -50,6 +50,6 @@ public class AggregationTest {
         final AggregationContext out = chain.setup(context).get();
 
         assertEquals(ImmutableSet.of("host"), out.requiredTags());
-        assertEquals(ImmutableList.of(s1.getTags()), out.step().parents().get(0).keys());
+        assertEquals(ImmutableList.of(s1.getTags(), s2.getTags()), out.step().keys());
     }
 }

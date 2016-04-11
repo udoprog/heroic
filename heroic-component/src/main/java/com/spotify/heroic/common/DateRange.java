@@ -98,7 +98,7 @@ public class DateRange implements Comparable<DateRange> {
 
         final long start = this.start - this.start % interval;
         final long end = this.end + interval - (this.end % interval);
-        return new DateRange(start - interval, end);
+        return new DateRange(start, end);
     }
 
     @Override

@@ -26,7 +26,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.spotify.heroic.common.Duration;
 import eu.toolchain.async.AsyncFuture;
 import lombok.Data;
 import org.apache.commons.lang3.tuple.Pair;
