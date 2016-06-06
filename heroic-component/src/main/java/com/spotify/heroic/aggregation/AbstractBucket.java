@@ -21,6 +21,7 @@
 
 package com.spotify.heroic.aggregation;
 
+import com.spotify.heroic.metric.Cardinality;
 import com.spotify.heroic.metric.Event;
 import com.spotify.heroic.metric.MetricGroup;
 import com.spotify.heroic.metric.Point;
@@ -43,5 +44,9 @@ public abstract class AbstractBucket implements Bucket {
 
     @Override
     public void updateGroup(Map<String, String> tags, MetricGroup sample) {
+    }
+
+    @Override
+    public void updateCardinality(Map<String, String> tags, Cardinality sample) {
     }
 }

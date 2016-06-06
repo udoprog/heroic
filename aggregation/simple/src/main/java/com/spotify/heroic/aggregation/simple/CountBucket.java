@@ -21,7 +21,7 @@
 
 package com.spotify.heroic.aggregation.simple;
 
-import com.spotify.heroic.aggregation.AbstractAnyBucket;
+import com.spotify.heroic.aggregation.AnyBucket;
 import com.spotify.heroic.metric.Metric;
 import lombok.RequiredArgsConstructor;
 
@@ -34,7 +34,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * @author udoprog
  */
 @RequiredArgsConstructor
-public class CountBucket extends AbstractAnyBucket {
+public class CountBucket implements AnyBucket {
     private final long timestamp;
 
     private final AtomicLong count = new AtomicLong();

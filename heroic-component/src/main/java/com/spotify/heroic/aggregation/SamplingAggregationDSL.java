@@ -19,7 +19,7 @@
  * under the License.
  */
 
-package com.spotify.heroic.aggregation.simple;
+package com.spotify.heroic.aggregation;
 
 import com.spotify.heroic.aggregation.AbstractAggregationDSL;
 import com.spotify.heroic.aggregation.Aggregation;

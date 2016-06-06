@@ -23,27 +23,38 @@ package com.spotify.heroic.aggregation;
 
 import com.spotify.heroic.metric.Cardinality;
 import com.spotify.heroic.metric.Event;
+import com.spotify.heroic.metric.Metric;
 import com.spotify.heroic.metric.MetricGroup;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
 
 import java.util.Map;
 
-public interface Bucket {
-    void updatePoint(Map<String, String> tags, Point sample);
+public interface AnyBucket extends Bucket {
+    @Override
+    default void updatePoint(Map<String, String> tags, Point sample) {
+        update(tags, sample);
+    }
 
-    void updateEvent(Map<String, String> tags, Event sample);
+    @Override
+    default void updateEvent(Map<String, String> tags, Event sample) {
+        update(tags, sample);
+    }
 
-    void updateSpread(Map<String, String> tags, Spread sample);
+    @Override
+    default void updateSpread(Map<String, String> tags, Spread sample) {
+        update(tags, sample);
+    }
 
-    void updateGroup(Map<String, String> tags, MetricGroup sample);
+    @Override
+    default void updateGroup(Map<String, String> tags, MetricGroup sample) {
+        update(tags, sample);
+    }
 
-    void updateCardinality(Map<String, String> tags, Cardinality sample);
+    @Override
+    default void updateCardinality(Map<String, String> tags, Cardinality sample) {
+        update(tags, sample);
+    }
 
-    /**
-     * Get the timestamp for the bucket.
-     *
-     * @return The timestamp for the bucket.
-     */
-    long timestamp();
+    void update(Map<String, String> tags, Metric sample);
 }

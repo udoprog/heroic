@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.common.Statistics;
+import com.spotify.heroic.metric.Cardinality;
 import com.spotify.heroic.metric.Event;
 import com.spotify.heroic.metric.MetricGroup;
 import com.spotify.heroic.metric.Point;
@@ -230,6 +231,13 @@ public class ChainInstance implements AggregationInstance {
             Map<String, String> key, Set<Series> series, List<MetricGroup> values
         ) {
             first.updateGroup(key, series, values);
+        }
+
+        @Override
+        public void updateCardinality(
+            Map<String, String> key, Set<Series> series, List<Cardinality> values
+        ) {
+            first.updateCardinality(key, series, values);
         }
 
         @Override
