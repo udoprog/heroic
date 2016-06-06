@@ -71,6 +71,19 @@ public class ClusterQueryIT extends AbstractLocalClusterIT {
         assertEquals(ImmutableSet.of(points().p(10, 1D).p(30, 2D).build()), m);
     }
 
+    @Test
+    public void cardinalityTest() throws Exception {
+        final QueryResult result = query("cardinality(10ms)");
+
+        final Set<MetricCollection> m = result
+            .getGroups()
+            .stream()
+            .map(ShardedResultGroup::getMetrics)
+            .collect(Collectors.toSet());
+
+        assertEquals(ImmutableSet.of(points().p(10, 1D).p(20, 1D).p(30, 1D).p(40, 0D).build()), m);
+    }
+
     @Override
     protected List<AsyncFuture<Ingestion>> setupWrites(
         final List<IngestionManager> ingestion
@@ -85,7 +98,7 @@ public class ClusterQueryIT extends AbstractLocalClusterIT {
             .write(new Ingestion.Request(s1, points().p(10, 1D).p(30, 2D).build())));
         writes.add(m2
             .useDefaultGroup()
-            .write(new Ingestion.Request(s2, points().p(10, 3D).p(20, 4D).build())));
+            .write(new Ingestion.Request(s2, points().p(10, 1D).p(20, 4D).build())));
 
         return writes;
     }
