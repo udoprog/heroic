@@ -23,6 +23,7 @@
     <module>metric/datastax</module>
     <module>metric/bigtable</module>
     <module>metric/memory</module>
+    <module>metric/disk</module>
     <module>metadata/elasticsearch</module>
     <module>metadata/memory</module>
     <module>suggest/elasticsearch</module>
@@ -310,6 +311,11 @@
       <dependency>
         <groupId>com.spotify.heroic.metric</groupId>
         <artifactId>heroic-metric-memory</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.spotify.heroic.metric</groupId>
+        <artifactId>heroic-metric-disk</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
