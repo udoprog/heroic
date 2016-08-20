@@ -4,8 +4,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
+import com.spotify.heroic.grammar.Expression;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.Point;
+import eu.toolchain.async.AsyncFuture;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.junit.Assert;
@@ -16,8 +18,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 public class BucketAggregationTest {
+    private static final Function<Expression, AsyncFuture<AggregationResult>> NO_RESOLVER = e -> {
+        throw new IllegalStateException("no resolver");
+    };
+
     public final class IterableBuilder {
         final ArrayList<Point> datapoints = new ArrayList<Point>();
 

@@ -26,9 +26,9 @@ import com.google.common.collect.ImmutableSet;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.common.Statistics;
-import com.spotify.heroic.metric.Payload;
 import com.spotify.heroic.metric.Event;
 import com.spotify.heroic.metric.MetricGroup;
+import com.spotify.heroic.metric.Payload;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
 import lombok.Data;
@@ -72,7 +72,7 @@ public abstract class GroupingAggregation implements AggregationInstance {
     );
 
     @Override
-    public AggregationSession session(DateRange range) {
+    public AggregationSession session(final DateRange range) {
         return new GroupSession(range);
     }
 

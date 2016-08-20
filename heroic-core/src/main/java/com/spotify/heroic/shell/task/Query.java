@@ -23,10 +23,13 @@ package com.spotify.heroic.shell.task;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.spotify.heroic.QueryBuilder;
 import com.spotify.heroic.QueryDateRange;
 import com.spotify.heroic.QueryManager;
 import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.dagger.CoreComponent;
+import com.spotify.heroic.grammar.Expression;
+import com.spotify.heroic.grammar.QueryParser;
 import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.RequestError;
 import com.spotify.heroic.metric.ShardedResultGroup;
@@ -54,11 +57,15 @@ import java.util.stream.Collectors;
 @TaskName("query")
 public class Query implements ShellTask {
     private final QueryManager query;
+    private final QueryParser parser;
     private final ObjectMapper mapper;
 
     @Inject
-    public Query(QueryManager query, @Named("application/json") ObjectMapper mapper) {
+    public Query(
+        QueryManager query, QueryParser parser, @Named("application/json") ObjectMapper mapper
+    ) {
         this.query = query;
+        this.parser = parser;
         this.mapper = mapper;
     }
 
@@ -84,15 +91,16 @@ public class Query implements ShellTask {
 
         final QueryOptions options = optionsBuilder.build();
 
-        final Optional<QueryDateRange> range =
-            Optional.of(new QueryDateRange.Relative(TimeUnit.DAYS, 1));
+        final QueryDateRange range = new QueryDateRange.Relative(TimeUnit.DAYS, 1);
+
+        final List<Expression> expressions = parser.parse(queryString);
 
         return query
             .useGroup(params.group)
-            .query(query
-                .newQueryFromString(queryString)
+            .query(new QueryBuilder()
+                .expressions(expressions)
                 .options(Optional.of(options))
-                .rangeIfAbsent(range)
+                .range(Optional.of(range))
                 .build())
             .directTransform(result -> {
                 for (final RequestError e : result.getErrors()) {

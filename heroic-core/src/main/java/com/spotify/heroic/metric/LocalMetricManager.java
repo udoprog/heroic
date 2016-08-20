@@ -144,7 +144,9 @@ public class LocalMetricManager implements MetricManager {
         }
 
         @Override
-        public AsyncFuture<FullQuery> query(final FullQuery.Request request) {
+        public AsyncFuture<FullQuery> query(
+            final FullQuery.Request request
+        ) {
             final QueryTrace.NamedWatch w = QueryTrace.watch(QUERY);
 
             final Filter filter = request.getFilter();

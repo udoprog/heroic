@@ -29,6 +29,7 @@ import com.spotify.heroic.aggregation.Group;
 import com.spotify.heroic.common.Features;
 import com.spotify.heroic.common.Optionals;
 import com.spotify.heroic.filter.Filter;
+import com.spotify.heroic.grammar.Expression;
 import com.spotify.heroic.metric.MetricType;
 import lombok.Data;
 
@@ -45,6 +46,7 @@ public class Query {
     private final Optional<List<String>> groupBy;
     /* set of experimental features to enable */
     private final Features features;
+    private final Optional<List<Expression>> expressions;
 
     @JsonCreator
     public Query(
@@ -55,7 +57,8 @@ public class Query {
         @JsonProperty("filter") final Optional<Filter> filter,
         @JsonProperty("options") final Optional<QueryOptions> options,
         @JsonProperty("groupBy") final Optional<List<String>> groupBy,
-        @JsonProperty("features") final Optional<Features> features
+        @JsonProperty("features") final Optional<Features> features,
+        @JsonProperty("expressions") final Optional<List<Expression>> expressions
     ) {
         this.filter = filter;
         this.range = range;
@@ -65,6 +68,7 @@ public class Query {
         this.options = options;
         this.groupBy = groupBy;
         this.features = features.orElseGet(Features::empty);
+        this.expressions = expressions;
     }
 
     public Optional<Aggregation> getAggregation() {

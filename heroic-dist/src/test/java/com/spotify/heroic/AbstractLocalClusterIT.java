@@ -7,6 +7,8 @@ import com.spotify.heroic.cluster.discovery.simple.StaticListDiscoveryModule;
 import com.spotify.heroic.common.Feature;
 import com.spotify.heroic.common.Features;
 import com.spotify.heroic.common.Series;
+import com.spotify.heroic.dagger.CoreComponent;
+import com.spotify.heroic.grammar.QueryParser;
 import com.spotify.heroic.ingestion.Ingestion;
 import com.spotify.heroic.ingestion.IngestionComponent;
 import com.spotify.heroic.ingestion.IngestionManager;
@@ -41,6 +43,7 @@ public abstract class AbstractLocalClusterIT {
     protected List<HeroicCoreInstance> instances;
 
     protected QueryManager query;
+    protected QueryParser parser;
 
     @Before
     public final void abstractSetup() throws Exception {
@@ -85,6 +88,10 @@ public abstract class AbstractLocalClusterIT {
         query = verify
             .directTransform(v -> instances.get(0).inject(QueryComponent::queryManager))
             .get(10, TimeUnit.SECONDS);
+
+        parser = verify
+            .directTransform(v -> instances.get(0).inject(CoreComponent::queryParser))
+            .get(10, TimeUnit.SECONDS);
     }
 
     protected abstract List<AsyncFuture<Ingestion>> setupWrites(
@@ -100,8 +107,8 @@ public abstract class AbstractLocalClusterIT {
     }
 
     public QueryResult query(final String queryString) throws Exception {
-        final Query q = query
-            .newQueryFromString(queryString)
+        final Query q = new QueryBuilder()
+            .expressions(parser.parse(queryString))
             .features(Features.of(Feature.DISTRIBUTED_AGGREGATIONS))
             .source(Optional.of(MetricType.POINT))
             .rangeIfAbsent(Optional.of(new QueryDateRange.Absolute(10, 40)))

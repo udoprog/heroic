@@ -41,13 +41,14 @@ import com.spotify.heroic.common.Features;
 import com.spotify.heroic.common.OptionalLimit;
 import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.filter.TrueFilter;
-import com.spotify.heroic.grammar.DefaultScope;
 import com.spotify.heroic.grammar.Expression;
+import com.spotify.heroic.grammar.ExpressionScope;
 import com.spotify.heroic.grammar.FunctionExpression;
 import com.spotify.heroic.grammar.IntegerExpression;
+import com.spotify.heroic.grammar.LetExpression;
 import com.spotify.heroic.grammar.QueryExpression;
 import com.spotify.heroic.grammar.QueryParser;
-import com.spotify.heroic.grammar.RangeExpression;
+import com.spotify.heroic.grammar.ReferenceExpression;
 import com.spotify.heroic.grammar.StringExpression;
 import com.spotify.heroic.metadata.CountSeries;
 import com.spotify.heroic.metadata.DeleteSeries;
@@ -76,7 +77,9 @@ import lombok.extern.slf4j.Slf4j;
 import javax.inject.Inject;
 import javax.inject.Named;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.SortedSet;
 import java.util.concurrent.TimeUnit;
@@ -123,108 +126,146 @@ public class CoreQueryManager implements QueryManager {
         return new QueryBuilder();
     }
 
-    @Override
-    public QueryBuilder newQueryFromString(final String queryString) {
-        final List<Expression> expressions = parser.parse(queryString);
-
-        final Expression.Scope scope = new DefaultScope(System.currentTimeMillis());
-
-        if (expressions.size() != 1) {
-            throw new IllegalArgumentException("Expected exactly one expression");
-        }
-
-        return expressions.get(0).eval(scope).visit(new Expression.Visitor<QueryBuilder>() {
-            @Override
-            public QueryBuilder visitQuery(final QueryExpression e) {
-                final Optional<MetricType> source = e.getSource();
-
-                final Optional<QueryDateRange> range =
-                    e.getRange().map(expr -> expr.visit(new Expression.Visitor<QueryDateRange>() {
-                        @Override
-                        public QueryDateRange visitRange(final RangeExpression e) {
-                            final long start =
-                                e.getStart().cast(IntegerExpression.class).getValue();
-                            final long end = e.getEnd().cast(IntegerExpression.class).getValue();
-
-                            return new QueryDateRange.Absolute(start, end);
-                        }
-                    }));
-
-                final Optional<Aggregation> aggregation =
-                    e.getSelect().map(expr -> expr.visit(new Expression.Visitor<Aggregation>() {
-                        @Override
-                        public Aggregation visitFunction(final FunctionExpression e) {
-                            return aggregations.build(e.getName(), e.getArguments(),
-                                e.getKeywords());
-                        }
-
-                        @Override
-                        public Aggregation visitString(final StringExpression e) {
-                            return visitFunction(e.cast(FunctionExpression.class));
-                        }
-                    }));
-
-                final Optional<Filter> filter = e.getFilter();
-
-                return newQuery()
-                    .source(source)
-                    .range(range)
-                    .aggregation(aggregation)
-                    .filter(filter);
-            }
-        });
-    }
-
     @RequiredArgsConstructor
     public class Group implements QueryManager.Group {
         private final List<ClusterShard> shards;
 
         @Override
         public AsyncFuture<QueryResult> query(Query q) {
-            final List<AsyncFuture<QueryResultPart>> futures = new ArrayList<>();
+            final Map<ReferenceExpression, Expression> variables = new HashMap<>();
+            final List<Expression> others = new ArrayList<>();
 
-            final MetricType source = q.getSource().orElse(MetricType.POINT);
+            q.getExpressions().ifPresent(expressions -> {
+                expressions.forEach(e -> {
+                    e.visit(new Expression.Visitor<Void>() {
+                        @Override
+                        public Void visitLet(final LetExpression e) {
+                            variables.put(e.getReference(), e.getExpression());
+                            return null;
+                        }
+
+                        @Override
+                        public Void defaultAction(final Expression e) {
+                            others.add(e);
+                            return null;
+                        }
+                    });
+                });
+            });
+
+            final ExpressionScope scope = new ExpressionScope(variables);
+
+            if (others.size() > 1) {
+                throw new IllegalArgumentException("Only one expression allowed");
+            }
+
+            final Optional<QueryExpression> queryExpression =
+                others.stream().findFirst().map(resolveQueryExpression(scope));
+
+            final MetricType source = queryExpression
+                .flatMap(QueryExpression::getSource)
+                .orElseGet(() -> q.getSource().orElse(MetricType.POINT));
+
+            final Aggregation aggregation = queryExpression
+                .flatMap(this::queryExpressionToAggregation)
+                .orElseGet(() -> q.getAggregation().orElse(Empty.INSTANCE));
+
+            final QueryDateRange range = queryExpression
+                .flatMap(this::queryExpressionToRange)
+                .orElseGet(() -> q
+                    .getRange()
+                    .orElseThrow(() -> new IllegalArgumentException("range must be present")));
+
+            final Filter filter =
+                queryExpression.flatMap(QueryExpression::getFilter).orElseGet(TrueFilter::get);
 
             final QueryOptions options = q.getOptions().orElseGet(QueryOptions::defaults);
-            final Aggregation aggregation = q.getAggregation().orElse(Empty.INSTANCE);
-            final DateRange rawRange = buildRange(q);
-
+            final Features features = CoreQueryManager.this.features.combine(q.getFeatures());
             final long now = System.currentTimeMillis();
 
-            final Filter filter = q.getFilter().orElseGet(TrueFilter::get);
+            return query(source, aggregation, filter, range, options, features, now, scope);
+        }
 
+        private Function<Expression, QueryExpression> resolveQueryExpression(
+            final ExpressionScope scope
+        ) {
+            return expr -> expr.visit(new Expression.Visitor<QueryExpression>() {
+                @Override
+                public QueryExpression visitQuery(final QueryExpression e) {
+                    return e;
+                }
+
+                @Override
+                public QueryExpression visitReference(final ReferenceExpression e) {
+                    return scope.lookup(e).visit(this);
+                }
+            });
+        }
+
+        private Optional<QueryDateRange> queryExpressionToRange(QueryExpression expr) {
+            return expr.getRange().map(e -> {
+                final long start = e.getStart().cast(IntegerExpression.class).getValue();
+                final long end = e.getEnd().cast(IntegerExpression.class).getValue();
+
+                return new QueryDateRange.Absolute(start, end);
+            });
+        }
+
+        private Optional<Aggregation> queryExpressionToAggregation(QueryExpression expr) {
+            return expr.getSelect().map(e -> e.visit(new Expression.Visitor<Aggregation>() {
+                @Override
+                public Aggregation visitFunction(final FunctionExpression e) {
+                    return aggregations.build(e.getName(), e.getArguments(), e.getKeywords());
+                }
+
+                @Override
+                public Aggregation visitString(final StringExpression e) {
+                    return visitFunction(e.cast(FunctionExpression.class));
+                }
+            }));
+        }
+
+        private AsyncFuture<QueryResult> query(
+            final MetricType source, final Aggregation aggregation, final Filter filter,
+            final QueryDateRange queryDateRange, final QueryOptions options,
+            final Features features, final long now, final ExpressionScope scope
+        ) {
+            final DateRange range = queryDateRange.buildDateRange(now);
             final AggregationContext context =
-                new DefaultAggregationContext(cadenceFromRange(rawRange));
+                new DefaultAggregationContext(cadenceFromRange(range));
             final AggregationInstance root = aggregation.apply(context);
 
             final AggregationInstance aggregationInstance;
 
-            final Features features = CoreQueryManager.this.features.combine(q.getFeatures());
-
-            boolean isDistributed = features.hasFeature(Feature.DISTRIBUTED_AGGREGATIONS);
-
-            if (isDistributed) {
+            if (features.hasFeature(Feature.DISTRIBUTED_AGGREGATIONS)) {
                 aggregationInstance = root.distributed();
             } else {
                 aggregationInstance = root;
             }
 
-            final DateRange range = features.withFeature(Feature.SHIFT_RANGE,
-                () -> buildShiftedRange(rawRange, aggregationInstance.cadence(), now),
-                () -> rawRange);
+            final DateRange shiftedRange = features.withFeature(Feature.SHIFT_RANGE,
+                () -> buildShiftedRange(range, aggregationInstance.cadence(), now), () -> range);
+
+            final FullQuery.Request request =
+                new FullQuery.Request(source, filter, shiftedRange, aggregationInstance, options);
 
             final AggregationCombiner combiner;
 
-            if (isDistributed) {
-                combiner = new DistributedAggregationCombiner(root.reducer(), range);
+            if (features.hasFeature(Feature.DISTRIBUTED_AGGREGATIONS)) {
+                combiner = new DistributedAggregationCombiner(root.reducer(), shiftedRange);
             } else {
                 combiner = AggregationCombiner.DEFAULT;
             }
 
-            final FullQuery.Request request =
-                new FullQuery.Request(source, filter, range, aggregationInstance, options);
+            return runDistributed(request, combiner);
+        }
 
+        private AsyncFuture<QueryResult> runDistributed(
+            final FullQuery.Request request, final AggregationCombiner combiner
+        ) {
             return queryCache.load(request, () -> {
+                final List<AsyncFuture<QueryResultPart>> futures = new ArrayList<>();
+
                 for (final ClusterShard shard : shards) {
                     final AsyncFuture<QueryResultPart> queryPart = shard
                         .apply(g -> g.query(request))
@@ -234,10 +275,10 @@ public class CoreQueryManager implements QueryManager {
                     futures.add(queryPart);
                 }
 
-                final OptionalLimit limit = options.getGroupLimit().orElse(groupLimit);
+                final OptionalLimit limit = request.getOptions().getGroupLimit().orElse(groupLimit);
 
                 return async.collect(futures,
-                    QueryResult.collectParts(QUERY, range, combiner, limit));
+                    QueryResult.collectParts(QUERY, request.getRange(), combiner, limit));
             });
         }
 
@@ -328,15 +369,6 @@ public class CoreQueryManager implements QueryManager {
             }
 
             return async.collect(futures, collector);
-        }
-
-        private DateRange buildRange(Query q) {
-            final long now = System.currentTimeMillis();
-
-            return q
-                .getRange()
-                .map(r -> r.buildDateRange(now))
-                .orElseThrow(() -> new QueryStateException("Range must be present"));
         }
     }
 

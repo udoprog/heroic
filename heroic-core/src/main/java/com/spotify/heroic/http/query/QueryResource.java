@@ -26,6 +26,8 @@ import com.spotify.heroic.Query;
 import com.spotify.heroic.QueryBuilder;
 import com.spotify.heroic.QueryManager;
 import com.spotify.heroic.common.JavaxRestFramework;
+import com.spotify.heroic.grammar.Expression;
+import com.spotify.heroic.grammar.QueryParser;
 import com.spotify.heroic.metric.QueryResult;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
@@ -55,12 +57,16 @@ import java.util.function.Supplier;
 public class QueryResource {
     private final JavaxRestFramework httpAsync;
     private final QueryManager query;
+    private final QueryParser parser;
     private final AsyncFramework async;
 
     @Inject
-    public QueryResource(JavaxRestFramework httpAsync, QueryManager query, AsyncFramework async) {
+    public QueryResource(
+        JavaxRestFramework httpAsync, QueryManager query, QueryParser parser, AsyncFramework async
+    ) {
         this.httpAsync = httpAsync;
         this.query = query;
+        this.parser = parser;
         this.async = async;
     }
 
@@ -70,10 +76,11 @@ public class QueryResource {
     public void metricsText(
         @Suspended final AsyncResponse response, @QueryParam("group") String group, String query
     ) {
-        final Query q = this.query.newQueryFromString(query).build();
+        final List<Expression> expressions = parser.parse(query);
 
         final QueryManager.Group g = this.query.useOptionalGroup(Optional.ofNullable(group));
-        final AsyncFuture<QueryResult> callback = g.query(q);
+        final AsyncFuture<QueryResult> callback =
+            g.query(new QueryBuilder().expressions(expressions).build());
 
         bindMetricsResponse(response, callback);
     }
@@ -155,7 +162,7 @@ public class QueryResource {
 
         return q
             .getQuery()
-            .map(query::newQueryFromString)
+            .map(s -> new QueryBuilder().expressions(parser.parse(s)))
             .orElseGet(supplier)
             .rangeIfAbsent(q.getRange())
             .optionsIfAbsent(q.getOptions())

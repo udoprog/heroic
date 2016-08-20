@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.spotify.heroic.aggregation.AggregationInstance;
 import com.spotify.heroic.aggregation.AggregationOutput;
+import com.spotify.heroic.aggregation.AggregationScope;
 import com.spotify.heroic.aggregation.AggregationSession;
 import com.spotify.heroic.aggregation.ChainInstance;
 import com.spotify.heroic.aggregation.EmptyInstance;
@@ -12,6 +13,7 @@ import com.spotify.heroic.aggregation.GroupInstance;
 import com.spotify.heroic.aggregation.GroupingAggregation;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
+import com.spotify.heroic.grammar.ExpressionScope;
 import com.spotify.heroic.metric.Point;
 import org.junit.Assert;
 import org.junit.Test;
@@ -67,5 +69,10 @@ public class FilterKThresholdAggregationTest {
         } else {
             Assert.fail("unexpected group: " + first.getKey());
         }
+    }
+
+    private AggregationScope buildScope(final DateRange dateRange) {
+        return new AggregationScope(dateRange, ExpressionScope.empty(),
+            AggregationScope.NO_QUERY_FUNCTION);
     }
 }

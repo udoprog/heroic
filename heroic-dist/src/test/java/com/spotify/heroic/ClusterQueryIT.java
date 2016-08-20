@@ -7,6 +7,7 @@ import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.QueryResult;
 import com.spotify.heroic.metric.ShardedResultGroup;
 import eu.toolchain.async.AsyncFuture;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -96,6 +97,25 @@ public class ClusterQueryIT extends AbstractLocalClusterIT {
             .collect(Collectors.toSet());
 
         assertEquals(ImmutableSet.of(points().p(10, 2D).p(20, 1D).p(30, 1D).p(40, 0D).build()), m);
+    }
+
+    @Test
+    public void testComplexQuery() throws Exception {
+        final StringBuilder query = new StringBuilder();
+
+        query.append("let $a = sum($c);");
+        query.append("let $b = sum(10ms);");
+        query.append("$a - $b");
+
+        final QueryResult result = query(query.toString());
+
+        final Set<MetricCollection> m = result
+            .getGroups()
+            .stream()
+            .map(ShardedResultGroup::getMetrics)
+            .collect(Collectors.toSet());
+
+        assertEquals(ImmutableSet.of(points().p(10, 0D).p(20, 0D).p(30, 0D).p(40, 0D).build()), m);
     }
 
     @Override

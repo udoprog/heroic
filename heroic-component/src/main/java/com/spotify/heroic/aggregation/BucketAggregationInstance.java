@@ -222,7 +222,7 @@ public abstract class BucketAggregationInstance<B extends Bucket> implements Agg
     }
 
     @Override
-    public AggregationSession session(DateRange range) {
+    public AggregationSession session(final DateRange range) {
         final List<B> buckets = buildBuckets(range, size);
         return new Session(buckets, range.start());
     }

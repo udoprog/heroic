@@ -43,10 +43,8 @@ import java.util.List;
 public interface QueryManager extends UsableGroupManager<QueryManager.Group> {
     QueryBuilder newQuery();
 
-    QueryBuilder newQueryFromString(String query);
-
     interface Group {
-        AsyncFuture<QueryResult> query(Query query);
+        AsyncFuture<QueryResult> query(final Query query);
 
         AsyncFuture<FindTags> findTags(final FindTags.Request request);
 

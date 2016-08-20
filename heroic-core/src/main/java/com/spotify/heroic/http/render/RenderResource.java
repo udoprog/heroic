@@ -22,8 +22,9 @@
 package com.spotify.heroic.http.render;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.spotify.heroic.Query;
+import com.spotify.heroic.QueryBuilder;
 import com.spotify.heroic.QueryManager;
+import com.spotify.heroic.grammar.QueryParser;
 import com.spotify.heroic.metric.QueryResult;
 import org.jfree.chart.JFreeChart;
 
@@ -48,13 +49,16 @@ public class RenderResource {
 
     private final ObjectMapper mapper;
     private final QueryManager query;
+    private final QueryParser parser;
 
     @Inject
     public RenderResource(
-        @Named(MediaType.APPLICATION_JSON) ObjectMapper mapper, QueryManager query
+        @Named(MediaType.APPLICATION_JSON) ObjectMapper mapper, QueryManager query,
+        QueryParser parser
     ) {
         this.mapper = mapper;
         this.query = query;
+        this.parser = parser;
     }
 
     @SuppressWarnings("unchecked")
@@ -87,9 +91,10 @@ public class RenderResource {
             highlight = null;
         }
 
-        final Query q = query.newQueryFromString(queryString).build();
-
-        final QueryResult result = this.query.useGroup(backendGroup).query(q).get();
+        final QueryResult result = this.query
+            .useGroup(backendGroup)
+            .query(new QueryBuilder().expressions(parser.parse(queryString)).build())
+            .get();
 
         final JFreeChart chart =
             RenderUtils.createChart(result.getGroups(), title, highlight, threshold, height);

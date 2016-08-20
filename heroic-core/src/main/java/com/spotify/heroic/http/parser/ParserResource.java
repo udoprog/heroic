@@ -58,7 +58,7 @@ public class ParserResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Path("parse-query")
     public Response parseQuery(String queryString) {
-        return Response.ok(query.newQueryFromString(queryString).build()).build();
+        return Response.ok(parser.parse(queryString)).build();
     }
 
     @POST

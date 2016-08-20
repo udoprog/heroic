@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
+import com.spotify.heroic.grammar.ExpressionScope;
 import com.spotify.heroic.metric.Point;
 import org.junit.Assert;
 import org.junit.Test;
@@ -98,6 +99,11 @@ public class GroupingAggregationTest {
 
             Assert.fail("unexpected group: " + data.getKey());
         }
+    }
+
+    private AggregationScope setupScope(final DateRange range) {
+        return new AggregationScope(range, ExpressionScope.empty(),
+            AggregationScope.NO_QUERY_FUNCTION);
     }
 
     /**

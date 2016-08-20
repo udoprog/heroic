@@ -27,6 +27,7 @@ import com.spotify.heroic.filter.AndFilter;
 import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.filter.MatchKeyFilter;
 import com.spotify.heroic.filter.MatchTagFilter;
+import com.spotify.heroic.grammar.Expression;
 import com.spotify.heroic.metric.MetricType;
 import lombok.RequiredArgsConstructor;
 
@@ -49,6 +50,7 @@ public class QueryBuilder {
     private Optional<Aggregation> aggregation = Optional.empty();
     private Optional<QueryOptions> options = Optional.empty();
     private Optional<Features> features = Optional.empty();
+    private Optional<List<Expression>> expressions = Optional.empty();
 
     /**
      * Specify a set of tags that has to match.
@@ -146,9 +148,14 @@ public class QueryBuilder {
         return this;
     }
 
+    public QueryBuilder expressions(final List<Expression> expressions) {
+        this.expressions = Optional.of(expressions);
+        return this;
+    }
+
     public Query build() {
         return new Query(Optional.empty(), aggregation, source, range, legacyFilter(), options,
-            groupBy, features);
+            groupBy, features, expressions);
     }
 
     /**
