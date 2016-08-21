@@ -19,22 +19,19 @@
  * under the License.
  */
 
-package com.spotify.heroic.aggregation.simple;
+package com.spotify.heroic.aggregation;
 
-import com.spotify.heroic.aggregation.AggregationContext;
-import com.spotify.heroic.aggregation.AggregationResult;
-import com.spotify.heroic.aggregation.AggregationScope;
-import com.spotify.heroic.aggregation.CompoundAggregation;
-import com.spotify.heroic.aggregation.CompoundAggregationInstance;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.spotify.heroic.grammar.Expression;
 import com.spotify.heroic.grammar.QueryExpression;
 import eu.toolchain.async.AsyncFuture;
 import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 public class Single implements CompoundAggregation {
     private final Expression expression;
 
-    public Single(final QueryExpression expression) {
+    public Single(final @JsonProperty("expression") QueryExpression expression) {
         this.expression = expression;
     }
 

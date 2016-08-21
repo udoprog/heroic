@@ -21,12 +21,15 @@
 
 package com.spotify.heroic;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.spotify.heroic.aggregation.Aggregation;
 import com.spotify.heroic.aggregation.AggregationCombiner;
 import com.spotify.heroic.aggregation.AggregationContext;
 import com.spotify.heroic.aggregation.AggregationFactory;
 import com.spotify.heroic.aggregation.AggregationInstance;
+import com.spotify.heroic.aggregation.CompoundAggregation;
 import com.spotify.heroic.aggregation.DefaultAggregationContext;
 import com.spotify.heroic.aggregation.DistributedAggregationCombiner;
 import com.spotify.heroic.aggregation.Empty;
@@ -46,6 +49,7 @@ import com.spotify.heroic.grammar.ExpressionScope;
 import com.spotify.heroic.grammar.FunctionExpression;
 import com.spotify.heroic.grammar.IntegerExpression;
 import com.spotify.heroic.grammar.LetExpression;
+import com.spotify.heroic.grammar.PlusExpression;
 import com.spotify.heroic.grammar.QueryExpression;
 import com.spotify.heroic.grammar.QueryParser;
 import com.spotify.heroic.grammar.ReferenceExpression;
@@ -166,7 +170,7 @@ public class CoreQueryManager implements QueryManager {
                 .flatMap(QueryExpression::getSource)
                 .orElseGet(() -> q.getSource().orElse(MetricType.POINT));
 
-            final Aggregation aggregation = queryExpression
+            final CompoundAggregation aggregation = queryExpression
                 .flatMap(this::queryExpressionToAggregation)
                 .orElseGet(() -> q.getAggregation().orElse(Empty.INSTANCE));
 
@@ -211,15 +215,24 @@ public class CoreQueryManager implements QueryManager {
             });
         }
 
-        private Optional<Aggregation> queryExpressionToAggregation(QueryExpression expr) {
-            return expr.getSelect().map(e -> e.visit(new Expression.Visitor<Aggregation>() {
+        private Optional<FunctionExpression> queryExpressionToAggregation(
+            final QueryExpression expr
+        ) {
+            return expr.getSelect().map(e -> e.visit(new Expression.Visitor<FunctionExpression>() {
                 @Override
-                public Aggregation visitFunction(final FunctionExpression e) {
-                    return aggregations.build(e.getName(), e.getArguments(), e.getKeywords());
+                public FunctionExpression visitPlus(final PlusExpression e) {
+                    return new FunctionExpression(e.getContext(), "plus",
+                        ImmutableList.of(e.getLeft(), e.getRight()), ImmutableMap.of());
                 }
 
                 @Override
-                public Aggregation visitString(final StringExpression e) {
+                public FunctionExpression visitFunction(final FunctionExpression e) {
+                    return new FunctionExpression(e.getContext(), "single", ImmutableList.of(e),
+                        ImmutableMap.of());
+                }
+
+                @Override
+                public FunctionExpression visitString(final StringExpression e) {
                     return visitFunction(e.cast(FunctionExpression.class));
                 }
             }));
