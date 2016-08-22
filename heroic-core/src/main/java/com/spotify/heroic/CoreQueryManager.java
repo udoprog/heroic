@@ -29,7 +29,6 @@ import com.spotify.heroic.aggregation.AggregationCombiner;
 import com.spotify.heroic.aggregation.AggregationContext;
 import com.spotify.heroic.aggregation.AggregationFactory;
 import com.spotify.heroic.aggregation.AggregationInstance;
-import com.spotify.heroic.aggregation.CompoundAggregation;
 import com.spotify.heroic.aggregation.DefaultAggregationContext;
 import com.spotify.heroic.aggregation.DistributedAggregationCombiner;
 import com.spotify.heroic.aggregation.Empty;
@@ -170,8 +169,9 @@ public class CoreQueryManager implements QueryManager {
                 .flatMap(QueryExpression::getSource)
                 .orElseGet(() -> q.getSource().orElse(MetricType.POINT));
 
-            final CompoundAggregation aggregation = queryExpression
+            final Aggregation aggregation = queryExpression
                 .flatMap(this::queryExpressionToAggregation)
+                .map(f -> aggregations.build(f.getName(), f.getArguments(), f.getKeywords()))
                 .orElseGet(() -> q.getAggregation().orElse(Empty.INSTANCE));
 
             final QueryDateRange range = queryExpression

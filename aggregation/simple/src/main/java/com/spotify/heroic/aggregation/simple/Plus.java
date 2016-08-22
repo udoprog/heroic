@@ -22,16 +22,16 @@
 package com.spotify.heroic.aggregation.simple;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.spotify.heroic.aggregation.Aggregation;
 import com.spotify.heroic.aggregation.AggregationContext;
+import com.spotify.heroic.aggregation.AggregationInstance;
 import com.spotify.heroic.aggregation.AggregationResult;
 import com.spotify.heroic.aggregation.AggregationScope;
-import com.spotify.heroic.aggregation.CompoundAggregation;
-import com.spotify.heroic.aggregation.CompoundAggregationInstance;
 import com.spotify.heroic.grammar.Expression;
 import eu.toolchain.async.AsyncFuture;
 import lombok.RequiredArgsConstructor;
 
-public class Plus implements CompoundAggregation {
+public class Plus implements Aggregation {
     private final Expression left;
     private final Expression right;
 
@@ -43,12 +43,12 @@ public class Plus implements CompoundAggregation {
     }
 
     @Override
-    public CompoundAggregationInstance apply(final AggregationContext aggregationContext) {
+    public AggregationInstance apply(final AggregationContext aggregationContext) {
         return new PlusInstance(left, right);
     }
 
     @RequiredArgsConstructor
-    public static class PlusInstance implements CompoundAggregationInstance {
+    public static class PlusInstance implements AggregationInstance {
         private final Expression left;
         private final Expression right;
 
@@ -58,6 +58,11 @@ public class Plus implements CompoundAggregation {
             final AsyncFuture<AggregationResult> right = scope.runQuery(this.right);
 
             return left;
+        }
+
+        @Override
+        public boolean distributable() {
+            return false;
         }
     }
 }
