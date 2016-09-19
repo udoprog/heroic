@@ -27,12 +27,10 @@ import lombok.Data;
 import java.util.concurrent.TimeUnit;
 
 /**
- * int's are represented internally as longs.
- *
- * @author udoprog
+ * Floating point number expressions.
  */
 @Data
-@JsonTypeName("double")
+@JsonTypeName("float")
 public final class DoubleExpression implements Expression {
     private final Context context;
     private final double value;
