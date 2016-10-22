@@ -29,6 +29,7 @@ import com.spotify.heroic.async.AsyncObserver;
 import com.spotify.heroic.dagger.CoreComponent;
 import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.grammar.QueryParser;
+import com.spotify.heroic.ingestion.WriteOptions;
 import com.spotify.heroic.metric.BackendKey;
 import com.spotify.heroic.metric.BackendKeyFilter;
 import com.spotify.heroic.metric.BackendKeySet;
@@ -303,8 +304,10 @@ public class DataMigrate implements ShellTask {
             if (n % LINES == 0) {
                 synchronized (io) {
                     try {
-                        io.out().println(" failedKeys: " + failedKeys.get() + ", last: " +
-                            mapper.writeValueAsString(key));
+                        io
+                            .out()
+                            .println(" failedKeys: " + failedKeys.get() + ", last: " +
+                                mapper.writeValueAsString(key));
                     } catch (JsonProcessingException e) {
                         throw new RuntimeException(e);
                     }
@@ -336,7 +339,7 @@ public class DataMigrate implements ShellTask {
             }
 
             final AsyncFuture<Void> write = to
-                .write(new WriteMetric.Request(key.getSeries(), value))
+                .write(new WriteMetric.Request(WriteOptions.defaults(), key.getSeries(), value))
                 .directTransform(v -> null);
 
             future.bind(write);

@@ -120,7 +120,7 @@ public class CoreIngestionGroup implements IngestionGroup {
         final MetricBackend metric, final Ingestion.Request write
     ) {
         return metric
-            .write(new WriteMetric.Request(write.getSeries(), write.getData()))
+            .write(new WriteMetric.Request(write.getOptions(), write.getSeries(), write.getData()))
             .directTransform(Ingestion::fromWriteMetric);
     }
 
@@ -128,7 +128,7 @@ public class CoreIngestionGroup implements IngestionGroup {
         final MetadataBackend metadata, final Ingestion.Request write, final DateRange range
     ) {
         return metadata
-            .write(new WriteMetadata.Request(write.getSeries(), range))
+            .write(new WriteMetadata.Request(write.getOptions(), write.getSeries(), range))
             .directTransform(Ingestion::fromWriteMetadata);
     }
 
@@ -136,7 +136,7 @@ public class CoreIngestionGroup implements IngestionGroup {
         final SuggestBackend suggest, final Ingestion.Request write, final DateRange range
     ) {
         return suggest
-            .write(new WriteSuggest.Request(write.getSeries(), range))
+            .write(new WriteSuggest.Request(write.getOptions(), write.getSeries(), range))
             .directTransform(Ingestion::fromWriteSuggest);
     }
 

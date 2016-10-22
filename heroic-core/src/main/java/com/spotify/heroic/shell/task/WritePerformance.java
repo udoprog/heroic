@@ -29,6 +29,7 @@ import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.dagger.CoreComponent;
+import com.spotify.heroic.ingestion.WriteOptions;
 import com.spotify.heroic.metric.FetchData;
 import com.spotify.heroic.metric.MetricBackend;
 import com.spotify.heroic.metric.MetricBackendGroup;
@@ -107,7 +108,7 @@ public class WritePerformance implements ShellTask {
                         ImmutableList.builder();
 
                     for (final MetricCollection group : result.getGroups()) {
-                        writes.add(new WriteMetric.Request(s, group));
+                        writes.add(new WriteMetric.Request(WriteOptions.defaults(), s, group));
                     }
 
                     return writes.build();
@@ -344,8 +345,7 @@ public class WritePerformance implements ShellTask {
     @ToString
     public static class Parameters extends AbstractShellTaskParams {
         @Option(name = "--limit",
-            usage = "Maximum number of datapoints to fetch (default: 1000000)",
-            metaVar = "<int>")
+            usage = "Maximum number of datapoints to fetch (default: 1000000)", metaVar = "<int>")
         private int limit = 1000000;
 
         @Option(name = "--series", required = true, usage = "Number of different series to write",

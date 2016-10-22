@@ -31,6 +31,7 @@ import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.GroupMember;
 import com.spotify.heroic.common.Series;
+import com.spotify.heroic.ingestion.WriteOptions;
 import com.spotify.heroic.metric.FetchData;
 import com.spotify.heroic.metric.FetchQuotaWatcher;
 import com.spotify.heroic.metric.MetricBackend;
@@ -113,7 +114,7 @@ public abstract class AbstractMetricBackendIT {
 
         // write and read data back
         final MetricCollection points = Data.points().p(100000L, 42D).build();
-        backend.write(new WriteMetric.Request(s1, points)).get();
+        backend.write(new WriteMetric.Request(WriteOptions.defaults(), s1, points)).get();
         FetchData data = backend
             .fetch(new FetchData.Request(MetricType.POINT, s1, new DateRange(10000L, 200000L),
                 QueryOptions.builder().build()), FetchQuotaWatcher.NO_QUOTA)

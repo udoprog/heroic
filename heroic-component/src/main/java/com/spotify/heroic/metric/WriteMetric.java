@@ -24,6 +24,7 @@ package com.spotify.heroic.metric;
 import com.google.common.collect.ImmutableList;
 import com.spotify.heroic.cluster.ClusterShard;
 import com.spotify.heroic.common.Series;
+import com.spotify.heroic.ingestion.WriteOptions;
 import eu.toolchain.async.Collector;
 import eu.toolchain.async.Transform;
 import lombok.Data;
@@ -65,7 +66,8 @@ public class WriteMetric {
 
     @Data
     public static class Request {
-        final Series series;
-        final MetricCollection data;
+        private final WriteOptions options;
+        private final Series series;
+        private final MetricCollection data;
     }
 }

@@ -36,6 +36,7 @@ import com.spotify.heroic.filter.FalseFilter;
 import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.filter.MatchKeyFilter;
 import com.spotify.heroic.filter.TrueFilter;
+import com.spotify.heroic.ingestion.WriteOptions;
 import com.spotify.heroic.metadata.CountSeries;
 import com.spotify.heroic.metadata.DeleteSeries;
 import com.spotify.heroic.metadata.FindKeys;
@@ -266,7 +267,7 @@ public abstract class AbstractMetadataBackendIT {
             new FindSeries.Request(new MatchKeyFilter(s.getKey()), range, OptionalLimit.empty());
 
         return metadata
-            .write(new WriteMetadata.Request(s, range))
+            .write(new WriteMetadata.Request(WriteOptions.defaults(), s, range))
             .lazyTransform(v -> async
                 .retryUntilResolved(() -> metadata.findSeries(f).directTransform(result -> {
                     if (!result.getSeries().contains(s)) {

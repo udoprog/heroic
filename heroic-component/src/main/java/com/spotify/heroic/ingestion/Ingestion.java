@@ -126,6 +126,7 @@ public class Ingestion {
      */
     @Data
     public static class Request {
+        private final WriteOptions options;
         private final Series series;
         private final MetricCollection data;
 

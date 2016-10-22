@@ -27,10 +27,10 @@ import lombok.Data;
 import java.util.Optional;
 
 @Data
-public class IngestionOptions {
+public class WriteOptions {
     public static final boolean DEFAULT_TRACING = false;
 
-    public static IngestionOptions DEFAULTS = builder().build();
+    public static final WriteOptions DEFAULTS = builder().build();
 
     /**
      * Indicates if tracing is enabled.
@@ -40,7 +40,7 @@ public class IngestionOptions {
      */
     private final boolean tracing;
 
-    public static IngestionOptions defaults() {
+    public static WriteOptions defaults() {
         return DEFAULTS;
     }
 
@@ -60,9 +60,9 @@ public class IngestionOptions {
             return this;
         }
 
-        public IngestionOptions build() {
+        public WriteOptions build() {
             final boolean tracing = this.tracing.orElse(DEFAULT_TRACING);
-            return new IngestionOptions(tracing);
+            return new WriteOptions(tracing);
         }
     }
 }

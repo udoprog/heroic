@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.spotify.heroic.cluster.ClusterShard;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
+import com.spotify.heroic.ingestion.WriteOptions;
 import com.spotify.heroic.metric.QueryTrace;
 import com.spotify.heroic.metric.RequestError;
 import com.spotify.heroic.metric.ShardError;
@@ -68,6 +69,7 @@ public class WriteMetadata {
 
     @Data
     public static class Request {
+        private final WriteOptions options;
         private final Series series;
         private final DateRange range;
     }

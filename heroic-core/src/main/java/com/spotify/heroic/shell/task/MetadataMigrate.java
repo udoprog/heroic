@@ -27,6 +27,7 @@ import com.spotify.heroic.common.Series;
 import com.spotify.heroic.dagger.CoreComponent;
 import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.grammar.QueryParser;
+import com.spotify.heroic.ingestion.WriteOptions;
 import com.spotify.heroic.metadata.CountSeries;
 import com.spotify.heroic.metadata.Entries;
 import com.spotify.heroic.metadata.MetadataBackend;
@@ -122,7 +123,8 @@ public class MetadataMigrate implements ShellTask {
                                 io.out().flush();
                             }
 
-                            target.write(new WriteMetadata.Request(s, params.getRange()));
+                            target.write(new WriteMetadata.Request(WriteOptions.defaults(), s,
+                                params.getRange()));
                         }
 
                         return async.resolved();
