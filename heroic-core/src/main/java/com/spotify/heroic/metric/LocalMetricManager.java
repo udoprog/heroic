@@ -66,6 +66,8 @@ import java.util.function.Function;
 @ToString(of = {})
 @MetricScope
 public class LocalMetricManager implements MetricManager {
+    private static final QueryTrace.Identifier WRITE =
+        QueryTrace.identifier(LocalMetricManager.class, "write");
     private static final QueryTrace.Identifier QUERY =
         QueryTrace.identifier(LocalMetricManager.class, "query");
     private static final QueryTrace.Identifier FETCH =
@@ -281,7 +283,8 @@ public class LocalMetricManager implements MetricManager {
 
         @Override
         public AsyncFuture<WriteMetric> write(final WriteMetric.Request write) {
-            return async.collect(map(b -> b.write(write)), WriteMetric.reduce());
+            final QueryTrace.NamedWatch w = QueryTrace.watch(WRITE);
+            return async.collect(map(b -> b.write(write)), WriteMetric.reduce(w));
         }
 
         @Override

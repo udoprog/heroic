@@ -10,6 +10,7 @@ import com.spotify.heroic.statistics.IngestionManagerReporter;
 import com.spotify.heroic.suggest.SuggestBackend;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
+import eu.toolchain.async.Collector;
 import eu.toolchain.async.FutureFinished;
 import org.junit.Before;
 import org.junit.Test;
@@ -27,6 +28,7 @@ import static java.util.Optional.empty;
 import static java.util.Optional.of;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
@@ -193,6 +195,7 @@ public class CoreIngestionGroupTest {
         verify(other, never()).onFinished(any(FutureFinished.class));
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     public void testDoWrite() {
         final CoreIngestionGroup group = setupIngestionGroup(of(metric), of(metadata), of(suggest));
@@ -200,7 +203,7 @@ public class CoreIngestionGroupTest {
         final List<AsyncFuture<Ingestion>> futures = ImmutableList.of(other, other, other);
 
         doReturn(rangeSupplier).when(group).rangeSupplier(request);
-        doReturn(expected).when(async).collect(futures, Ingestion.reduce());
+        doReturn(expected).when(async).collect(eq(futures), any(Collector.class));
 
         doReturn(other).when(group).doMetricWrite(metric, request);
         doReturn(other).when(group).doMetadataWrite(metadata, request, range);
@@ -215,6 +218,7 @@ public class CoreIngestionGroupTest {
         verify(rangeSupplier, times(2)).get();
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     public void testDoWriteSome() {
         final CoreIngestionGroup group = setupIngestionGroup(of(metric), empty(), of(suggest));
@@ -222,7 +226,7 @@ public class CoreIngestionGroupTest {
         final List<AsyncFuture<Ingestion>> futures = ImmutableList.of(other, other);
 
         doReturn(rangeSupplier).when(group).rangeSupplier(request);
-        doReturn(expected).when(async).collect(futures, Ingestion.reduce());
+        doReturn(expected).when(async).collect(eq(futures), any(Collector.class));
 
         doReturn(other).when(group).doMetricWrite(metric, request);
         doReturn(other).when(group).doMetadataWrite(metadata, request, range);

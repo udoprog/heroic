@@ -48,6 +48,7 @@ import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.QueryError;
 import com.spotify.heroic.metric.QueryTrace;
+import com.spotify.heroic.metric.RequestError;
 import com.spotify.heroic.metric.WriteMetric;
 import com.spotify.heroic.metric.datastax.schema.Schema;
 import com.spotify.heroic.metric.datastax.schema.Schema.PreparedFetch;
@@ -83,6 +84,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * MetricBackend for Heroic cassandra datastore.
@@ -91,6 +94,8 @@ import java.util.function.Function;
 @Slf4j
 @ToString(of = {"connection"})
 public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles {
+    public static final QueryTrace.Identifier WRITE =
+        QueryTrace.identifier(DatastaxBackend.class, "write");
     public static final QueryTrace.Identifier FETCH_SEGMENT =
         QueryTrace.identifier(DatastaxBackend.class, "fetch_segment");
     public static final QueryTrace.Identifier FETCH =
@@ -401,7 +406,7 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
         final Connection c, final SchemaInstance.WriteSession session,
         final WriteMetric.Request request
     ) throws IOException {
-        final List<Callable<AsyncFuture<Long>>> callables = new ArrayList<>();
+        final List<Callable<AsyncFuture<Void>>> callables = new ArrayList<>();
 
         final MetricCollection g = request.getData();
 
@@ -410,24 +415,27 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
                 final BoundStatement stmt = session.writePoint(request.getSeries(), d);
 
                 callables.add(() -> {
-                    final long start = System.nanoTime();
                     return Async
                         .bind(async, c.session.executeAsync(stmt))
-                        .directTransform((r) -> System.nanoTime() - start);
+                        .directTransform(r -> null);
                 });
             }
         }
 
-        return async.eventuallyCollect(callables, new StreamCollector<Long, WriteMetric>() {
-            final ConcurrentLinkedQueue<Long> q = new ConcurrentLinkedQueue<Long>();
+        /* we used to instru */
+        final QueryTrace.NamedWatch watch = QueryTrace.watch(WRITE);
+
+        return async.eventuallyCollect(callables, new StreamCollector<Void, WriteMetric>() {
+            final ConcurrentLinkedQueue<Throwable> errors = new ConcurrentLinkedQueue<>();
 
             @Override
-            public void resolved(Long result) throws Exception {
-                q.add(result);
+            public void resolved(final Void result) throws Exception {
+                /* do nothing */
             }
 
             @Override
             public void failed(Throwable cause) throws Exception {
+                errors.add(cause);
             }
 
             @Override
@@ -436,7 +444,20 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
 
             @Override
             public WriteMetric end(int resolved, int failed, int cancelled) throws Exception {
-                return new WriteMetric(ImmutableList.of(), ImmutableList.copyOf(q));
+                final Stream<RequestError> errorStream =
+                    this.errors.stream().map(QueryError::fromThrowable);
+
+                final Stream<RequestError> cancelledStream = Optional
+                    .of(cancelled)
+                    .filter(n -> n > 0)
+                    .map(n -> QueryError.fromMessage("Some fetches were cancelled (" + n + ")"))
+                    .map(Stream::of)
+                    .orElseGet(Stream::empty);
+
+                final List<RequestError> errors =
+                    Stream.concat(errorStream, cancelledStream).collect(Collectors.toList());
+
+                return new WriteMetric(errors, watch.end());
             }
         }, 500);
     }

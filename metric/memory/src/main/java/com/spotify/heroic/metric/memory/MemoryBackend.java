@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableList;
 import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Groups;
-import com.spotify.heroic.common.RequestTimer;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.common.Statistics;
 import com.spotify.heroic.lifecycle.LifeCycleRegistry;
@@ -58,6 +57,9 @@ import java.util.TreeMap;
  */
 @ToString(exclude = {"storage", "async", "createLock"})
 public class MemoryBackend extends AbstractMetricBackend {
+    private static final QueryTrace.Identifier WRITE =
+        QueryTrace.identifier(MemoryBackend.class, "write");
+
     public static final String MEMORY_KEYS = "memory-keys";
 
     public static final QueryTrace.Identifier FETCH =
@@ -110,9 +112,9 @@ public class MemoryBackend extends AbstractMetricBackend {
 
     @Override
     public AsyncFuture<WriteMetric> write(WriteMetric.Request request) {
-        final RequestTimer<WriteMetric> timer = WriteMetric.timer();
+        final QueryTrace.NamedWatch watch = QueryTrace.watch(WRITE);
         writeOne(request);
-        return async.resolved(timer.end());
+        return async.resolved(WriteMetric.of(watch.end()));
     }
 
     @Override

@@ -85,6 +85,10 @@ import java.util.function.Function;
 @Slf4j
 public class CoreQueryManager implements QueryManager {
     public static final long SHIFT_TOLERANCE = TimeUnit.MILLISECONDS.convert(10, TimeUnit.SECONDS);
+    public static final QueryTrace.Identifier WRITE_SERIES =
+        QueryTrace.identifier(CoreQueryManager.class, "writeSeries");
+    public static final QueryTrace.Identifier WRITE_METRIC =
+        QueryTrace.identifier(CoreQueryManager.class, "writeMetric");
     public static final QueryTrace.Identifier QUERY_NODE =
         QueryTrace.identifier(CoreQueryManager.class, "query_node");
     public static final QueryTrace.Identifier QUERY =
@@ -298,13 +302,16 @@ public class CoreQueryManager implements QueryManager {
 
         @Override
         public AsyncFuture<WriteMetadata> writeSeries(final WriteMetadata.Request request) {
-            return run(g -> g.writeSeries(request), WriteMetadata::shardError,
-                WriteMetadata.reduce());
+            final QueryTrace.NamedWatch w = QueryTrace.watch(WRITE_SERIES);
+            return run(g -> g.writeSeries(request), e -> WriteMetadata.shardError(e, w),
+                WriteMetadata.reduce(w));
         }
 
         @Override
         public AsyncFuture<WriteMetric> writeMetric(final WriteMetric.Request write) {
-            return run(g -> g.writeMetric(write), WriteMetric::shardError, WriteMetric.reduce());
+            final QueryTrace.NamedWatch w = QueryTrace.watch(WRITE_METRIC);
+            return run(g -> g.writeMetric(write), e -> WriteMetric.shardError(e, w),
+                WriteMetric.reduce(w));
         }
 
         @Override

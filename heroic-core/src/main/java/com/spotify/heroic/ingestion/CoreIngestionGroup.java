@@ -21,7 +21,6 @@
 
 package com.spotify.heroic.ingestion;
 
-import com.google.common.collect.ImmutableList;
 import com.spotify.heroic.common.Collected;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Grouped;
@@ -31,6 +30,7 @@ import com.spotify.heroic.metadata.MetadataBackend;
 import com.spotify.heroic.metadata.WriteMetadata;
 import com.spotify.heroic.metric.Metric;
 import com.spotify.heroic.metric.MetricBackend;
+import com.spotify.heroic.metric.QueryTrace;
 import com.spotify.heroic.metric.WriteMetric;
 import com.spotify.heroic.statistics.IngestionManagerReporter;
 import com.spotify.heroic.suggest.SuggestBackend;
@@ -49,6 +49,9 @@ import java.util.function.Supplier;
 
 @RequiredArgsConstructor
 public class CoreIngestionGroup implements IngestionGroup {
+    private static final QueryTrace.Identifier WRITE =
+        QueryTrace.identifier(CoreIngestionGroup.class, "write");
+
     private final AsyncFramework async;
     private final Supplier<Filter> filter;
     private final Semaphore writePermits;
@@ -82,7 +85,7 @@ public class CoreIngestionGroup implements IngestionGroup {
     protected AsyncFuture<Ingestion> syncWrite(final Ingestion.Request request) {
         if (!filter.get().apply(request.getSeries())) {
             // XXX: report dropped-by-filter
-            return async.resolved(Ingestion.of(ImmutableList.of()));
+            return async.resolved(Ingestion.of(QueryTrace.of(WRITE, 0L)));
         }
 
         try {
@@ -101,6 +104,7 @@ public class CoreIngestionGroup implements IngestionGroup {
     }
 
     protected AsyncFuture<Ingestion> doWrite(final Ingestion.Request request) {
+        final QueryTrace.NamedWatch watch = QueryTrace.watch(WRITE);
         final List<AsyncFuture<Ingestion>> futures = new ArrayList<>();
 
         final Supplier<DateRange> range = rangeSupplier(request);
@@ -109,7 +113,7 @@ public class CoreIngestionGroup implements IngestionGroup {
         metadata.map(m -> doMetadataWrite(m, request, range.get())).ifPresent(futures::add);
         suggest.map(s -> doSuggestWrite(s, request, range.get())).ifPresent(futures::add);
 
-        return async.collect(futures, Ingestion.reduce());
+        return async.collect(futures, Ingestion.reduce(watch));
     }
 
     protected AsyncFuture<Ingestion> doMetricWrite(

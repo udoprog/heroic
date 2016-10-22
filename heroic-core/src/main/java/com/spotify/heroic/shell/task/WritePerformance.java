@@ -248,7 +248,7 @@ public class WritePerformance implements ShellTask {
 
                 writes.add(() -> target.write(w).directTransform(result -> {
                     final long runtime = System.currentTimeMillis() - start;
-                    return new Times(result.getTimes(), runtime);
+                    return new Times(ImmutableList.of(result.getTrace().getElapsed()), runtime);
                 }));
             }
         }

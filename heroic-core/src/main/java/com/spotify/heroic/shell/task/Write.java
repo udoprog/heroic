@@ -144,14 +144,8 @@ public class Write implements ShellTask {
     private Transform<Ingestion, Void> reportResult(final String title, final PrintWriter out) {
         return (result) -> {
             synchronized (out) {
-                int i = 0;
-
-                out.println(String.format("%s: Wrote %d", title, result.getTimes().size()));
-
-                for (final long time : result.getTimes()) {
-                    out.println(String.format("  #%03d %s", i++, Tasks.formatTimeNanos(time)));
-                }
-
+                out.println(String.format("%s: Trace:", title));
+                out.println("  " + json.writeValueAsString(result.getTrace()));
                 out.flush();
             }
 
