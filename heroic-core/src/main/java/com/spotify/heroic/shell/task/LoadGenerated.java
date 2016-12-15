@@ -33,7 +33,7 @@ import com.spotify.heroic.generator.MetadataGenerator;
 import com.spotify.heroic.ingestion.Ingestion;
 import com.spotify.heroic.ingestion.IngestionGroup;
 import com.spotify.heroic.ingestion.IngestionManager;
-import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.SortedCollection;
 import com.spotify.heroic.shell.AbstractShellTaskParams;
 import com.spotify.heroic.shell.ShellIO;
 import com.spotify.heroic.shell.ShellTask;
@@ -101,7 +101,7 @@ public class LoadGenerated implements ShellTask {
             final DateRange range = new DateRange(Math.max(start, 0), now);
 
             for (final Series s : metadataGenerator.generate(params.seriesCount)) {
-                final MetricCollection c = generator.generate(s, range);
+                final SortedCollection c = generator.generate(s, range);
 
                 writes.add(group.write(new Ingestion.Request(s, c)).directTransform(n -> {
                     synchronized (io) {

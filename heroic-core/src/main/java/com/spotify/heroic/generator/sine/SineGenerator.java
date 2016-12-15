@@ -26,8 +26,8 @@ import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.generator.Generator;
-import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.Point;
+import com.spotify.heroic.metric.SortedCollection;
 
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -68,7 +68,7 @@ public class SineGenerator implements Generator {
     }
 
     @Override
-    public MetricCollection generate(
+    public SortedCollection generate(
         final Series series, final DateRange range
     ) {
         // calculate a consistent drift depending on which series is being fetched.
@@ -95,6 +95,6 @@ public class SineGenerator implements Generator {
             data.add(new Point(time, value));
         }
 
-        return MetricCollection.points(data.build());
+        return new SortedCollection.Points(data.build());
     }
 }

@@ -21,14 +21,12 @@
 
 package com.spotify.heroic.aggregation.simple;
 
-import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.Point;
 import lombok.Data;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Data
 public class FilterKThresholdStrategy implements FilterStrategy {
@@ -36,33 +34,11 @@ public class FilterKThresholdStrategy implements FilterStrategy {
     private final double k;
 
     @Override
-    public <T> List<T> filter(List<FilterableMetrics<T>> metrics) {
-        return metrics
-            .stream()
-            .map(m -> new Extreme<>(m, filterType))
-            .filter(m -> m.getValue().map(v -> filterType.predicate(v, k)).orElse(false))
-            .map(Extreme::getFilterableMetrics)
-            .map(FilterableMetrics::getData)
-            .collect(Collectors.toList());
-    }
-
-    @Data
-    private static class Extreme<T> {
-        private final FilterableMetrics<T> filterableMetrics;
-        private final Optional<Double> value;
-
-        public Extreme(FilterableMetrics<T> filterableMetrics, FilterKThresholdType filterType) {
-            this.filterableMetrics = filterableMetrics;
-            this.value = findExtreme(filterType, filterableMetrics.getMetricSupplier().get());
-        }
-
-        private Optional<Double> findExtreme(
-            FilterKThresholdType filterType, MetricCollection metrics
-        ) {
-            final Stream<Double> stream =
-                metrics.getDataAs(Point.class).stream().map(Point::getValue);
-
-            return filterType.findExtreme(stream);
-        }
+    public <T> List<T> filter(final List<FilterableData<T>> metrics) {
+        return metrics.stream().filter(m -> {
+            final Optional<Double> extreme = filterType.findExtreme(
+                m.getMetrics().streamAs(Point.class).map(Point::getValue));
+            return extreme.map(e -> filterType.predicate(e, k)).orElse(false);
+        }).map(FilterableData::getData).collect(Collectors.toList());
     }
 }

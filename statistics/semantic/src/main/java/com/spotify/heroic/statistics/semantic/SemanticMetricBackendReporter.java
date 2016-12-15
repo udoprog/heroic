@@ -33,7 +33,7 @@ import com.spotify.heroic.metric.BackendKeySet;
 import com.spotify.heroic.metric.FetchData;
 import com.spotify.heroic.metric.FetchQuotaWatcher;
 import com.spotify.heroic.metric.MetricBackend;
-import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.CompositeCollection;
 import com.spotify.heroic.metric.WriteMetric;
 import com.spotify.heroic.statistics.DataInMemoryReporter;
 import com.spotify.heroic.statistics.FutureReporter;
@@ -206,12 +206,12 @@ public class SemanticMetricBackendReporter implements MetricBackendReporter {
         }
 
         @Override
-        public AsyncFuture<MetricCollection> fetchRow(final BackendKey key) {
+        public AsyncFuture<CompositeCollection> fetchRow(final BackendKey key) {
             return delegate.fetchRow(key).onDone(fetchRow.setup());
         }
 
         @Override
-        public AsyncObservable<MetricCollection> streamRow(final BackendKey key) {
+        public AsyncObservable<CompositeCollection> streamRow(final BackendKey key) {
             return delegate.streamRow(key);
         }
 

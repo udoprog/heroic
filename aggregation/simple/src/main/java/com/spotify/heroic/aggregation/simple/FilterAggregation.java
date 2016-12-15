@@ -93,47 +93,47 @@ public abstract class FilterAggregation implements AggregationInstance {
 
         @Override
         public void updatePoints(
-            Map<String, String> key, Set<Series> series, List<Point> values
+            Map<String, String> key, Set<Series> series, Iterable<Point> values, long size
         ) {
-            childSession.updatePoints(key, series, values);
+            childSession.updatePoints(key, series, values, size);
         }
 
         @Override
         public void updateEvents(
-            Map<String, String> key, Set<Series> series, List<Event> values
+            Map<String, String> key, Set<Series> series, Iterable<Event> values, long size
         ) {
-            childSession.updateEvents(key, series, values);
+            childSession.updateEvents(key, series, values, size);
         }
 
         @Override
         public void updateSpreads(
-            Map<String, String> key, Set<Series> series, List<Spread> values
+            Map<String, String> key, Set<Series> series, Iterable<Spread> values, long size
         ) {
-            childSession.updateSpreads(key, series, values);
+            childSession.updateSpreads(key, series, values, size);
         }
 
         @Override
         public void updateGroup(
-            Map<String, String> key, Set<Series> series, List<MetricGroup> values
+            Map<String, String> key, Set<Series> series, Iterable<MetricGroup> values, long size
         ) {
-            childSession.updateGroup(key, series, values);
+            childSession.updateGroup(key, series, values, size);
         }
 
         @Override
         public void updatePayload(
-            Map<String, String> key, Set<Series> series, List<Payload> values
+            Map<String, String> key, Set<Series> series, Iterable<Payload> values, long size
         ) {
-            childSession.updatePayload(key, series, values);
+            childSession.updatePayload(key, series, values, size);
         }
 
         @Override
         public AggregationResult result() {
             final AggregationResult result = childSession.result();
 
-            final List<FilterableMetrics<AggregationOutput>> filterable = result
+            final List<FilterableData<AggregationOutput>> filterable = result
                 .getResult()
                 .stream()
-                .map(a -> new FilterableMetrics<>(a, a::getMetrics))
+                .map(a -> new FilterableData<>(a, a.getMetrics()))
                 .collect(Collectors.toList());
 
             return new AggregationResult(filterStrategy.filter(filterable), result.getStatistics());

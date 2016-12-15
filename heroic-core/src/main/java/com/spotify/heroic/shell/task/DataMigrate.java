@@ -33,7 +33,7 @@ import com.spotify.heroic.metric.BackendKey;
 import com.spotify.heroic.metric.BackendKeyFilter;
 import com.spotify.heroic.metric.BackendKeySet;
 import com.spotify.heroic.metric.MetricBackend;
-import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.CompositeCollection;
 import com.spotify.heroic.metric.MetricManager;
 import com.spotify.heroic.metric.WriteMetric;
 import com.spotify.heroic.shell.ShellIO;
@@ -321,7 +321,7 @@ public class DataMigrate implements ShellTask {
     }
 
     @Data
-    class RowObserver implements AsyncObserver<MetricCollection> {
+    class RowObserver implements AsyncObserver<CompositeCollection> {
         final ConcurrentLinkedQueue<Throwable> errors;
         final MetricBackend to;
         final ResolvableFuture<Void> future;
@@ -330,13 +330,13 @@ public class DataMigrate implements ShellTask {
         final Consumer<BackendKey> end;
 
         @Override
-        public AsyncFuture<Void> observe(MetricCollection value) {
+        public AsyncFuture<Void> observe(CompositeCollection value) {
             if (future.isDone() || done.get()) {
                 return async.cancelled();
             }
 
             final AsyncFuture<Void> write = to
-                .write(new WriteMetric.Request(key.getSeries(), value))
+                .write(new WriteMetric.Request(key.getSeries(), value.sorted()))
                 .directTransform(v -> null);
 
             future.bind(write);

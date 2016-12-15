@@ -41,9 +41,7 @@ public class SpreadSerialization {
 
     public static class Deserializer extends JsonDeserializer<Spread> {
         @Override
-        public Spread deserialize(JsonParser p, DeserializationContext c)
-            throws IOException, JsonProcessingException {
-
+        public Spread deserialize(JsonParser p, DeserializationContext c) throws IOException {
             if (p.getCurrentToken() != JsonToken.START_ARRAY) {
                 throw c.mappingException(
                     String.format("Expected start of array, not %s", p.getCurrentToken()));

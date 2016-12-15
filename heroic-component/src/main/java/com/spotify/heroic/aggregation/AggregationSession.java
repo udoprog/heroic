@@ -22,9 +22,9 @@
 package com.spotify.heroic.aggregation;
 
 import com.spotify.heroic.common.Series;
-import com.spotify.heroic.metric.Payload;
 import com.spotify.heroic.metric.Event;
 import com.spotify.heroic.metric.MetricGroup;
+import com.spotify.heroic.metric.Payload;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
 
@@ -33,15 +33,55 @@ import java.util.Map;
 import java.util.Set;
 
 public interface AggregationSession {
-    void updatePoints(Map<String, String> key, Set<Series> series, List<Point> values);
+    default void updatePoints(
+        Map<String, String> key, Set<Series> series, List<Point> values
+    ) {
+        updatePoints(key, series, values, values.size());
+    }
 
-    void updateEvents(Map<String, String> key, Set<Series> series, List<Event> values);
+    void updatePoints(
+        Map<String, String> key, Set<Series> series, Iterable<Point> values, long size
+    );
 
-    void updateSpreads(Map<String, String> key, Set<Series> series, List<Spread> values);
+    default void updateEvents(
+        Map<String, String> key, Set<Series> series, List<Event> values
+    ) {
+        updateEvents(key, series, values, values.size());
+    }
 
-    void updateGroup(Map<String, String> key, Set<Series> series, List<MetricGroup> values);
+    void updateEvents(
+        Map<String, String> key, Set<Series> series, Iterable<Event> values, long size
+    );
 
-    void updatePayload(Map<String, String> key, Set<Series> series, List<Payload> values);
+    default void updateSpreads(
+        Map<String, String> key, Set<Series> series, List<Spread> values
+    ) {
+        updateSpreads(key, series, values, values.size());
+    }
+
+    void updateSpreads(
+        Map<String, String> key, Set<Series> series, Iterable<Spread> values, long size
+    );
+
+    default void updateGroup(
+        Map<String, String> key, Set<Series> series, List<MetricGroup> values
+    ) {
+        updateGroup(key, series, values, values.size());
+    }
+
+    void updateGroup(
+        Map<String, String> key, Set<Series> series, Iterable<MetricGroup> values, long size
+    );
+
+    default void updatePayload(
+        Map<String, String> key, Set<Series> series, List<Payload> values
+    ) {
+        updatePayload(key, series, values, values.size());
+    }
+
+    void updatePayload(
+        Map<String, String> key, Set<Series> series, Iterable<Payload> values, long size
+    );
 
     /**
      * Get the result of this aggregator.

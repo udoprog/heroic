@@ -27,12 +27,12 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Statistics;
-import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.QueryTrace;
 import com.spotify.heroic.metric.RequestError;
 import com.spotify.heroic.metric.ResultLimits;
 import com.spotify.heroic.metric.SeriesValues;
 import com.spotify.heroic.metric.ShardedResultGroup;
+import com.spotify.heroic.metric.SortedCollection;
 import lombok.Data;
 import lombok.NonNull;
 
@@ -165,14 +165,14 @@ public class QueryMetricsResponse {
             for (final ShardedResultGroup group : result) {
                 g.writeStartObject();
 
-                final MetricCollection collection = group.getMetrics();
+                final SortedCollection collection = group.getMetrics();
                 final SeriesValues series = SeriesValues.fromSeries(group.getSeries().iterator());
 
-                g.writeStringField("type", collection.getType().identifier());
+                g.writeStringField("type", collection.type().identifier());
                 g.writeStringField("hash", Integer.toHexString(group.hashCode()));
                 g.writeObjectField("shard", group.getShard());
                 g.writeNumberField("cadence", group.getCadence());
-                g.writeObjectField("values", collection.getData());
+                g.writeObjectField("values", collection.data());
 
                 writeKey(g, series.getKeys());
                 writeTags(g, common, series.getTags());

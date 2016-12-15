@@ -35,8 +35,7 @@ import java.io.IOException;
 public class PointSerialization {
     public static class Deserializer extends JsonDeserializer<Point> {
         @Override
-        public Point deserialize(JsonParser p, DeserializationContext c)
-            throws IOException, JsonProcessingException {
+        public Point deserialize(JsonParser p, DeserializationContext c) throws IOException {
             if (p.getCurrentToken() != JsonToken.START_ARRAY) {
                 throw c.mappingException(
                     String.format("Expected start of array, not %s", p.getCurrentToken()));

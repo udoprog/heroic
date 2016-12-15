@@ -201,37 +201,37 @@ public class ChainInstance implements AggregationInstance {
 
         @Override
         public void updatePoints(
-            Map<String, String> key, Set<Series> series, List<Point> values
+            Map<String, String> key, Set<Series> series, Iterable<Point> values, long size
         ) {
-            first.updatePoints(key, series, values);
+            first.updatePoints(key, series, values, size);
         }
 
         @Override
         public void updateEvents(
-            Map<String, String> key, Set<Series> series, List<Event> values
+            Map<String, String> key, Set<Series> series, Iterable<Event> values, long size
         ) {
-            first.updateEvents(key, series, values);
+            first.updateEvents(key, series, values, size);
         }
 
         @Override
         public void updateSpreads(
-            Map<String, String> key, Set<Series> series, List<Spread> values
+            Map<String, String> key, Set<Series> series, Iterable<Spread> values, long size
         ) {
-            first.updateSpreads(key, series, values);
+            first.updateSpreads(key, series, values, size);
         }
 
         @Override
         public void updateGroup(
-            Map<String, String> key, Set<Series> series, List<MetricGroup> values
+            Map<String, String> key, Set<Series> series, Iterable<MetricGroup> values, long size
         ) {
-            first.updateGroup(key, series, values);
+            first.updateGroup(key, series, values, size);
         }
 
         @Override
         public void updatePayload(
-            Map<String, String> key, Set<Series> series, List<Payload> values
+            Map<String, String> key, Set<Series> series, Iterable<Payload> values, long size
         ) {
-            first.updatePayload(key, series, values);
+            first.updatePayload(key, series, values, size);
         }
 
         @Override

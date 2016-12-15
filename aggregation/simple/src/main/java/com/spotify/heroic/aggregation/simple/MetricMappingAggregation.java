@@ -22,10 +22,10 @@
 package com.spotify.heroic.aggregation.simple;
 
 import com.spotify.heroic.aggregation.AggregationInstance;
+import com.spotify.heroic.aggregation.AggregationOutput;
 import com.spotify.heroic.aggregation.AggregationResult;
 import com.spotify.heroic.aggregation.AggregationSession;
 import com.spotify.heroic.aggregation.EmptyInstance;
-import com.spotify.heroic.aggregation.AggregationOutput;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.metric.Event;
@@ -33,6 +33,7 @@ import com.spotify.heroic.metric.MetricGroup;
 import com.spotify.heroic.metric.Payload;
 import com.spotify.heroic.metric.Point;
 import lombok.Data;
+import lombok.RequiredArgsConstructor;
 
 import java.util.List;
 import java.util.Map;
@@ -64,48 +65,48 @@ public abstract class MetricMappingAggregation implements AggregationInstance {
         return EmptyInstance.INSTANCE;
     }
 
+    @RequiredArgsConstructor
     class Session implements AggregationSession {
-
         private final AggregationSession childSession;
-
-        public Session(AggregationSession childSession) {
-            this.childSession = childSession;
-        }
 
         @Override
         public void updatePoints(
-            final Map<String, String> key, final Set<Series> series, final List<Point> values
+            final Map<String, String> key, final Set<Series> series, final Iterable<Point> values,
+            final long size
         ) {
-            this.childSession.updatePoints(key, series, values);
+            childSession.updatePoints(key, series, values, size);
         }
 
         @Override
         public void updateEvents(
-            final Map<String, String> key, final Set<Series> series, final List<Event> values
+            final Map<String, String> key, final Set<Series> series, final Iterable<Event> values,
+            final long size
         ) {
-            this.childSession.updateEvents(key, series, values);
+            this.childSession.updateEvents(key, series, values, size);
         }
 
         @Override
         public void updatePayload(
-            final Map<String, String> key, final Set<Series> series, final List<Payload> values
+            final Map<String, String> key, final Set<Series> series, final Iterable<Payload> values,
+            final long size
         ) {
-            this.childSession.updatePayload(key, series, values);
+            this.childSession.updatePayload(key, series, values, size);
         }
 
         @Override
         public void updateGroup(
-            final Map<String, String> key, final Set<Series> series, final List<MetricGroup> values
+            final Map<String, String> key, final Set<Series> series,
+            final Iterable<MetricGroup> values, final long size
         ) {
-            this.childSession.updateGroup(key, series, values);
+            this.childSession.updateGroup(key, series, values, size);
         }
 
         @Override
         public void updateSpreads(
             final Map<String, String> key, final Set<Series> series,
-            final List<com.spotify.heroic.metric.Spread> values
+            final Iterable<com.spotify.heroic.metric.Spread> values, final long size
         ) {
-            this.childSession.updateSpreads(key, series, values);
+            this.childSession.updateSpreads(key, series, values, size);
         }
 
         @Override
@@ -114,11 +115,9 @@ public abstract class MetricMappingAggregation implements AggregationInstance {
             List<AggregationOutput> outputs = aggregationResult
                 .getResult()
                 .stream()
-                .map(aggregationOutput -> new AggregationOutput(
-                    aggregationOutput.getKey(),
+                .map(aggregationOutput -> new AggregationOutput(aggregationOutput.getKey(),
                     aggregationOutput.getSeries(),
-                    metricMappingStrategy.apply(aggregationOutput.getMetrics())
-                ))
+                    metricMappingStrategy.apply(aggregationOutput.getMetrics())))
                 .collect(toList());
             return new AggregationResult(outputs, aggregationResult.getStatistics());
         }

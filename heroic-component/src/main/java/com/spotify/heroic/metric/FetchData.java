@@ -22,13 +22,15 @@
 package com.spotify.heroic.metric;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
+import com.google.common.collect.Iterables;
 import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
 import eu.toolchain.async.Collector;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +41,7 @@ public class FetchData {
     private final QueryTrace trace;
     private final List<RequestError> errors;
     private final List<Long> times;
-    private final List<MetricCollection> groups;
+    private final List<CompositeCollection> groups;
 
     public static FetchData error(final QueryTrace trace, final RequestError error) {
         return new FetchData(trace, ImmutableList.of(error), ImmutableList.of(),
@@ -47,7 +49,7 @@ public class FetchData {
     }
 
     public static FetchData of(
-        final QueryTrace trace, final List<Long> times, final List<MetricCollection> groups
+        final QueryTrace trace, final List<Long> times, final List<CompositeCollection> groups
     ) {
         return new FetchData(trace, ImmutableList.of(), times, groups);
     }
@@ -59,31 +61,32 @@ public class FetchData {
 
         return results -> {
             final ImmutableList.Builder<Long> times = ImmutableList.builder();
-            final Map<MetricType, ImmutableList.Builder<Metric>> fetchGroups = new HashMap<>();
+            final Map<MetricType, Collecting> fetchGroups = new HashMap<>();
             final ImmutableList.Builder<QueryTrace> traces = ImmutableList.builder();
 
             for (final FetchData fetch : results) {
                 times.addAll(fetch.times);
                 traces.add(fetch.trace);
 
-                for (final MetricCollection g : fetch.groups) {
-                    ImmutableList.Builder<Metric> data = fetchGroups.get(g.getType());
+                for (final CompositeCollection g : fetch.groups) {
+                    Collecting data = fetchGroups.get(g.type());
 
                     if (data == null) {
-                        data = new ImmutableList.Builder<>();
-                        fetchGroups.put(g.getType(), data);
+                        final List<Iterable<? extends Metric>> collected = new ArrayList<>();
+                        data = new Collecting(collected, g.size());
+                        fetchGroups.put(g.type(), data);
                     }
 
-                    data.addAll(g.data);
+                    data.collected.add(g.data());
+                    data.size += g.size();
                 }
             }
 
-            final List<MetricCollection> groups = fetchGroups
-                .entrySet()
-                .stream()
-                .map((e) -> MetricCollection.build(e.getKey(),
-                    Ordering.from(Metric.comparator()).immutableSortedCopy(e.getValue().build())))
-                .collect(Collectors.toList());
+            final List<CompositeCollection> groups = fetchGroups.entrySet().stream().map(e -> {
+                final Collecting collecting = e.getValue();
+                final Iterable<? extends Metric> iterable = Iterables.concat(collecting.collected);
+                return CompositeCollection.build(e.getKey(), iterable, collecting.size);
+            }).collect(Collectors.toList());
 
             return new FetchData(w.end(traces.build()), ImmutableList.of(), times.build(), groups);
         };
@@ -95,5 +98,14 @@ public class FetchData {
         private final Series series;
         private final DateRange range;
         private final QueryOptions options;
+    }
+
+    /**
+     * Mutable type used only when collecting results.
+     */
+    @AllArgsConstructor
+    private static class Collecting {
+        private List<Iterable<? extends Metric>> collected;
+        private long size;
     }
 }

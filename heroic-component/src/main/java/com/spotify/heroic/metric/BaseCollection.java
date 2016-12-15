@@ -21,21 +21,41 @@
 
 package com.spotify.heroic.metric;
 
-import com.google.common.collect.ImmutableList;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.spotify.heroic.aggregation.AggregationSession;
 import com.spotify.heroic.common.Series;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
-public class EmptyMetricCollection extends MetricCollection {
-    public EmptyMetricCollection() {
-        super(MetricType.POINT, ImmutableList.of());
+public interface BaseCollection {
+    /**
+     * Helper method to fetch a collection of the given type, if applicable.
+     *
+     * @param expected The expected type to read.
+     * @return A list of the expected type.
+     */
+    <T> Iterable<T> dataAs(Class<T> expected);
+
+    default <T> Stream<T> streamAs(Class<T> expected) {
+        return StreamSupport.stream(dataAs(expected).spliterator(), false);
     }
 
-    @Override
-    public void updateAggregation(
+    /**
+     * Update the given aggregation with the content of this collection.
+     */
+    void updateAggregation(
         AggregationSession session, Map<String, String> tags, Set<Series> series
-    ) {
+    );
+
+    long size();
+
+    MetricType type();
+
+    @JsonIgnore
+    default boolean isEmpty() {
+        return size() == 0;
     }
 }

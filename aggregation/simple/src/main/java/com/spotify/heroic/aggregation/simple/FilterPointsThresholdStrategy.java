@@ -21,14 +21,13 @@
 
 package com.spotify.heroic.aggregation.simple;
 
-import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.CompositeCollection;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.Point;
 import lombok.Data;
 
+import java.util.ArrayList;
 import java.util.List;
-
-import static java.util.stream.Collectors.toList;
 
 @Data
 public class FilterPointsThresholdStrategy implements MetricMappingStrategy {
@@ -36,20 +35,24 @@ public class FilterPointsThresholdStrategy implements MetricMappingStrategy {
     private final double threshold;
 
     @Override
-    public MetricCollection apply(MetricCollection metrics) {
-        if (metrics.getType() == MetricType.POINT) {
-            return MetricCollection.build(
-                MetricType.POINT,
-                filterWithThreshold(metrics.getDataAs(Point.class))
-            );
+    public CompositeCollection apply(CompositeCollection metrics) {
+        if (metrics.type() == MetricType.POINT) {
+            return CompositeCollection.build(MetricType.POINT,
+                filterWithThreshold(metrics.dataAs(Point.class)));
         } else {
             return metrics;
         }
     }
 
-    private List<Point> filterWithThreshold(List<Point> points) {
-        return points.stream()
-            .filter(point -> filterType.predicate(point.getValue(), threshold))
-            .collect(toList());
+    private List<Point> filterWithThreshold(Iterable<Point> points) {
+        final List<Point> result = new ArrayList<>();
+
+        for (final Point p : points) {
+            if (filterType.predicate(p.getValue(), threshold)) {
+                result.add(p);
+            }
+        }
+
+        return result;
     }
 }

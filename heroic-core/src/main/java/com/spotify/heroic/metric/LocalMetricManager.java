@@ -47,6 +47,14 @@ import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import eu.toolchain.async.LazyTransform;
 import eu.toolchain.async.StreamCollector;
+import lombok.RequiredArgsConstructor;
+import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.NotImplementedException;
+import org.apache.commons.lang3.tuple.Pair;
+
+import javax.inject.Inject;
+import javax.inject.Named;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -54,13 +62,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import javax.inject.Inject;
-import javax.inject.Named;
-import lombok.RequiredArgsConstructor;
-import lombok.ToString;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.NotImplementedException;
-import org.apache.commons.lang3.tuple.Pair;
 
 @Slf4j
 @ToString(of = {})
@@ -350,22 +351,24 @@ public class LocalMetricManager implements MetricManager {
         }
 
         @Override
-        public AsyncFuture<MetricCollection> fetchRow(final BackendKey key) {
-            final List<AsyncFuture<MetricCollection>> callbacks = map(b -> b.fetchRow(key));
+        public AsyncFuture<CompositeCollection> fetchRow(final BackendKey key) {
+            final List<AsyncFuture<CompositeCollection>> callbacks = map(b -> b.fetchRow(key));
 
             return async.collect(callbacks, results -> {
-                final List<List<? extends Metric>> collections = new ArrayList<>();
+                final List<Iterable<? extends Metric>> collections = new ArrayList<>();
+                int size = 0;
 
-                for (final MetricCollection result : results) {
-                    collections.add(result.getData());
+                for (final CompositeCollection result : results) {
+                    collections.add(result.data());
+                    size += result.size();
                 }
 
-                return MetricCollection.mergeSorted(key.getType(), collections);
+                return CompositeCollection.build(key.getType(), Iterables.concat(collections), size);
             });
         }
 
         @Override
-        public AsyncObservable<MetricCollection> streamRow(final BackendKey key) {
+        public AsyncObservable<CompositeCollection> streamRow(final BackendKey key) {
             return AsyncObservable.chain(map(b -> b.streamRow(key)));
         }
 
@@ -395,7 +398,7 @@ public class LocalMetricManager implements MetricManager {
         public void resolved(final Pair<Series, FetchData> result) throws Exception {
             final FetchData f = result.getRight();
 
-            for (final MetricCollection g : f.getGroups()) {
+            for (final CompositeCollection g : f.getGroups()) {
                 g.updateAggregation(session, result.getLeft().getTags(),
                     ImmutableSet.of(result.getLeft()));
                 dataInMemoryReporter.reportDataNoLongerNeeded(g.size());
@@ -460,8 +463,8 @@ public class LocalMetricManager implements MetricManager {
                     break;
                 }
 
-                groups.add(new ResultGroup(group.getKey(), group.getSeries(), group.getMetrics(),
-                    aggregation.cadence()));
+                groups.add(new ResultGroup(group.getKey(), group.getSeries(),
+                    group.getMetrics().sorted(), aggregation.cadence()));
             }
 
             return new FullQuery(trace, ImmutableList.of(), groups, result.getStatistics(),

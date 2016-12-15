@@ -28,12 +28,12 @@ import com.google.common.collect.Iterables;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.common.Statistics;
-import com.spotify.heroic.metric.Payload;
+import com.spotify.heroic.metric.CompositeCollection;
 import com.spotify.heroic.metric.Event;
 import com.spotify.heroic.metric.Metric;
-import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.MetricGroup;
 import com.spotify.heroic.metric.MetricType;
+import com.spotify.heroic.metric.Payload;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
 import lombok.AccessLevel;
@@ -91,7 +91,7 @@ public abstract class BucketAggregationInstance<B extends Bucket> implements Agg
 
         @Override
         public void updatePoints(
-            Map<String, String> key, Set<Series> s, List<Point> values
+            Map<String, String> key, Set<Series> s, Iterable<Point> values, long size
         ) {
             series.add(s);
             feed(MetricType.POINT, values, (bucket, m) -> bucket.updatePoint(key, m));
@@ -99,7 +99,7 @@ public abstract class BucketAggregationInstance<B extends Bucket> implements Agg
 
         @Override
         public void updateEvents(
-            Map<String, String> key, Set<Series> s, List<Event> values
+            Map<String, String> key, Set<Series> s, Iterable<Event> values, long size
         ) {
             series.add(s);
             feed(MetricType.EVENT, values, (bucket, m) -> bucket.updateEvent(key, m));
@@ -107,7 +107,7 @@ public abstract class BucketAggregationInstance<B extends Bucket> implements Agg
 
         @Override
         public void updateSpreads(
-            Map<String, String> key, Set<Series> s, List<Spread> values
+            Map<String, String> key, Set<Series> s, Iterable<Spread> values, long size
         ) {
             series.add(s);
             feed(MetricType.SPREAD, values, (bucket, m) -> bucket.updateSpread(key, m));
@@ -115,7 +115,7 @@ public abstract class BucketAggregationInstance<B extends Bucket> implements Agg
 
         @Override
         public void updateGroup(
-            Map<String, String> key, Set<Series> s, List<MetricGroup> values
+            Map<String, String> key, Set<Series> s, Iterable<MetricGroup> values, long size
         ) {
             series.add(s);
             feed(MetricType.GROUP, values, (bucket, m) -> bucket.updateGroup(key, m));
@@ -123,14 +123,14 @@ public abstract class BucketAggregationInstance<B extends Bucket> implements Agg
 
         @Override
         public void updatePayload(
-            Map<String, String> key, Set<Series> s, List<Payload> values
+            Map<String, String> key, Set<Series> s, Iterable<Payload> values, long size
         ) {
             series.add(s);
             feed(MetricType.CARDINALITY, values, (bucket, m) -> bucket.updatePayload(key, m));
         }
 
         private <T extends Metric> void feed(
-            final MetricType type, List<T> values, final BucketConsumer<B, T> consumer
+            final MetricType type, Iterable<T> values, final BucketConsumer<B, T> consumer
         ) {
             if (!input.contains(type)) {
                 return;
@@ -202,7 +202,7 @@ public abstract class BucketAggregationInstance<B extends Bucket> implements Agg
             }
 
             final Set<Series> series = ImmutableSet.copyOf(Iterables.concat(this.series));
-            final MetricCollection metrics = MetricCollection.build(out, result);
+            final CompositeCollection metrics = CompositeCollection.build(out, result);
 
             final Statistics statistics =
                 new Statistics(ImmutableMap.of(AggregationInstance.SAMPLE_SIZE, sampleSize.sum()));

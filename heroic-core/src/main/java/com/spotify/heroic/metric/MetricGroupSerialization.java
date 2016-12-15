@@ -57,10 +57,10 @@ public class MetricGroupSerialization {
                 throw c.mappingException("Expected start of array");
             }
 
-            final ImmutableList.Builder<MetricCollection> groups = ImmutableList.builder();
+            final ImmutableList.Builder<CompositeCollection> groups = ImmutableList.builder();
 
             while (p.nextToken() == JsonToken.START_OBJECT) {
-                groups.add(p.readValueAs(MetricCollection.class));
+                groups.add(p.readValueAs(CompositeCollection.class));
             }
 
             if (p.getCurrentToken() != JsonToken.END_ARRAY) {
@@ -84,7 +84,7 @@ public class MetricGroupSerialization {
 
             g.writeStartArray();
 
-            for (final MetricCollection group : d.getGroups()) {
+            for (final CompositeCollection group : d.getGroups()) {
                 g.writeObject(group);
             }
 

@@ -82,8 +82,10 @@ public final class FullQuery {
         final QueryTrace.Identifier what, final ClusterShard c
     ) {
         final QueryTrace.NamedWatch w = QueryTrace.watch(what);
-        return e -> new FullQuery(w.end(), ImmutableList.of(ShardError.fromThrowable(c, e)),
-            ImmutableList.of(), Statistics.empty(), ResultLimits.of());
+        return e -> {
+            return new FullQuery(w.end(), ImmutableList.of(ShardError.fromThrowable(c, e)),
+                ImmutableList.of(), Statistics.empty(), ResultLimits.of());
+        };
     }
 
     public static Transform<FullQuery, FullQuery> trace(final QueryTrace.Identifier what) {

@@ -28,8 +28,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.ingestion.Ingestion;
-import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.Point;
+import com.spotify.heroic.metric.SortedCollection;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -151,7 +151,7 @@ public class CollectdTypes {
             final Series series = Series.of(key, Iterables.concat(tags, sampleTags).iterator());
             final Point point = new Point(time, value.toDouble());
 
-            final MetricCollection data = MetricCollection.points(ImmutableList.of(point));
+            final SortedCollection data = new SortedCollection.Points(ImmutableList.of(point));
 
             ingestions.add(new Ingestion.Request(series, data));
         }
@@ -240,7 +240,8 @@ public class CollectdTypes {
                         .iterator());
                     final Point point = new Point(time, value.convert(field));
 
-                    final MetricCollection data = MetricCollection.points(ImmutableList.of(point));
+                    final SortedCollection data =
+                        new SortedCollection.Points(ImmutableList.of(point));
 
                     ingestions.add(new Ingestion.Request(series, data));
                 }

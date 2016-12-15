@@ -21,8 +21,8 @@
 
 package com.spotify.heroic.aggregation.simple;
 
-import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.CompositeCollection;
 
 public interface MetricMappingStrategy {
-    MetricCollection apply(MetricCollection metrics);
+    CompositeCollection apply(CompositeCollection metrics);
 }

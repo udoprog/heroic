@@ -27,5 +27,5 @@ import lombok.Data;
 @Data
 public class BackendEntry {
     private final Series series;
-    private final MetricCollection metrics;
+    private final CompositeCollection metrics;
 }

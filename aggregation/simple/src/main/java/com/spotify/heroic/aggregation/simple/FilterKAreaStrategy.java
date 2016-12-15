@@ -21,18 +21,19 @@
 
 package com.spotify.heroic.aggregation.simple;
 
-import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.CompositeCollection;
 import com.spotify.heroic.metric.Point;
 import lombok.Data;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
  * This filter strategy calculates the area under the graphs of the time series and
  * selects the time series with either the biggest (TopK) or smallest (BottomK) area.
- *
- *  Time series without any data points are disregarded and never part of the result.
+ * <p>
+ * Time series without any data points are disregarded and never part of the result.
  */
 @Data
 public class FilterKAreaStrategy implements FilterStrategy {
@@ -40,37 +41,41 @@ public class FilterKAreaStrategy implements FilterStrategy {
     private final long k;
 
     @Override
-    public <T> List<T> filter(List<FilterableMetrics<T>> metrics) {
+    public <T> List<T> filter(List<FilterableData<T>> metrics) {
         return metrics
             .stream()
-            .filter(m -> m.getMetricSupplier().get().size() > 0)
-            .map(Area::new)
-            .sorted((a, b) -> filterType.compare(a.getValue(), b.getValue()))
+            .filter(m -> !m.getMetrics().isEmpty())
+            .map(m -> {
+                final double area = computeArea(m.getMetrics());
+                return new AreaData<>(m.getData(), area);
+            })
+            .sorted((a, b) -> filterType.compare(a.getArea(), b.getArea()))
             .limit(k)
-            .map(Area::getFilterableMetrics)
-            .map(FilterableMetrics::getData)
+            .map(AreaData::getData)
             .collect(Collectors.toList());
     }
 
-    @Data
-    private class Area<T> {
-        private final FilterableMetrics<T> filterableMetrics;
-        private final double value;
+    private double computeArea(final CompositeCollection metrics) {
+        final Iterator<Point> it = metrics.dataAs(Point.class).iterator();
 
-        public Area(FilterableMetrics<T> filterableMetrics) {
-            this.filterableMetrics = filterableMetrics;
-            this.value = computeArea(filterableMetrics.getMetricSupplier().get());
-        }
+        double area = 0;
 
-        private double computeArea(MetricCollection metricCollection) {
-            final List<Point> metrics = metricCollection.getDataAs(Point.class);
+        if (it.hasNext()) {
+            Point previous = it.next();
 
-            double area = 0;
-            for (int i = 1; i < metrics.size(); i++) {
-                area += PointPairArea.computeArea(metrics.get(i - 1), metrics.get(i));
+            while (it.hasNext()) {
+                Point next = it.next();
+                area += PointPairArea.computeArea(previous, next);
+                previous = next;
             }
-
-            return area;
         }
+
+        return area;
+    }
+
+    @Data
+    private static class AreaData<T> {
+        private final T data;
+        private final double area;
     }
 }

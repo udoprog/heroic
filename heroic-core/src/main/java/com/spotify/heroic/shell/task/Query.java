@@ -27,9 +27,9 @@ import com.spotify.heroic.QueryDateRange;
 import com.spotify.heroic.QueryManager;
 import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.dagger.CoreComponent;
-import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.RequestError;
 import com.spotify.heroic.metric.ShardedResultGroup;
+import com.spotify.heroic.metric.SortedCollection;
 import com.spotify.heroic.shell.AbstractShellTaskParams;
 import com.spotify.heroic.shell.ShellIO;
 import com.spotify.heroic.shell.ShellTask;
@@ -102,13 +102,13 @@ public class Query implements ShellTask {
                 io.out().println(String.format("LIMITS: %s", result.getLimits().getLimits()));
 
                 for (final ShardedResultGroup resultGroup : result.getGroups()) {
-                    final MetricCollection group = resultGroup.getMetrics();
+                    final SortedCollection group = resultGroup.getMetrics();
 
                     io
                         .out()
-                        .println(String.format("%s: %s %s", group.getType(), resultGroup.getShard(),
+                        .println(String.format("%s: %s %s", group.type(), resultGroup.getShard(),
                             indent.writeValueAsString(resultGroup.getSeries())));
-                    io.out().println(indent.writeValueAsString(group.getData()));
+                    io.out().println(indent.writeValueAsString(group.data()));
                     io.out().flush();
                 }
 

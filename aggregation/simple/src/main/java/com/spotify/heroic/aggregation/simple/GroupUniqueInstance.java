@@ -23,7 +23,7 @@ package com.spotify.heroic.aggregation.simple;
 
 import com.spotify.heroic.aggregation.BucketAggregationInstance;
 import com.spotify.heroic.metric.Metric;
-import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.CompositeCollection;
 import com.spotify.heroic.metric.MetricGroup;
 import com.spotify.heroic.metric.MetricType;
 import lombok.ToString;
@@ -45,7 +45,7 @@ public class GroupUniqueInstance extends BucketAggregationInstance<GroupUniqueBu
 
     @Override
     protected Metric build(final GroupUniqueBucket bucket) {
-        final List<MetricCollection> groups = bucket.groups();
+        final List<CompositeCollection> groups = bucket.groups();
 
         if (groups.isEmpty()) {
             return Metric.invalid();

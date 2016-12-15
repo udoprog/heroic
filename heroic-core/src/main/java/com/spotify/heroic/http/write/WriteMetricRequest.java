@@ -25,7 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.ingestion.Ingestion;
 import com.spotify.heroic.metric.Metric;
-import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.SortedCollection;
 import lombok.Data;
 
 import java.util.Optional;
@@ -33,18 +33,18 @@ import java.util.Optional;
 @Data
 public class WriteMetricRequest {
     final Optional<Series> series;
-    final Optional<MetricCollection> data;
+    final Optional<SortedCollection> data;
 
     public boolean isEmpty() {
-        return data.map(MetricCollection::isEmpty).orElse(true);
+        return data.map(SortedCollection::isEmpty).orElse(true);
     }
 
     public Iterable<Metric> all() {
-        return data.map(d -> d.getDataAs(Metric.class)).orElseGet(ImmutableList::of);
+        return data.map(d -> d.dataAs(Metric.class)).orElseGet(ImmutableList::of);
     }
 
     public Ingestion.Request toIngestionRequest() {
         return new Ingestion.Request(series.orElseGet(Series::empty),
-            data.orElseGet(MetricCollection::empty));
+            data.orElseGet(() -> new SortedCollection.Points(ImmutableList.of())));
     }
 }

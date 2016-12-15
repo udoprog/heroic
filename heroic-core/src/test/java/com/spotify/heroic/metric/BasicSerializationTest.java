@@ -37,17 +37,16 @@ public class BasicSerializationTest {
 
     @Test
     public void testMetricCollection() throws Exception {
-        final MetricCollection expected = MetricCollection.points(
+        final SortedCollection expected = new SortedCollection.Points(
             ImmutableList.of(new Point(1000, 10.0d), new Point(2000, 20.0d)));
-        assertSerialization("MetricCollection.json", expected, MetricCollection.class);
+        assertSerialization("SortedCollection.json", expected, SortedCollection.class);
     }
 
     @Test
     public void testResultGroup() throws Exception {
         final Set<Series> series = ImmutableSet.of();
-        final ResultGroup expected =
-            new ResultGroup(ImmutableMap.of(), series, MetricCollection.points(new ArrayList<>()),
-                0L);
+        final ResultGroup expected = new ResultGroup(ImmutableMap.of(), series,
+            new SortedCollection.Points(new ArrayList<>()), 0L);
         assertSerialization("ResultGroup.json", expected, ResultGroup.class);
     }
 

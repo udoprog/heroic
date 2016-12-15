@@ -25,5 +25,5 @@ import java.util.List;
 
 @FunctionalInterface
 public interface FilterStrategy {
-    <T> List<T> filter(List<FilterableMetrics<T>> metrics);
+    <T> List<T> filter(List<FilterableData<T>> metrics);
 }

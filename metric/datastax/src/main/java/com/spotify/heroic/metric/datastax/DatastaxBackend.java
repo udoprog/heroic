@@ -41,13 +41,14 @@ import com.spotify.heroic.metric.BackendEntry;
 import com.spotify.heroic.metric.BackendKey;
 import com.spotify.heroic.metric.BackendKeyFilter;
 import com.spotify.heroic.metric.BackendKeySet;
+import com.spotify.heroic.metric.CompositeCollection;
 import com.spotify.heroic.metric.FetchData;
 import com.spotify.heroic.metric.FetchQuotaWatcher;
-import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.QueryError;
 import com.spotify.heroic.metric.QueryTrace;
+import com.spotify.heroic.metric.SortedCollection;
 import com.spotify.heroic.metric.WriteMetric;
 import com.spotify.heroic.metric.datastax.schema.Schema;
 import com.spotify.heroic.metric.datastax.schema.Schema.PreparedFetch;
@@ -291,23 +292,23 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
     }
 
     @Override
-    public AsyncFuture<MetricCollection> fetchRow(BackendKey key) {
+    public AsyncFuture<CompositeCollection> fetchRow(BackendKey key) {
         return connection.doto(c -> {
             final Schema.PreparedFetch f = c.schema.row(key);
 
-            final ResolvableFuture<MetricCollection> future = async.future();
+            final ResolvableFuture<CompositeCollection> future = async.future();
 
             Async
                 .bind(async, c.session.executeAsync(f.fetch(Integer.MAX_VALUE)))
-                .onDone(new RowFetchHelper<>(future, f.converter(),
-                    result -> async.resolved(MetricCollection.points(result.getData()))));
+                .onDone(new RowFetchHelper<>(future, f.converter(), result -> async.resolved(
+                    new CompositeCollection.Points(result.getData(), result.getData().size()))));
 
             return future;
         });
     }
 
     @Override
-    public AsyncObservable<MetricCollection> streamRow(final BackendKey key) {
+    public AsyncObservable<CompositeCollection> streamRow(final BackendKey key) {
         return observer -> {
             final Borrowed<Connection> b = connection.borrow();
 
@@ -329,7 +330,7 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
             final AsyncObserver<List<Point>> helperObserver = new AsyncObserver<List<Point>>() {
                 @Override
                 public AsyncFuture<Void> observe(List<Point> value) {
-                    return observer.observe(MetricCollection.points(value));
+                    return observer.observe(new CompositeCollection.Points(value));
                 }
 
                 @Override
@@ -403,10 +404,10 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
     ) throws IOException {
         final List<Callable<AsyncFuture<Long>>> callables = new ArrayList<>();
 
-        final MetricCollection g = request.getData();
+        final SortedCollection g = request.getData();
 
-        if (g.getType() == MetricType.POINT) {
-            for (final Point d : g.getDataAs(Point.class)) {
+        if (g.type() == MetricType.POINT) {
+            for (final Point d : g.dataAs(Point.class)) {
                 final BoundStatement stmt = session.writePoint(request.getSeries(), d);
 
                 callables.add(() -> {
@@ -507,8 +508,8 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
                 .onDone(new RowFetchHelper<>(future, p.converter(),
                     result -> traceBuilder.apply(result).directTransform(trace -> {
                         final ImmutableList<Long> times = ImmutableList.of(trace.getElapsed());
-                        final List<MetricCollection> groups =
-                            ImmutableList.of(MetricCollection.points(result.getData()));
+                        final List<CompositeCollection> groups =
+                            ImmutableList.of(new CompositeCollection.Points(result.getData()));
                         return FetchData.of(trace, times, groups);
                     })));
 

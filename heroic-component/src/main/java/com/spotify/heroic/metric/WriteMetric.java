@@ -74,6 +74,6 @@ public class WriteMetric {
     @Data
     public static class Request {
         final Series series;
-        final MetricCollection data;
+        final SortedCollection data;
     }
 }

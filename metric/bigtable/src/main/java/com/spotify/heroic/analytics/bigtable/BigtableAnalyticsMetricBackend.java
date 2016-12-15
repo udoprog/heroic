@@ -29,10 +29,10 @@ import com.spotify.heroic.metric.BackendEntry;
 import com.spotify.heroic.metric.BackendKey;
 import com.spotify.heroic.metric.BackendKeyFilter;
 import com.spotify.heroic.metric.BackendKeySet;
+import com.spotify.heroic.metric.CompositeCollection;
 import com.spotify.heroic.metric.FetchData;
 import com.spotify.heroic.metric.FetchQuotaWatcher;
 import com.spotify.heroic.metric.MetricBackend;
-import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.WriteMetric;
 import eu.toolchain.async.AsyncFuture;
 import lombok.RequiredArgsConstructor;
@@ -120,12 +120,12 @@ class BigtableAnalyticsMetricBackend implements MetricBackend {
     }
 
     @Override
-    public AsyncFuture<MetricCollection> fetchRow(BackendKey key) {
+    public AsyncFuture<CompositeCollection> fetchRow(BackendKey key) {
         return backend.fetchRow(key);
     }
 
     @Override
-    public AsyncObservable<MetricCollection> streamRow(BackendKey key) {
+    public AsyncObservable<CompositeCollection> streamRow(BackendKey key) {
         return backend.streamRow(key);
     }
 }

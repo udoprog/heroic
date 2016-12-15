@@ -28,7 +28,7 @@ import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.generator.Generator;
 import com.spotify.heroic.metric.Event;
-import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.SortedCollection;
 
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -51,7 +51,7 @@ public class RandomEventGenerator implements Generator {
     }
 
     @Override
-    public MetricCollection generate(
+    public SortedCollection generate(
         final Series series, final DateRange range
     ) {
         final ImmutableList.Builder<Event> data = ImmutableList.builder();
@@ -64,7 +64,7 @@ public class RandomEventGenerator implements Generator {
             }
         }
 
-        return MetricCollection.events(data.build());
+        return new SortedCollection.Events(data.build());
     }
 
     private Event generateEvent(final long time) {

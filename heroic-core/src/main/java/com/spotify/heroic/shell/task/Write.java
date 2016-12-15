@@ -31,8 +31,8 @@ import com.spotify.heroic.ingestion.IngestionGroup;
 import com.spotify.heroic.ingestion.IngestionManager;
 import com.spotify.heroic.metric.Event;
 import com.spotify.heroic.metric.Metric;
-import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.Point;
+import com.spotify.heroic.metric.SortedCollection;
 import com.spotify.heroic.shell.AbstractShellTaskParams;
 import com.spotify.heroic.shell.ShellIO;
 import com.spotify.heroic.shell.ShellTask;
@@ -100,7 +100,7 @@ public class Write implements ShellTask {
         final List<Point> points = parsePoints(params.points, now);
         final List<Event> events = parseEvents(params.events, now);
 
-        final ImmutableList.Builder<MetricCollection> groups = ImmutableList.builder();
+        final ImmutableList.Builder<SortedCollection> groups = ImmutableList.builder();
 
         io.out().println("series: " + series.toString());
 
@@ -113,7 +113,7 @@ public class Write implements ShellTask {
                 io.out().println(String.format("%d: %s", i++, p));
             }
 
-            groups.add(MetricCollection.points(points));
+            groups.add(new SortedCollection.Points(points));
         }
 
         if (!events.isEmpty()) {
@@ -125,14 +125,14 @@ public class Write implements ShellTask {
                 io.out().println(String.format("%d: %s", i++, p));
             }
 
-            groups.add(MetricCollection.events(events));
+            groups.add(new SortedCollection.Events(events));
         }
 
         io.out().flush();
 
         List<AsyncFuture<Void>> writes = new ArrayList<>();
 
-        for (final MetricCollection group : groups.build()) {
+        for (final SortedCollection group : groups.build()) {
             writes.add(g
                 .write(new Ingestion.Request(series, group))
                 .directTransform(reportResult("metrics", io.out())));

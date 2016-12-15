@@ -26,9 +26,9 @@ import com.spotify.heroic.cluster.ClusterShard;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.metadata.WriteMetadata;
 import com.spotify.heroic.metric.Metric;
-import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.RequestError;
 import com.spotify.heroic.metric.ShardError;
+import com.spotify.heroic.metric.SortedCollection;
 import com.spotify.heroic.metric.WriteMetric;
 import com.spotify.heroic.suggest.WriteSuggest;
 import eu.toolchain.async.Collector;
@@ -87,10 +87,10 @@ public class Ingestion {
     @Data
     public static class Request {
         private final Series series;
-        private final MetricCollection data;
+        private final SortedCollection data;
 
         public Iterator<? extends Metric> all() {
-            return data.getData().iterator();
+            return data.data().iterator();
         }
     }
 }

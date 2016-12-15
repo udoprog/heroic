@@ -71,12 +71,12 @@ public abstract class AbstractMetricBackend implements MetricBackend {
     }
 
     @Override
-    public AsyncFuture<MetricCollection> fetchRow(BackendKey key) {
+    public AsyncFuture<CompositeCollection> fetchRow(BackendKey key) {
         return async.failed(new Exception("not supported"));
     }
 
     @Override
-    public AsyncObservable<MetricCollection> streamRow(BackendKey key) {
+    public AsyncObservable<CompositeCollection> streamRow(BackendKey key) {
         return AsyncObserver::end;
     }
 

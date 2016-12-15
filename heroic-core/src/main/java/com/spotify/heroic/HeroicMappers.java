@@ -47,8 +47,6 @@ import com.spotify.heroic.jetty.JettyConnectionFactory;
 import com.spotify.heroic.metadata.MetadataModule;
 import com.spotify.heroic.metric.Event;
 import com.spotify.heroic.metric.EventSerialization;
-import com.spotify.heroic.metric.MetricCollection;
-import com.spotify.heroic.metric.MetricCollectionSerialization;
 import com.spotify.heroic.metric.MetricGroup;
 import com.spotify.heroic.metric.MetricGroupSerialization;
 import com.spotify.heroic.metric.MetricModule;
@@ -134,11 +132,6 @@ public final class HeroicMappers {
 
         module.addSerializer(MetricGroup.class, new MetricGroupSerialization.Serializer());
         module.addDeserializer(MetricGroup.class, new MetricGroupSerialization.Deserializer());
-
-        module.addSerializer(MetricCollection.class,
-            new MetricCollectionSerialization.Serializer());
-        module.addDeserializer(MetricCollection.class,
-            new MetricCollectionSerialization.Deserializer());
 
         module.addSerializer(MetricType.class, new MetricTypeSerialization.Serializer());
         module.addDeserializer(MetricType.class, new MetricTypeSerialization.Deserializer());

@@ -10,7 +10,6 @@ import com.spotify.heroic.dagger.CoreComponent;
 import com.spotify.heroic.ingestion.Ingestion;
 import com.spotify.heroic.ingestion.IngestionComponent;
 import com.spotify.heroic.ingestion.IngestionManager;
-import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.QueryError;
 import com.spotify.heroic.metric.QueryResult;
@@ -18,6 +17,7 @@ import com.spotify.heroic.metric.RequestError;
 import com.spotify.heroic.metric.ResultLimit;
 import com.spotify.heroic.metric.ResultLimits;
 import com.spotify.heroic.metric.ShardedResultGroup;
+import com.spotify.heroic.metric.SortedCollection;
 import eu.toolchain.async.AsyncFuture;
 import org.junit.Before;
 import org.junit.Test;
@@ -103,7 +103,7 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
     public void basicQueryTest() throws Exception {
         final QueryResult result = query("sum(10ms)");
 
-        final Set<MetricCollection> m = getResults(result);
+        final Set<SortedCollection> m = getResults(result);
         final List<Long> cadences = getCadences(result);
 
         assertEquals(ImmutableList.of(10L), cadences);
@@ -114,7 +114,7 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
     public void distributedQueryTest() throws Exception {
         final QueryResult result = query("sum(10ms) by shared");
 
-        final Set<MetricCollection> m = getResults(result);
+        final Set<SortedCollection> m = getResults(result);
         final List<Long> cadences = getCadences(result);
 
         assertEquals(ImmutableList.of(10L), cadences);
@@ -125,7 +125,7 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
     public void distributedDifferentQueryTest() throws Exception {
         final QueryResult result = query("sum(10ms) by diff");
 
-        final Set<MetricCollection> m = getResults(result);
+        final Set<SortedCollection> m = getResults(result);
         final List<Long> cadences = getCadences(result);
 
         assertEquals(ImmutableList.of(10L, 10L), cadences);
@@ -137,7 +137,7 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
     public void distributedFilterQueryTest() throws Exception {
         final QueryResult result = query("average(10ms) by * | topk(2) | bottomk(1) | sum(10ms)");
 
-        final Set<MetricCollection> m = getResults(result);
+        final Set<SortedCollection> m = getResults(result);
         final List<Long> cadences = getCadences(result);
 
         assertEquals(ImmutableList.of(10L), cadences);
@@ -151,7 +151,7 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
                 builder.features(Optional.empty());
             });
 
-        final Set<MetricCollection> m = getResults(result);
+        final Set<SortedCollection> m = getResults(result);
         final List<Long> cadences = getCadences(result);
 
         // why not two responses?
@@ -162,12 +162,11 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
 
     @Test
     public void deltaQueryTest() throws Exception {
-        final QueryResult result =
-            query("delta", builder -> {
-                builder.features(Optional.empty());
-            });
+        final QueryResult result = query("delta", builder -> {
+            builder.features(Optional.empty());
+        });
 
-        final Set<MetricCollection> m = getResults(result);
+        final Set<SortedCollection> m = getResults(result);
         final List<Long> cadences = getCadences(result);
 
         assertEquals(ImmutableList.of(-1L, -1L), cadences);
@@ -178,7 +177,7 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
     public void distributedDeltaQueryTest() throws Exception {
         final QueryResult result = query("max | delta");
 
-        final Set<MetricCollection> m = getResults(result);
+        final Set<SortedCollection> m = getResults(result);
         final List<Long> cadences = getCadences(result);
 
         assertEquals(ImmutableList.of(1L), cadences);
@@ -189,7 +188,7 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
     public void filterLastQueryTest() throws Exception {
         final QueryResult result = query("average(10ms) by * | topk(2) | bottomk(1)");
 
-        final Set<MetricCollection> m = getResults(result);
+        final Set<SortedCollection> m = getResults(result);
         final List<Long> cadences = getCadences(result);
 
         assertEquals(ImmutableList.of(10L), cadences);
@@ -202,7 +201,7 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
 
         final QueryResult result = query("cardinality(10ms)");
 
-        final Set<MetricCollection> m = getResults(result);
+        final Set<SortedCollection> m = getResults(result);
         final List<Long> cadences = getCadences(result);
 
         assertEquals(ImmutableList.of(10L), cadences);
@@ -216,7 +215,7 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
         // TODO: support native booleans in expressions
         final QueryResult result = query("cardinality(10ms, method=hllp(includeKey=\"true\"))");
 
-        final Set<MetricCollection> m = getResults(result);
+        final Set<SortedCollection> m = getResults(result);
         final List<Long> cadences = getCadences(result);
 
         assertEquals(ImmutableList.of(10L), cadences);
@@ -235,8 +234,8 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
         for (final RequestError e : result.getErrors()) {
             assertTrue((e instanceof QueryError));
             final QueryError q = (QueryError) e;
-            assertThat(q.getError(), containsString(
-                "Some fetches failed (1) or were cancelled (0)"));
+            assertThat(q.getError(),
+                containsString("Some fetches failed (1) or were cancelled (0)"));
         }
 
         assertEquals(ResultLimits.of(ResultLimit.QUOTA), result.getLimits());
@@ -292,7 +291,7 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
         assertEquals(0, result.getGroups().size());
     }
 
-    private Set<MetricCollection> getResults(final QueryResult result) {
+    private Set<SortedCollection> getResults(final QueryResult result) {
         return result
             .getGroups()
             .stream()

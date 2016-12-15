@@ -21,10 +21,10 @@
 
 package com.spotify.heroic.http.render;
 
-import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.ShardedResultGroup;
+import com.spotify.heroic.metric.SortedCollection;
 import com.spotify.heroic.metric.Spread;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.DateAxis;
@@ -68,12 +68,12 @@ public final class RenderUtils {
         int intervalCount = 0;
 
         for (final ShardedResultGroup resultGroup : groups) {
-            final MetricCollection group = resultGroup.getMetrics();
+            final SortedCollection group = resultGroup.getMetrics();
 
-            if (group.getType() == MetricType.POINT) {
+            if (group.type() == MetricType.POINT) {
                 final XYSeries series = new XYSeries(resultGroup.getMetrics().toString());
 
-                final List<Point> data = group.getDataAs(Point.class);
+                final Iterable<Point> data = group.dataAs(Point.class);
 
                 for (final Point d : data) {
                     series.add(d.getTimestamp(), d.getValue());
@@ -86,11 +86,11 @@ public final class RenderUtils {
                 ++lineAndShapeCount;
             }
 
-            if (group.getType() == MetricType.SPREAD) {
+            if (group.type() == MetricType.SPREAD) {
                 final YIntervalSeries series =
                     new YIntervalSeries(resultGroup.getMetrics().toString());
 
-                final List<Spread> data = group.getDataAs(Spread.class);
+                final Iterable<Spread> data = group.dataAs(Spread.class);
 
                 for (final Spread d : data) {
                     series.add(d.getTimestamp(), d.getSum() / d.getCount(), d.getMin(), d.getMax());

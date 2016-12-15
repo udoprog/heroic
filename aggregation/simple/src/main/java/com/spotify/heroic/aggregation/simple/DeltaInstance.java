@@ -20,27 +20,28 @@
  */
 
 package com.spotify.heroic.aggregation.simple;
+
 import com.spotify.heroic.aggregation.AggregationInstance;
+import com.spotify.heroic.aggregation.AggregationOutput;
 import com.spotify.heroic.aggregation.AggregationResult;
 import com.spotify.heroic.aggregation.AggregationSession;
-import com.spotify.heroic.aggregation.AggregationOutput;
 import com.spotify.heroic.aggregation.EmptyInstance;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
-import com.spotify.heroic.metric.MetricCollection;
-import com.spotify.heroic.metric.MetricGroup;
+import com.spotify.heroic.metric.CompositeCollection;
 import com.spotify.heroic.metric.Event;
-import com.spotify.heroic.metric.Payload;
+import com.spotify.heroic.metric.MetricGroup;
 import com.spotify.heroic.metric.MetricType;
+import com.spotify.heroic.metric.Payload;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
 import lombok.Data;
 
-import java.util.List;
 import java.util.ArrayList;
-import java.util.Map;
-import java.util.Iterator;
 import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -68,7 +69,7 @@ public class DeltaInstance implements AggregationInstance {
         return false;
     }
 
-    public List<Point> computeDiff(List<Point> points) {
+    List<Point> computeDiff(final Iterable<Point> points) {
         final Iterator<Point> it = points.iterator();
         final ArrayList<Point> result = new ArrayList<Point>();
 
@@ -88,7 +89,6 @@ public class DeltaInstance implements AggregationInstance {
         return result;
     }
 
-
     @Override
     public AggregationSession session(DateRange range) {
         return new Session(inner.session(range));
@@ -103,46 +103,49 @@ public class DeltaInstance implements AggregationInstance {
 
         @Override
         public void updatePoints(
-            final Map<String, String> key, final Set<Series> series, final List<Point> values
+            final Map<String, String> key, final Set<Series> series, final Iterable<Point> values,
+            final long size
         ) {
-            this.childSession.updatePoints(key, series, values);
+            this.childSession.updatePoints(key, series, values, size);
         }
 
         @Override
         public void updateEvents(
-            final Map<String, String> key, final Set<Series> series, final List<Event> values
-        ) { }
+            final Map<String, String> key, final Set<Series> series, final Iterable<Event> values,
+            final long size
+        ) {
+        }
 
         @Override
         public void updatePayload(
-            final Map<String, String> key, final Set<Series> series, final List<Payload> values
-        ) { }
+            final Map<String, String> key, final Set<Series> series, final Iterable<Payload> values,
+            final long size
+        ) {
+        }
 
         @Override
         public void updateGroup(
-            final Map<String, String> key, final Set<Series> series, final List<MetricGroup> values
-        ) { }
+            final Map<String, String> key, final Set<Series> series,
+            final Iterable<MetricGroup> values, final long size
+        ) {
+        }
 
         @Override
         public void updateSpreads(
-            final Map<String, String> key, final Set<Series> series, final List<Spread> values
-        ) { }
+            final Map<String, String> key, final Set<Series> series, final Iterable<Spread> values,
+            final long size
+        ) {
+        }
 
         @Override
         public AggregationResult result() {
             AggregationResult aggregationResult = this.childSession.result();
-            List<AggregationOutput> outputs = aggregationResult
-                .getResult()
-                .stream()
-                .map(aggregationOutput -> new AggregationOutput(
-                    aggregationOutput.getKey(),
-                    aggregationOutput.getSeries(),
-                    MetricCollection.build(
-                        MetricType.POINT,
-                        computeDiff(aggregationOutput.getMetrics().getDataAs(Point.class))
-                    )
-                ))
-                .collect(Collectors.toList());
+            List<AggregationOutput> outputs =
+                aggregationResult.getResult().stream().map(aggregationOutput -> {
+                    return new AggregationOutput(aggregationOutput.getKey(),
+                        aggregationOutput.getSeries(), CompositeCollection.build(MetricType.POINT,
+                        computeDiff(aggregationOutput.getMetrics().dataAs(Point.class))));
+                }).collect(Collectors.toList());
             return new AggregationResult(outputs, aggregationResult.getStatistics());
         }
     }

@@ -34,7 +34,7 @@ public final class ShardedResultGroup {
     private final Map<String, String> shard;
     private final Map<String, String> key;
     private final Set<Series> series;
-    private final MetricCollection metrics;
+    private final SortedCollection metrics;
     private final long cadence;
 
     public boolean isEmpty() {

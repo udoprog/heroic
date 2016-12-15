@@ -31,13 +31,14 @@ import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.GroupMember;
 import com.spotify.heroic.common.Series;
+import com.spotify.heroic.metric.CompositeCollection;
 import com.spotify.heroic.metric.FetchData;
 import com.spotify.heroic.metric.FetchQuotaWatcher;
 import com.spotify.heroic.metric.MetricBackend;
-import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.MetricManagerModule;
 import com.spotify.heroic.metric.MetricModule;
 import com.spotify.heroic.metric.MetricType;
+import com.spotify.heroic.metric.SortedCollection;
 import com.spotify.heroic.metric.WriteMetric;
 import org.junit.After;
 import org.junit.Before;
@@ -45,6 +46,7 @@ import org.junit.Test;
 
 import java.util.Optional;
 
+import static java.util.stream.Collectors.toSet;
 import static org.junit.Assert.assertEquals;
 
 public abstract class AbstractMetricBackendIT {
@@ -112,13 +114,14 @@ public abstract class AbstractMetricBackendIT {
         }
 
         // write and read data back
-        final MetricCollection points = Data.points().p(100000L, 42D).build();
+        final SortedCollection points = Data.points().p(100000L, 42D).build();
         backend.write(new WriteMetric.Request(s1, points)).get();
         FetchData data = backend
             .fetch(new FetchData.Request(MetricType.POINT, s1, new DateRange(10000L, 200000L),
                 QueryOptions.builder().build()), FetchQuotaWatcher.NO_QUOTA)
             .get();
 
-        assertEquals(ImmutableSet.of(points), ImmutableSet.copyOf(data.getGroups()));
+        assertEquals(ImmutableSet.of(points),
+            data.getGroups().stream().map(CompositeCollection::sorted).collect(toSet()));
     }
 }

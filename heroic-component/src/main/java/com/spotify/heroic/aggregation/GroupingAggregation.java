@@ -26,9 +26,9 @@ import com.google.common.collect.ImmutableSet;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.common.Statistics;
-import com.spotify.heroic.metric.Payload;
 import com.spotify.heroic.metric.Event;
 import com.spotify.heroic.metric.MetricGroup;
+import com.spotify.heroic.metric.Payload;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
 import lombok.Data;
@@ -116,42 +116,42 @@ public abstract class GroupingAggregation implements AggregationInstance {
 
         @Override
         public void updatePoints(
-            Map<String, String> group, Set<Series> series, List<Point> values
+            Map<String, String> group, Set<Series> series, Iterable<Point> values, long size
         ) {
             final Map<String, String> key = key(group);
-            session(key).updatePoints(key, series, values);
+            session(key).updatePoints(key, series, values, size);
         }
 
         @Override
         public void updateEvents(
-            Map<String, String> group, Set<Series> series, List<Event> values
+            Map<String, String> group, Set<Series> series, Iterable<Event> values, long size
         ) {
             final Map<String, String> key = key(group);
-            session(key).updateEvents(key, series, values);
+            session(key).updateEvents(key, series, values, size);
         }
 
         @Override
         public void updateSpreads(
-            Map<String, String> group, Set<Series> series, List<Spread> values
+            Map<String, String> group, Set<Series> series, Iterable<Spread> values, long size
         ) {
             final Map<String, String> key = key(group);
-            session(key).updateSpreads(key, series, values);
+            session(key).updateSpreads(key, series, values, size);
         }
 
         @Override
         public void updateGroup(
-            Map<String, String> group, Set<Series> series, List<MetricGroup> values
+            Map<String, String> group, Set<Series> series, Iterable<MetricGroup> values, long size
         ) {
             final Map<String, String> key = key(group);
-            session(key).updateGroup(key, series, values);
+            session(key).updateGroup(key, series, values, size);
         }
 
         @Override
         public void updatePayload(
-            Map<String, String> group, Set<Series> series, List<Payload> values
+            Map<String, String> group, Set<Series> series, Iterable<Payload> values, long size
         ) {
             final Map<String, String> key = key(group);
-            session(key).updatePayload(key, series, values);
+            session(key).updatePayload(key, series, values, size);
         }
 
         private AggregationSession session(final Map<String, String> key) {

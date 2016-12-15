@@ -25,28 +25,27 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.common.Statistics;
-import com.spotify.heroic.metric.Payload;
+import com.spotify.heroic.metric.CompositeCollection;
 import com.spotify.heroic.metric.Event;
 import com.spotify.heroic.metric.Metric;
-import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.MetricGroup;
+import com.spotify.heroic.metric.Payload;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
 import lombok.Data;
 import lombok.ToString;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.Function;
+import java.util.concurrent.atomic.LongAdder;
+import java.util.function.BiFunction;
 
 @Data
 public class EmptyInstance implements AggregationInstance {
@@ -85,40 +84,41 @@ public class EmptyInstance implements AggregationInstance {
 
         @Override
         public void updatePoints(
-            Map<String, String> key, Set<Series> s, List<Point> values
+            Map<String, String> key, Set<Series> s, Iterable<Point> values, long size
         ) {
-            session(key).points.update(s, values);
+            session(key).points.update(s, values, size);
         }
 
         @Override
         public void updateEvents(
-            Map<String, String> key, Set<Series> s, List<Event> values
+            Map<String, String> key, Set<Series> s, Iterable<Event> values, long size
         ) {
-            session(key).events.update(s, values);
+            session(key).events.update(s, values, size);
         }
 
         @Override
         public void updateSpreads(
-            Map<String, String> key, Set<Series> s, List<Spread> values
+            Map<String, String> key, Set<Series> s, Iterable<Spread> values, long size
         ) {
-            session(key).spreads.update(s, values);
+            session(key).spreads.update(s, values, size);
         }
 
         @Override
         public void updateGroup(
-            Map<String, String> key, Set<Series> s, List<MetricGroup> values
+            Map<String, String> key, Set<Series> s, Iterable<MetricGroup> values, long size
         ) {
-            session(key).groups.update(s, values);
+            session(key).groups.update(s, values, size);
         }
 
         @Override
         public void updatePayload(
-            final Map<String, String> key, final Set<Series> s, final List<Payload> values
+            final Map<String, String> key, final Set<Series> s, final Iterable<Payload> values,
+            long size
         ) {
-            session(key).cardinality.update(s, values);
+            session(key).cardinality.update(s, values, size);
         }
 
-        private SubSession session(Map<String, String> key) {
+        SubSession session(Map<String, String> key) {
             final SubSession session = sessions.get(key);
 
             if (session != null) {
@@ -147,19 +147,23 @@ public class EmptyInstance implements AggregationInstance {
                 final SubSession sub = e.getValue();
 
                 if (!sub.groups.isEmpty()) {
-                    groups.add(collectGroup(group, sub.groups, MetricCollection::groups));
+                    groups.add(
+                        collectGroup(group, sub.groups, CompositeCollection.GroupsList::new));
                 }
 
                 if (!sub.points.isEmpty()) {
-                    groups.add(collectGroup(group, sub.points, MetricCollection::points));
+                    groups.add(
+                        collectGroup(group, sub.points, CompositeCollection.PointsList::new));
                 }
 
                 if (!sub.events.isEmpty()) {
-                    groups.add(collectGroup(group, sub.events, MetricCollection::events));
+                    groups.add(
+                        collectGroup(group, sub.events, CompositeCollection.EventsList::new));
                 }
 
                 if (!sub.spreads.isEmpty()) {
-                    groups.add(collectGroup(group, sub.spreads, MetricCollection::spreads));
+                    groups.add(
+                        collectGroup(group, sub.spreads, CompositeCollection.SpreadsList::new));
                 }
             }
 
@@ -168,40 +172,26 @@ public class EmptyInstance implements AggregationInstance {
 
         private <T extends Metric> AggregationOutput collectGroup(
             final Map<String, String> key, final SessionPair<T> collected,
-            final Function<List<T>, MetricCollection> builder
+            final BiFunction<List<Iterable<T>>, Long, CompositeCollection> builder
         ) {
-            final ImmutableList.Builder<List<T>> iterables = ImmutableList.builder();
-
-            for (final List<T> d : collected.data) {
-                iterables.add(d);
-            }
-
             final Set<Series> series = ImmutableSet.copyOf(Iterables.concat(collected.series));
-
-            /* no need to merge, single results are already sorted */
-            if (collected.data.size() == 1) {
-                return new AggregationOutput(key, series,
-                    builder.apply(iterables.build().iterator().next()));
-            }
-
-            final ImmutableList<Iterator<T>> iterators =
-                ImmutableList.copyOf(iterables.build().stream().map(Iterable::iterator).iterator());
-            final Iterator<T> metrics = Iterators.mergeSorted(iterators, Metric.comparator());
-
-            return new AggregationOutput(key, series, builder.apply(ImmutableList.copyOf(metrics)));
+            return new AggregationOutput(key, series,
+                builder.apply(ImmutableList.copyOf(collected.data), collected.size.sum()));
         }
     }
 
     static class SessionPair<T extends Metric> {
         private final ConcurrentLinkedQueue<Set<Series>> series = new ConcurrentLinkedQueue<>();
-        private final ConcurrentLinkedQueue<List<T>> data = new ConcurrentLinkedQueue<>();
+        private final ConcurrentLinkedQueue<Iterable<T>> data = new ConcurrentLinkedQueue<>();
+        private final LongAdder size = new LongAdder();
 
-        public void update(final Set<Series> s, final List<T> values) {
-            series.add(s);
-            data.add(values);
+        void update(final Set<Series> s, final Iterable<T> values, final long size) {
+            this.series.add(s);
+            this.data.add(values);
+            this.size.add(size);
         }
 
-        public boolean isEmpty() {
+        boolean isEmpty() {
             return data.isEmpty();
         }
     }

@@ -34,15 +34,15 @@ import java.util.List;
 @Data
 @EqualsAndHashCode
 public class MetricGroup implements Metric {
-    static final List<MetricCollection> EMPTY_GROUPS = ImmutableList.of();
+    static final List<CompositeCollection> EMPTY_GROUPS = ImmutableList.of();
 
     private final long timestamp;
-    private final List<MetricCollection> groups;
+    private final List<CompositeCollection> groups;
 
     @JsonCreator
     public MetricGroup(
         @JsonProperty("timestamp") long timestamp,
-        @JsonProperty("groups") List<MetricCollection> groups
+        @JsonProperty("groups") List<CompositeCollection> groups
     ) {
         this.timestamp = timestamp;
         this.groups = Optional.fromNullable(groups).or(EMPTY_GROUPS);
@@ -57,8 +57,8 @@ public class MetricGroup implements Metric {
     public void hash(final Hasher hasher) {
         hasher.putInt(MetricType.GROUP.ordinal());
 
-        for (final MetricCollection c : groups) {
-            for (final Metric m : c.getData()) {
+        for (final CompositeCollection c : groups) {
+            for (final Metric m : c.data()) {
                 m.hash(hasher);
             }
         }

@@ -117,12 +117,12 @@ public interface MetricBackend extends Initializing, Grouped, Collected {
     /**
      * Fetch a complete row from the backend.
      */
-    AsyncFuture<MetricCollection> fetchRow(BackendKey key);
+    AsyncFuture<CompositeCollection> fetchRow(BackendKey key);
 
     /**
      * Stream an entire row, chunk-by-chunk.
      * <p>
      * This reduces max memory utilization required in comparison to {#link fetchRow(BackendKey)}.
      */
-    AsyncObservable<MetricCollection> streamRow(BackendKey key);
+    AsyncObservable<CompositeCollection> streamRow(BackendKey key);
 }

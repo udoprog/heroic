@@ -32,7 +32,7 @@ import com.spotify.heroic.dagger.CoreComponent;
 import com.spotify.heroic.metric.FetchData;
 import com.spotify.heroic.metric.MetricBackend;
 import com.spotify.heroic.metric.MetricBackendGroup;
-import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.CompositeCollection;
 import com.spotify.heroic.metric.MetricManager;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.WriteMetric;
@@ -106,8 +106,8 @@ public class WritePerformance implements ShellTask {
                     final ImmutableList.Builder<WriteMetric.Request> writes =
                         ImmutableList.builder();
 
-                    for (final MetricCollection group : result.getGroups()) {
-                        writes.add(new WriteMetric.Request(s, group));
+                    for (final CompositeCollection group : result.getGroups()) {
+                        writes.add(new WriteMetric.Request(s, group.sorted()));
                     }
 
                     return writes.build();

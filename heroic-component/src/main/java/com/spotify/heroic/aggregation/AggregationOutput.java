@@ -22,7 +22,7 @@
 package com.spotify.heroic.aggregation;
 
 import com.spotify.heroic.common.Series;
-import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.CompositeCollection;
 import lombok.Data;
 
 import java.util.Map;
@@ -32,7 +32,7 @@ import java.util.Set;
 public final class AggregationOutput {
     private final Map<String, String> key;
     private final Set<Series> series;
-    private final MetricCollection metrics;
+    private final CompositeCollection metrics;
 
     public boolean isEmpty() {
         return metrics.isEmpty();

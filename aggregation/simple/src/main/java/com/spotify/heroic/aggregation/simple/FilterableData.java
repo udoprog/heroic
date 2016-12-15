@@ -21,13 +21,11 @@
 
 package com.spotify.heroic.aggregation.simple;
 
-import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.CompositeCollection;
 import lombok.Data;
 
-import java.util.function.Supplier;
-
 @Data
-public class FilterableMetrics<T> {
+public class FilterableData<T> {
     private final T data;
-    private final Supplier<MetricCollection> metricSupplier;
+    private final CompositeCollection metrics;
 }

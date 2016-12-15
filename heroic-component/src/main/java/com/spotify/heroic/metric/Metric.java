@@ -26,21 +26,17 @@ import com.google.common.hash.Hasher;
 import java.util.Comparator;
 
 public interface Metric {
+    Comparator<Metric> comparator = (a, b) -> Long.compare(a.getTimestamp(), b.getTimestamp());
+
     long getTimestamp();
 
     boolean valid();
 
     void hash(Hasher hasher);
 
-    static Comparator<Metric> comparator() {
-        return comparator;
-    }
-
     static Metric invalid() {
         return invalid;
     }
-
-    Comparator<Metric> comparator = (a, b) -> Long.compare(a.getTimestamp(), b.getTimestamp());
 
     Metric invalid = new Metric() {
         @Override

@@ -1,8 +1,9 @@
 package com.spotify.heroic.aggregation;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.CompositeCollection;
 import com.spotify.heroic.test.LombokDataTest;
 import org.junit.Test;
 
@@ -20,16 +21,16 @@ public class AggregationOutputTest {
 
     @Test
     public void isEmpty() {
-        final AggregationOutput output =
-            new AggregationOutput(ImmutableMap.of(), ImmutableSet.of(), MetricCollection.empty());
+        final AggregationOutput output = new AggregationOutput(ImmutableMap.of(), ImmutableSet.of(),
+            new CompositeCollection.Points(ImmutableList.of()));
 
         assertTrue(output.isEmpty());
     }
 
     @Test
     public void withKey() {
-        final AggregationOutput output =
-            new AggregationOutput(ImmutableMap.of(), ImmutableSet.of(), MetricCollection.empty());
+        final AggregationOutput output = new AggregationOutput(ImmutableMap.of(), ImmutableSet.of(),
+            new CompositeCollection.Points(ImmutableList.of()));
 
         final Map<String, String> key = ImmutableMap.of("key", "value");
 

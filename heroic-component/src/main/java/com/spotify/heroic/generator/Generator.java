@@ -23,8 +23,8 @@ package com.spotify.heroic.generator;
 
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
-import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.SortedCollection;
 
 public interface Generator {
-    MetricCollection generate(Series series, DateRange range);
+    SortedCollection generate(Series series, DateRange range);
 }

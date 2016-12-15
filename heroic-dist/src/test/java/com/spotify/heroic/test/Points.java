@@ -22,8 +22,8 @@
 package com.spotify.heroic.test;
 
 import com.google.common.collect.ImmutableList;
-import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.Point;
+import com.spotify.heroic.metric.SortedCollection;
 
 public class Points {
     private final ImmutableList.Builder<Point> points = ImmutableList.builder();
@@ -33,7 +33,7 @@ public class Points {
         return this;
     }
 
-    public MetricCollection build() {
-        return MetricCollection.points(points.build());
+    public SortedCollection build() {
+        return new SortedCollection.Points(points.build());
     }
 }

@@ -29,7 +29,7 @@ import com.spotify.heroic.dagger.CoreComponent;
 import com.spotify.heroic.metric.FetchData;
 import com.spotify.heroic.metric.Metric;
 import com.spotify.heroic.metric.MetricBackendGroup;
-import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.CompositeCollection;
 import com.spotify.heroic.metric.MetricManager;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.shell.AbstractShellTaskParams;
@@ -101,13 +101,13 @@ public class Fetch implements ShellTask {
             .fetch(new FetchData.Request(source, series, range, options))
             .lazyTransform(result -> {
                 outer:
-                for (final MetricCollection g : result.getGroups()) {
+                for (final CompositeCollection g : result.getGroups()) {
                     int i = 0;
 
                     Calendar current = null;
                     Calendar last = null;
 
-                    for (final Metric d : g.getData()) {
+                    for (final Metric d : g.data()) {
                         current = Calendar.getInstance();
                         current.setTime(new Date(d.getTimestamp()));
 

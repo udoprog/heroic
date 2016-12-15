@@ -24,9 +24,9 @@ package com.spotify.heroic.aggregation.simple;
 import com.google.common.collect.ImmutableList;
 import com.spotify.heroic.aggregation.AbstractBucket;
 import com.spotify.heroic.aggregation.Bucket;
+import com.spotify.heroic.metric.CompositeCollection;
 import com.spotify.heroic.metric.Event;
 import com.spotify.heroic.metric.Metric;
-import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.MetricGroup;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
@@ -36,33 +36,41 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.atomic.LongAdder;
 
 @RequiredArgsConstructor
 public class GroupUniqueBucket extends AbstractBucket implements Bucket {
-    final SortedSet<Point> points = new ConcurrentSkipListSet<>(Metric.comparator());
-    final SortedSet<Event> events = new ConcurrentSkipListSet<>(Metric.comparator());
-    final SortedSet<Spread> spreads = new ConcurrentSkipListSet<>(Metric.comparator());
-    final SortedSet<MetricGroup> groups = new ConcurrentSkipListSet<>(Metric.comparator());
+    final SortedSet<Point> points = new ConcurrentSkipListSet<>(Metric.comparator);
+    final LongAdder pointsSize = new LongAdder();
+
+    final SortedSet<Event> events = new ConcurrentSkipListSet<>(Metric.comparator);
+    final LongAdder eventsSize = new LongAdder();
+
+    final SortedSet<Spread> spreads = new ConcurrentSkipListSet<>(Metric.comparator);
+    final LongAdder spreadsSize = new LongAdder();
+
+    final SortedSet<MetricGroup> groups = new ConcurrentSkipListSet<>(Metric.comparator);
+    final LongAdder groupsSize = new LongAdder();
 
     final long timestamp;
 
-    public List<MetricCollection> groups() {
-        final ImmutableList.Builder<MetricCollection> result = ImmutableList.builder();
+    public List<CompositeCollection> groups() {
+        final ImmutableList.Builder<CompositeCollection> result = ImmutableList.builder();
 
         if (!points.isEmpty()) {
-            result.add(MetricCollection.points(ImmutableList.copyOf(points)));
+            result.add(new CompositeCollection.Points(points, pointsSize.sum()));
         }
 
         if (!events.isEmpty()) {
-            result.add(MetricCollection.events(ImmutableList.copyOf(events)));
+            result.add(new CompositeCollection.Events(events, eventsSize.sum()));
         }
 
         if (!spreads.isEmpty()) {
-            result.add(MetricCollection.spreads(ImmutableList.copyOf(spreads)));
+            result.add(new CompositeCollection.Spreads(spreads, spreadsSize.sum()));
         }
 
         if (!groups.isEmpty()) {
-            result.add(MetricCollection.groups(ImmutableList.copyOf(groups)));
+            result.add(new CompositeCollection.Groups(groups, groupsSize.sum()));
         }
 
         return result.build();
@@ -70,22 +78,30 @@ public class GroupUniqueBucket extends AbstractBucket implements Bucket {
 
     @Override
     public void updatePoint(Map<String, String> key, Point sample) {
-        points.add(sample);
+        if (points.add(sample)) {
+            pointsSize.increment();
+        }
     }
 
     @Override
     public void updateEvent(Map<String, String> key, Event sample) {
-        events.add(sample);
+        if (events.add(sample)) {
+            eventsSize.increment();
+        }
     }
 
     @Override
     public void updateSpread(Map<String, String> key, Spread sample) {
-        spreads.add(sample);
+        if (spreads.add(sample)) {
+            spreadsSize.increment();
+        }
     }
 
     @Override
     public void updateGroup(Map<String, String> key, MetricGroup sample) {
-        groups.add(sample);
+        if (groups.add(sample)) {
+            groupsSize.increment();
+        }
     }
 
     @Override

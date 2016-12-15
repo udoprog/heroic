@@ -37,7 +37,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class ResultGroup {
     final Map<String, String> key;
     final Set<Series> series;
-    final MetricCollection group;
+    final SortedCollection group;
     /**
      * The interval in milliseconds for which a sample can be expected. A cadence of 0 indicates
      * that this value is unknown.
@@ -47,7 +47,7 @@ public class ResultGroup {
     @JsonCreator
     public ResultGroup(
         @JsonProperty("key") Map<String, String> key, @JsonProperty("series") Set<Series> series,
-        @JsonProperty("group") MetricCollection group, @JsonProperty("cadence") Long cadence
+        @JsonProperty("group") SortedCollection group, @JsonProperty("cadence") Long cadence
     ) {
         this.key = checkNotNull(key, "key");
         this.series = checkNotNull(series, "series");

@@ -23,7 +23,13 @@ package com.spotify.heroic.aggregation.simple;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.spotify.heroic.aggregation.*;
+import com.spotify.heroic.aggregation.AggregationInstance;
+import com.spotify.heroic.aggregation.AggregationOutput;
+import com.spotify.heroic.aggregation.AggregationSession;
+import com.spotify.heroic.aggregation.ChainInstance;
+import com.spotify.heroic.aggregation.EmptyInstance;
+import com.spotify.heroic.aggregation.GroupInstance;
+import com.spotify.heroic.aggregation.GroupingAggregation;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.metric.Point;
@@ -71,15 +77,18 @@ public class PointsAboveInstanceTest {
         assertPoints(1, 4, result);
     }
 
-
     private void assertSeries(int series, List<AggregationOutput> result) {
         assertEquals(series, result.size());
     }
 
     private void assertPoints(int k, int expected, List<AggregationOutput> result) {
-        assertFalse(result.stream().flatMap( s -> s.getMetrics().getDataAs(Point.class).stream()).map(Point::getValue).anyMatch(v -> v <= k));
-        assertEquals(expected, result.stream().flatMap(s -> s.getMetrics().getDataAs(Point.class).stream()).count());
+        assertFalse(result
+            .stream()
+            .flatMap(s -> s.getMetrics().streamAs(Point.class))
+            .map(Point::getValue)
+            .anyMatch(v -> v <= k));
+
+        assertEquals(expected,
+            result.stream().flatMap(s -> s.getMetrics().streamAs(Point.class)).count());
     }
-
-
 }

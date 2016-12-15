@@ -54,7 +54,7 @@ public class DistributedAggregationCombiner implements AggregationCombiner {
 
         for (final AggregationOutput out : result.getResult()) {
             groups.add(new ShardedResultGroup(ImmutableMap.of(), out.getKey(), out.getSeries(),
-                out.getMetrics(), reducer.cadence()));
+                out.getMetrics().sorted(), reducer.cadence()));
         }
 
         return groups.build();
