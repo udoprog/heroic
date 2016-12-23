@@ -31,6 +31,7 @@ import com.spotify.heroic.profile.ClusterProfile;
 import com.spotify.heroic.profile.CollectdConsumerProfile;
 import com.spotify.heroic.profile.ElasticsearchMetadataProfile;
 import com.spotify.heroic.profile.ElasticsearchSuggestProfile;
+import com.spotify.heroic.profile.GeneratorProfile;
 import com.spotify.heroic.profile.KafkaConsumerProfile;
 import com.spotify.heroic.profile.MemoryCacheProfile;
 import com.spotify.heroic.profile.MemoryProfile;
@@ -85,6 +86,7 @@ public class HeroicModules {
         .put("collectd", new CollectdConsumerProfile())
         .put("memory-cache", new MemoryCacheProfile())
         .put("web", new WebProfile())
+        .put("generator", new GeneratorProfile())
     .build();
     // @formatter:on
 

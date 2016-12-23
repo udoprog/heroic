@@ -281,6 +281,11 @@ public class HeroicConfig {
             return this;
         }
 
+        public Builder generator(final CoreGeneratorModule.Builder generator) {
+            this.generator = of(generator);
+            return this;
+        }
+
         public Builder merge(Builder o) {
             // @formatter:off
             return new Builder(

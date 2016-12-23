@@ -42,6 +42,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.spotify.heroic.common.Optionals.mergeOptionalList;
 import static com.spotify.heroic.common.Optionals.pickOptional;
 import static java.util.Optional.empty;
+import static java.util.Optional.of;
 
 @RequiredArgsConstructor
 @Module
@@ -110,6 +111,16 @@ public class CoreGeneratorModule {
         ) {
             this.metrics = metrics;
             this.metadata = metadata;
+        }
+
+        public Builder metrics(final List<MetricGeneratorModule> metrics) {
+            this.metrics = of(metrics);
+            return this;
+        }
+
+        public Builder metadata(final MetadataGenerator metadata) {
+            this.metadata = of(metadata);
+            return this;
         }
 
         public Builder merge(Builder o) {
