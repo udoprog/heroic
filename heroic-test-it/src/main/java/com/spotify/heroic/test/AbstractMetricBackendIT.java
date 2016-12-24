@@ -114,7 +114,7 @@ public abstract class AbstractMetricBackendIT {
 
         // write and read data back
         final MetricCollection points = Data.points().p(100000L, 42D).build();
-        final MetricKey metricKey = MetricKey.of(s1);
+        final MetricKey metricKey = s1.toMetricKey();
 
         backend.write(new WriteMetric.Request(Tracing.disabled(), metricKey, points)).get();
         FetchData data = backend

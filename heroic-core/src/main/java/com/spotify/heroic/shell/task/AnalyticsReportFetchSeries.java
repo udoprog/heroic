@@ -67,7 +67,7 @@ public class AnalyticsReportFetchSeries implements ShellTask {
 
         final Series series = Tasks.parseSeries(mapper, params.series);
         final LocalDate date = params.date.map(LocalDate::parse).orElseGet(LocalDate::now);
-        return metricAnalytics.reportFetchSeries(date, MetricKey.of(series));
+        return metricAnalytics.reportFetchSeries(date, series.toMetricKey());
     }
 
     @ToString

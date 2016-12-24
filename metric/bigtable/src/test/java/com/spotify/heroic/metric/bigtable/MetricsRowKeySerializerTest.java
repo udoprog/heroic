@@ -13,7 +13,7 @@ import org.junit.Assert;
 
 public class MetricsRowKeySerializerTest extends TestCase {
     private MetricKey key =
-        MetricKey.of(Series.of("key", ImmutableMap.of("from", "123", "to", "4567")));
+        Series.of("key", ImmutableMap.of("from", "123", "to", "4567")).toMetricKey();
 
     private static final String EXPECTED_SERIALIZATION =
         "\u0003\u0003key" + "\u0002\u0004\u0004from\u0003\u0003123" +

@@ -100,7 +100,7 @@ public class Fetch implements ShellTask {
             QueryOptions.builder().tracing(Tracing.fromBoolean(params.tracing)).build();
 
         return readGroup
-            .fetch(new FetchData.Request(options.getTracing(), MetricKey.of(series), source, range))
+            .fetch(new FetchData.Request(options.getTracing(), series.toMetricKey(), source, range))
             .lazyTransform(result -> {
                 outer:
                 for (final MetricCollection g : result.getGroups()) {

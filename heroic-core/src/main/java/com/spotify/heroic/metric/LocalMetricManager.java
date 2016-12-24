@@ -214,7 +214,7 @@ public class LocalMetricManager implements MetricManager {
                     for (final Series s : result.getSeries()) {
                         fetches.add(() -> b
                             .fetch(
-                                new FetchData.Request(options.getTracing(), MetricKey.of(s), source,
+                                new FetchData.Request(options.getTracing(), s.toMetricKey(), source,
                                     range), watcher)
                             .directTransform(d -> Pair.of(s, d)));
                     }

@@ -33,11 +33,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Maps;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.spotify.heroic.grammar.DSL;
+import com.spotify.heroic.metric.MetricKey;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
@@ -122,6 +124,20 @@ public class Series implements Comparable<Series> {
     @JsonIgnore
     public HashCode getHashCode() {
         return hashCode;
+    }
+
+    /**
+     * Convert into a metric key.
+     * <p>
+     * Metric keys only include the tags which are part of {@link #identity} (if present).
+     *
+     * @return a new metric key
+     */
+    public MetricKey toMetricKey() {
+        final SortedMap<String, String> filtered =
+            identity.map(id -> Maps.filterKeys(tags, id::contains)).orElse(tags);
+
+        return new MetricKey(key, filtered);
     }
 
     public String hash() {

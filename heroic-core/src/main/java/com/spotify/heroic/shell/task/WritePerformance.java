@@ -101,11 +101,11 @@ public class WritePerformance implements ShellTask {
         final List<AsyncFuture<List<WriteMetric.Request>>> reads = new ArrayList<>();
 
         for (final Series s : series) {
-            final MetricKey metricKey = MetricKey.of(s);
+            final MetricKey metricKey = s.toMetricKey();
 
             reads.add(readGroup
-                .fetch(new FetchData.Request(Tracing.disabled(), metricKey, MetricType.POINT,
-                    range))
+                .fetch(
+                    new FetchData.Request(Tracing.disabled(), metricKey, MetricType.POINT, range))
                 .directTransform(result -> {
                     final ImmutableList.Builder<WriteMetric.Request> writes =
                         ImmutableList.builder();

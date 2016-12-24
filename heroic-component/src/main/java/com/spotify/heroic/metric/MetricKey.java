@@ -26,7 +26,6 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
-import com.spotify.heroic.common.Series;
 import lombok.Data;
 
 import java.util.Map;
@@ -53,9 +52,5 @@ public class MetricKey {
         }
 
         return hasher.hash();
-    }
-
-    public static MetricKey of(final Series series) {
-        return new MetricKey(series.getKey(), series.getTags());
     }
 }
