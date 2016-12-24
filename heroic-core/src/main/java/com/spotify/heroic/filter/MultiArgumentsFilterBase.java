@@ -27,21 +27,20 @@ import com.spotify.heroic.common.FunctionIO;
 import lombok.RequiredArgsConstructor;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
 @RequiredArgsConstructor
 public class MultiArgumentsFilterBase<T extends Filter, A> implements FilterEncoding<T> {
-    private final Function<List<A>, T> builder;
-    private final Function<T, List<A>> argument;
+    private final Function<? super Iterable<A>, T> builder;
+    private final Function<T, ? extends Iterable<A>> argument;
 
     private final FunctionIO<Decoder, Optional<A>> decode;
     private final BiConsumerIO<Encoder, A> encode;
 
     public MultiArgumentsFilterBase(
-        final Function<List<A>, T> builder, final Function<T, List<A>> argument,
-        final FilterEncodingComponent<A> encoding
+        final Function<? super Iterable<A>, T> builder,
+        final Function<T, ? extends Iterable<A>> argument, final FilterEncodingComponent<A> encoding
     ) {
         this.argument = argument;
         this.builder = builder;

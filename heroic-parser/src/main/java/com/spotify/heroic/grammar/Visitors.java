@@ -23,6 +23,7 @@ package com.spotify.heroic.grammar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.spotify.heroic.common.Series;
 import com.spotify.heroic.filter.AndFilter;
 import com.spotify.heroic.filter.FalseFilter;
 import com.spotify.heroic.filter.Filter;
@@ -32,6 +33,7 @@ import com.spotify.heroic.filter.MatchTagFilter;
 import com.spotify.heroic.filter.NotFilter;
 import com.spotify.heroic.filter.OrFilter;
 import com.spotify.heroic.filter.RegexFilter;
+import com.spotify.heroic.filter.ScopeFilter;
 import com.spotify.heroic.filter.StartsWithFilter;
 import com.spotify.heroic.filter.TrueFilter;
 import com.spotify.heroic.metric.MetricType;
@@ -41,6 +43,7 @@ import org.antlr.v4.runtime.CommonToken;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.RuleNode;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -607,6 +610,21 @@ public class Visitors {
             final Filter left = ctx.left.accept(this);
             final Filter right = ctx.right.accept(this);
             return new OrFilter(ImmutableList.of(left, right));
+        }
+
+        @Override
+        public Filter visitFilterScope(
+            final HeroicQueryParser.FilterScopeContext ctx
+        ) {
+            final List<Pair<String, String>> scope = ctx.scopeKeyValue().stream().map(kv -> {
+                final String key =
+                    kv.key.accept(EXPRESSION).cast(StringExpression.class).getString();
+                final String value =
+                    kv.value.accept(EXPRESSION).cast(StringExpression.class).getString();
+                return Pair.of(key, value);
+            }).collect(Collectors.toList());
+
+            return new ScopeFilter(new Series.ListScope(scope));
         }
 
         private List<Filter> buildIn(

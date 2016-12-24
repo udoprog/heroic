@@ -37,5 +37,6 @@ public class MetadataBackendV1IT extends AbstractElasticsearchMetadataBackendIT 
 
         // TODO: find out and fix the issue
         orFilterSupport = false;
+        scopeSupport = false;
     }
 }

@@ -43,6 +43,10 @@ public class OrFilter implements Filter {
 
     private final List<Filter> statements;
 
+    public OrFilter(final Iterable<Filter> statements) {
+        this.statements = ImmutableList.copyOf(statements);
+    }
+
     @Override
     public boolean apply(Series series) {
         return statements.stream().anyMatch(s -> s.apply(series));

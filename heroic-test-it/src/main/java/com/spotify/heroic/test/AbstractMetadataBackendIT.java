@@ -36,6 +36,7 @@ import com.spotify.heroic.dagger.LoadingComponent;
 import com.spotify.heroic.filter.FalseFilter;
 import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.filter.MatchKeyFilter;
+import com.spotify.heroic.filter.ScopeFilter;
 import com.spotify.heroic.filter.TrueFilter;
 import com.spotify.heroic.metadata.CountSeries;
 import com.spotify.heroic.metadata.DeleteSeries;
@@ -259,6 +260,17 @@ public abstract class AbstractMetadataBackendIT {
             findIds(and(matchKey(s1.getKey().get()), matchTag("role", "foo"))));
 
         assertEquals(ImmutableSet.of(s1.hash(), s2.hash(), s3.hash()), findIds(hasTag("role")));
+
+        if (scopeSupport) {
+            assertEquals(ImmutableSet.of(s1.hash(), s2.hash()),
+                findIds(new ScopeFilter(Series.scope())));
+
+            assertEquals(ImmutableSet.of(s3.hash()),
+                findIds(new ScopeFilter(Series.scope("role", "baz"))));
+
+            assertEquals(ImmutableSet.of(),
+                findIds(new ScopeFilter(Series.scope("role", "bar"))));
+        }
     }
 
     private Set<String> findIds(final Filter filter) throws Exception {

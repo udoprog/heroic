@@ -37,5 +37,6 @@ public class MetadataBackendKVIT extends AbstractElasticsearchMetadataBackendIT 
 
         // TODO: support findTags?
         findTagsSupport = false;
+        scopeSupport = false;
     }
 }

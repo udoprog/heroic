@@ -23,7 +23,6 @@ package com.spotify.heroic.filter;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
@@ -35,12 +34,14 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableMap;
 import com.spotify.heroic.grammar.QueryParser;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.spotify.heroic.filter.FilterEncoding.entry;
 import static com.spotify.heroic.filter.FilterEncoding.filter;
 import static com.spotify.heroic.filter.FilterEncoding.string;
 
@@ -137,6 +138,14 @@ public class FilterRegistry {
             public void filter(Filter filter) throws IOException {
                 generator.writeObject(filter);
             }
+
+            @Override
+            public void entry(Map.Entry<String, String> entry) throws IOException {
+                generator.writeStartArray();
+                generator.writeString(entry.getKey());
+                generator.writeString(entry.getValue());
+                generator.writeEndArray();
+            }
         }
     }
 
@@ -146,8 +155,7 @@ public class FilterRegistry {
         final QueryParser parser;
 
         @Override
-        public Filter deserialize(JsonParser p, DeserializationContext c)
-            throws IOException, JsonProcessingException {
+        public Filter deserialize(JsonParser p, DeserializationContext c) throws IOException {
             if (p.getCurrentToken() != JsonToken.START_ARRAY) {
                 throw c.mappingException("Expected start of array");
             }
@@ -208,7 +216,7 @@ public class FilterRegistry {
                 }
 
                 if (parser.getCurrentToken() != JsonToken.VALUE_STRING) {
-                    throw c.mappingException("Expected string");
+                    throw c.mappingException("expected string");
                 }
 
                 final String string;
@@ -232,7 +240,7 @@ public class FilterRegistry {
                 }
 
                 if (parser.getCurrentToken() != JsonToken.START_ARRAY) {
-                    throw c.mappingException("Expected start of new filter expression");
+                    throw c.mappingException("expected start of new filter expression");
                 }
 
                 final Filter filter;
@@ -245,6 +253,38 @@ public class FilterRegistry {
 
                 parser.nextToken();
                 return Optional.of(filter);
+            }
+
+            @Override
+            public Optional<Map.Entry<String, String>> entry() throws IOException {
+                final int index = this.index++;
+
+                if (parser.getCurrentToken() == JsonToken.END_ARRAY) {
+                    return Optional.empty();
+                }
+
+                if (parser.getCurrentToken() != JsonToken.START_ARRAY) {
+                    throw c.mappingException("expected start of array");
+                }
+
+                parser.nextToken();
+
+                final String key;
+                final String value;
+
+                try {
+                    key = parser.readValueAs(String.class);
+                    value = parser.readValueAs(String.class);
+                } catch (final JsonMappingException e) {
+                    throw JsonMappingException.wrapWithPath(e, this, index);
+                }
+
+                if (parser.nextToken() != JsonToken.END_ARRAY) {
+                    throw c.mappingException("expected end of array");
+                }
+
+                parser.nextToken();
+                return Optional.of(Pair.of(key, value));
             }
         }
     }
@@ -288,6 +328,9 @@ public class FilterRegistry {
 
         registry.registerOne(RawFilter.OPERATOR, RawFilter.class,
             new OneArgumentFilterEncoding<>(RawFilter::new, RawFilter::getFilter, string()));
+
+        registry.registerList(ScopeFilter.OPERATOR, ScopeFilter.class,
+            new MultiArgumentsFilterBase<>(ScopeFilter::new, ScopeFilter::getScope, entry()));
 
         return registry;
     }

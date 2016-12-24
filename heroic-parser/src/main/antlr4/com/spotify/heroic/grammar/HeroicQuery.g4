@@ -34,28 +34,33 @@ keyValues
     ;
 
 filter
-    : LParen filter RParen           #FilterPrecedence
-    | left=filter Or right=filter    #FilterOr
-    | left=filter And right=filter   #FilterAnd
-    | key=expr Eq value=expr         #FilterEq
-    | key=expr NotEq value=expr      #FilterNotEq
-    | SKey Eq expr                   #FilterKeyEq
-    | SKey NotEq expr                #FilterKeyNotEq
-    | Plus expr                      #FilterHas
-    | key=expr Prefix value=expr     #FilterPrefix
-    | key=expr NotPrefix value=expr  #FilterNotPrefix
-    | key=expr Regex value=expr      #FilterRegex
-    | key=expr NotRegex value=expr   #FilterNotRegex
-    | key=expr In value=expr         #FilterIn
-    | key=expr Not In value=expr     #FilterNotIn
-    | (True | False)                 #FilterBoolean
-    | Bang filter                    #FilterNot
+    : LParen filter RParen                                      #FilterPrecedence
+    | left=filter Or right=filter                               #FilterOr
+    | left=filter And right=filter                              #FilterAnd
+    | key=expr Eq value=expr                                    #FilterEq
+    | key=expr NotEq value=expr                                 #FilterNotEq
+    | SKey Eq expr                                              #FilterKeyEq
+    | SKey NotEq expr                                           #FilterKeyNotEq
+    | Plus expr                                                 #FilterHas
+    | key=expr Prefix value=expr                                #FilterPrefix
+    | key=expr NotPrefix value=expr                             #FilterNotPrefix
+    | key=expr Regex value=expr                                 #FilterRegex
+    | key=expr NotRegex value=expr                              #FilterNotRegex
+    | key=expr In value=expr                                    #FilterIn
+    | key=expr Not In value=expr                                #FilterNotIn
+    | (True | False)                                            #FilterBoolean
+    | Bang filter                                               #FilterNot
+    | SScope LParen scopeKeyValue (Comma scopeKeyValue)* RParen #FilterScope
     ;
 
 string
     : QuotedString
     | SimpleString
     | Identifier
+    ;
+
+scopeKeyValue
+    : key=expr Eq value=expr
     ;
 
 keyValue
@@ -122,6 +127,7 @@ LBracket : '[' ;
 RBracket : ']' ;
 Pipe : '|' ;
 SKey : '$key' ;
+SScope : '$scope' ;
 
 // Only HH:MM:ss.SSS
 TimeLiteral

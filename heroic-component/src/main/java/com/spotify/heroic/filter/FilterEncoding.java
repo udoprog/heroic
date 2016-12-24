@@ -22,6 +22,7 @@
 package com.spotify.heroic.filter;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Optional;
 
 public interface FilterEncoding<T> {
@@ -35,6 +36,11 @@ public interface FilterEncoding<T> {
          * read next item as a filter.
          */
         Optional<Filter> filter() throws IOException;
+
+        /**
+         * read next item as an entry.
+         */
+        Optional<Map.Entry<String, String>> entry() throws IOException;
     }
 
     interface Encoder {
@@ -47,6 +53,11 @@ public interface FilterEncoding<T> {
          * Serialize next item as a filter.
          */
         void filter(Filter filter) throws IOException;
+
+        /**
+         * Serialize next item as an entry.
+         */
+        void entry(Map.Entry<String, String> entry) throws IOException;
     }
 
     T deserialize(Decoder decoder) throws IOException;
@@ -57,6 +68,8 @@ public interface FilterEncoding<T> {
         new FilterEncodingComponent<>(Decoder::string, Encoder::string);
     FilterEncodingComponent<Filter> FILTER =
         new FilterEncodingComponent<>(Decoder::filter, Encoder::filter);
+    FilterEncodingComponent<Map.Entry<String, String>> ENTRY =
+        new FilterEncodingComponent<>(Decoder::entry, Encoder::entry);
 
     static FilterEncodingComponent<String> string() {
         return STRING;
@@ -64,5 +77,9 @@ public interface FilterEncoding<T> {
 
     static FilterEncodingComponent<Filter> filter() {
         return FILTER;
+    }
+
+    static FilterEncodingComponent<Map.Entry<String, String>> entry() {
+        return ENTRY;
     }
 }

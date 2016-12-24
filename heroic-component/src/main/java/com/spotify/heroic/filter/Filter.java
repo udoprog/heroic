@@ -118,6 +118,10 @@ public interface Filter extends Comparable<Filter> {
             return defaultAction(regex);
         }
 
+        default T visitScope(ScopeFilter scope) {
+            return defaultAction(scope);
+        }
+
         T defaultAction(Filter filter);
     }
 }

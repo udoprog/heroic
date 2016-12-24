@@ -43,6 +43,10 @@ public class AndFilter implements Filter {
 
     private final List<Filter> statements;
 
+    public AndFilter(final Iterable<Filter> statements) {
+        this.statements = ImmutableList.copyOf(statements);
+    }
+
     @Override
     public boolean apply(Series series) {
         return statements.stream().allMatch(s -> s.apply(series));

@@ -2,12 +2,14 @@ package com.spotify.heroic.grammar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.spotify.heroic.common.Series;
 import com.spotify.heroic.filter.AndFilter;
 import com.spotify.heroic.filter.FalseFilter;
 import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.filter.HasTagFilter;
 import com.spotify.heroic.filter.MatchKeyFilter;
 import com.spotify.heroic.filter.MatchTagFilter;
+import com.spotify.heroic.filter.ScopeFilter;
 import com.spotify.heroic.filter.NotFilter;
 import com.spotify.heroic.filter.OrFilter;
 import com.spotify.heroic.filter.RegexFilter;
@@ -251,6 +253,10 @@ public class QueryParserTest {
         assertEquals(NotFilter.of(new MatchKeyFilter("a")), parseFilter("$key != a"));
         assertEquals(TrueFilter.get(), parseFilter("true"));
         assertEquals(FalseFilter.get(), parseFilter("false"));
+
+        assertEquals(
+            new ScopeFilter(new Series.ListScope(ImmutableList.of(Pair.of("what", "goats")))),
+            parseFilter("$scope(what=goats)"));
     }
 
     @Test
