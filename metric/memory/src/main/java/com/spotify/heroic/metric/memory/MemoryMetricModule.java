@@ -35,13 +35,13 @@ import dagger.Provides;
 import eu.toolchain.async.AsyncFramework;
 import lombok.Data;
 
-import javax.inject.Named;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentSkipListMap;
+import javax.inject.Named;
 
 import static java.util.Optional.empty;
 import static java.util.Optional.of;
@@ -100,7 +100,7 @@ public final class MemoryMetricModule implements MetricModule, DynamicModuleId {
                 return Collections.synchronizedMap(new HashMap<>());
             }
 
-            return new ConcurrentSkipListMap<>(MemoryBackend.COMPARATOR);
+            return new ConcurrentSkipListMap<>(MemoryBackend.MEMORY_KEY_COMPARATOR);
         }
     }
 

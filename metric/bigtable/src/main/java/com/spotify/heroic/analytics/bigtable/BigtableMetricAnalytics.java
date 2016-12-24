@@ -26,10 +26,10 @@ import com.google.protobuf.ByteString;
 import com.spotify.heroic.analytics.MetricAnalytics;
 import com.spotify.heroic.analytics.SeriesHit;
 import com.spotify.heroic.async.AsyncObservable;
-import com.spotify.heroic.common.Series;
 import com.spotify.heroic.lifecycle.LifeCycleRegistry;
 import com.spotify.heroic.lifecycle.LifeCycles;
 import com.spotify.heroic.metric.MetricBackend;
+import com.spotify.heroic.metric.MetricKey;
 import com.spotify.heroic.metric.bigtable.BigtableConnection;
 import com.spotify.heroic.metric.bigtable.api.Family;
 import com.spotify.heroic.metric.bigtable.api.ReadModifyWriteRules;
@@ -44,13 +44,13 @@ import eu.toolchain.async.Borrowed;
 import eu.toolchain.async.Managed;
 import lombok.ToString;
 
-import javax.inject.Inject;
-import javax.inject.Named;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.concurrent.Semaphore;
+import javax.inject.Inject;
+import javax.inject.Named;
 
 @BigtableScope
 @ToString(exclude = {"async", "mapper", "reporter"})
@@ -133,7 +133,7 @@ public class BigtableMetricAnalytics implements MetricAnalytics, LifeCycles {
                 final SeriesKeyEncoding.SeriesKey k;
 
                 try {
-                    k = fetchSeries.decode(rowKey, s -> mapper.readValue(s, Series.class));
+                    k = fetchSeries.decode(rowKey, s -> mapper.readValue(s, MetricKey.class));
                 } catch (final Exception e) {
                     throw new RuntimeException(e);
                 }
@@ -146,13 +146,13 @@ public class BigtableMetricAnalytics implements MetricAnalytics, LifeCycles {
                     return buf.getLong();
                 }).orElse(0L);
 
-                return new SeriesHit(k.getSeries(), value);
+                return new SeriesHit(k.getKey(), value);
             })
             .onFinished(b::release);
     }
 
     @Override
-    public AsyncFuture<Void> reportFetchSeries(LocalDate date, Series series) {
+    public AsyncFuture<Void> reportFetchSeries(LocalDate date, MetricKey key) {
         // limit the number of pending reports that are allowed at the same time to avoid resource
         // starvation.
         if (!pendingReports.tryAcquire()) {
@@ -161,12 +161,12 @@ public class BigtableMetricAnalytics implements MetricAnalytics, LifeCycles {
         }
 
         return connection.doto(c -> {
-            final ByteString key = fetchSeries.encode(new SeriesKeyEncoding.SeriesKey(date, series),
+            final ByteString bytes = fetchSeries.encode(new SeriesKeyEncoding.SeriesKey(date, key),
                 mapper::writeValueAsString);
 
             final AsyncFuture<Row> request = c
                 .dataClient()
-                .readModifyWriteRow(hitsTableName, key, ReadModifyWriteRules
+                .readModifyWriteRow(hitsTableName, bytes, ReadModifyWriteRules
                     .builder()
                     .increment(hitsColumnFamily, ByteString.EMPTY, 1L)
                     .build());

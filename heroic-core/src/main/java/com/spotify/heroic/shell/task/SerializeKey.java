@@ -98,7 +98,7 @@ public class SerializeKey implements ShellTask {
         }
 
         public BackendKey toBackendKey() {
-            return new BackendKey(series, base);
+            return BackendKey.of(series, base);
         }
     }
 

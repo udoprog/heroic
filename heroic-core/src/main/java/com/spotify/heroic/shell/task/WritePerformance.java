@@ -32,6 +32,7 @@ import com.spotify.heroic.metric.FetchData;
 import com.spotify.heroic.metric.MetricBackend;
 import com.spotify.heroic.metric.MetricBackendGroup;
 import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.MetricKey;
 import com.spotify.heroic.metric.MetricManager;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.Tracing;
@@ -100,14 +101,17 @@ public class WritePerformance implements ShellTask {
         final List<AsyncFuture<List<WriteMetric.Request>>> reads = new ArrayList<>();
 
         for (final Series s : series) {
+            final MetricKey metricKey = MetricKey.of(s);
+
             reads.add(readGroup
-                .fetch(new FetchData.Request(MetricType.POINT, s, range, Tracing.disabled()))
+                .fetch(new FetchData.Request(Tracing.disabled(), metricKey, MetricType.POINT,
+                    range))
                 .directTransform(result -> {
                     final ImmutableList.Builder<WriteMetric.Request> writes =
                         ImmutableList.builder();
 
                     for (final MetricCollection group : result.getGroups()) {
-                        writes.add(new WriteMetric.Request(Tracing.enabled(), s, group));
+                        writes.add(new WriteMetric.Request(Tracing.enabled(), metricKey, group));
                     }
 
                     return writes.build();

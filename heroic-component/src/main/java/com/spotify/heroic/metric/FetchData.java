@@ -24,7 +24,6 @@ package com.spotify.heroic.metric;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.spotify.heroic.common.DateRange;
-import com.spotify.heroic.common.Series;
 import eu.toolchain.async.Collector;
 import lombok.Data;
 
@@ -88,9 +87,9 @@ public class FetchData {
 
     @Data
     public static class Request {
-        private final MetricType type;
-        private final Series series;
-        private final DateRange range;
         private final Tracing tracing;
+        private final MetricKey key;
+        private final MetricType type;
+        private final DateRange range;
     }
 }

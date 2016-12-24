@@ -21,11 +21,11 @@
 
 package com.spotify.heroic.analytics;
 
-import com.spotify.heroic.common.Series;
+import com.spotify.heroic.metric.MetricKey;
 import lombok.Data;
 
 @Data
 public class SeriesHit {
-    private final Series series;
+    private final MetricKey key;
     private final long hits;
 }

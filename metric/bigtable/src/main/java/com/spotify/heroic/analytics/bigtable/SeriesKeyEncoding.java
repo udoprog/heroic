@@ -24,7 +24,7 @@ package com.spotify.heroic.analytics.bigtable;
 import com.google.api.client.util.Charsets;
 import com.google.common.base.Splitter;
 import com.google.protobuf.ByteString;
-import com.spotify.heroic.common.Series;
+import com.spotify.heroic.metric.MetricKey;
 import eu.toolchain.async.Transform;
 import lombok.Data;
 
@@ -37,8 +37,9 @@ public class SeriesKeyEncoding {
 
     private static final Splitter SPLITTER = Splitter.on('/').limit(3);
 
-    public SeriesKey decode(ByteString key, Transform<String, Series> transform) throws Exception {
-        final String string = key.toString(Charsets.UTF_8);
+    public SeriesKey decode(ByteString bytes, Transform<String, MetricKey> transform)
+        throws Exception {
+        final String string = bytes.toString(Charsets.UTF_8);
         final List<String> parts = SPLITTER.splitToList(string);
 
         if (parts.size() != 3) {
@@ -53,13 +54,14 @@ public class SeriesKeyEncoding {
         }
 
         final LocalDate date = LocalDate.parse(parts.get(1));
-        final Series series = transform.transform(parts.get(2));
-        return new SeriesKey(date, series);
+        final MetricKey key = transform.transform(parts.get(2));
+        return new SeriesKey(date, key);
     }
 
-    public ByteString encode(SeriesKey key, Transform<Series, String> transform) throws Exception {
+    public ByteString encode(SeriesKey key, Transform<MetricKey, String> transform)
+        throws Exception {
         return ByteString.copyFrom(
-            category + "/" + key.getDate().toString() + "/" + transform.transform(key.getSeries()),
+            category + "/" + key.getDate().toString() + "/" + transform.transform(key.getKey()),
             Charsets.UTF_8);
     }
 
@@ -70,6 +72,6 @@ public class SeriesKeyEncoding {
     @Data
     public static class SeriesKey {
         private final LocalDate date;
-        private final Series series;
+        private final MetricKey key;
     }
 }

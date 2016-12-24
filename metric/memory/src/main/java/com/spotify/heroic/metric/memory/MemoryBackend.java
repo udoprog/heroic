@@ -21,11 +21,11 @@
 
 package com.spotify.heroic.metric.memory;
 
+import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Groups;
-import com.spotify.heroic.common.Series;
 import com.spotify.heroic.common.Statistics;
 import com.spotify.heroic.lifecycle.LifeCycleRegistry;
 import com.spotify.heroic.metric.AbstractMetricBackend;
@@ -35,6 +35,7 @@ import com.spotify.heroic.metric.FetchData;
 import com.spotify.heroic.metric.FetchQuotaWatcher;
 import com.spotify.heroic.metric.Metric;
 import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.MetricKey;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.QueryTrace;
 import com.spotify.heroic.metric.WriteMetric;
@@ -47,9 +48,12 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.Optional;
+import java.util.SortedMap;
 import java.util.TreeMap;
 
 /**
@@ -67,14 +71,71 @@ public class MemoryBackend extends AbstractMetricBackend {
 
     static final List<BackendEntry> EMPTY_ENTRIES = new ArrayList<>();
 
-    static final Comparator<MemoryKey> COMPARATOR = (a, b) -> {
-        final int t = a.getSource().compareTo(b.getSource());
+    static final <T> Comparator<Optional<T>> optionalComparator(final Comparator<T> inner) {
+        return (a, b) -> {
+            if (a.isPresent() && b.isPresent()) {
+                return inner.compare(a.get(), b.get());
+            }
 
-        if (t != 0) {
-            return t;
-        }
+            if (a.isPresent()) {
+                return 1;
+            }
 
-        return a.getSeries().compareTo(b.getSeries());
+            return -1;
+        };
+    }
+
+    static final <T, U> Comparator<SortedMap<T, U>> sortedMapComparator(
+        final Comparator<T> key, final Comparator<U> value
+    ) {
+        return (a, b) -> {
+            final Iterator<Map.Entry<T, U>> aIt = a.entrySet().iterator();
+            final Iterator<Map.Entry<T, U>> bIt = b.entrySet().iterator();
+
+            while (aIt.hasNext() && bIt.hasNext()) {
+                final Map.Entry<T, U> aEntry = aIt.next();
+                final Map.Entry<T, U> bEntry = bIt.next();
+
+                final int k = key.compare(aEntry.getKey(), bEntry.getKey());
+
+                if (k != 0) {
+                    return k;
+                }
+
+                final int v = value.compare(aEntry.getValue(), bEntry.getValue());
+
+                if (v != 0) {
+                    return k;
+                }
+            }
+
+            if (aIt.hasNext()) {
+                return 1;
+            }
+
+            if (bIt.hasNext()) {
+                return -1;
+            }
+
+            return 0;
+        };
+    }
+
+    static final Comparator<MetricKey> METRIC_KEY_COMPARATOR = (a, b) -> {
+        return ComparisonChain
+            .start()
+            .compare(a.getKey(), b.getKey(), optionalComparator(String::compareTo))
+            .compare(a.getTags(), b.getTags(),
+                sortedMapComparator(String::compareTo, String::compareTo))
+            .result();
+    };
+
+    static final Comparator<MemoryKey> MEMORY_KEY_COMPARATOR = (a, b) -> {
+        return ComparisonChain
+            .start()
+            .compare(a.getType(), b.getType())
+            .compare(a.getKey(), b.getKey(), METRIC_KEY_COMPARATOR)
+            .result();
     };
 
     private final Object createLock = new Object();
@@ -120,8 +181,8 @@ public class MemoryBackend extends AbstractMetricBackend {
     @Override
     public AsyncFuture<FetchData> fetch(FetchData.Request request, FetchQuotaWatcher watcher) {
         final QueryTrace.NamedWatch w = request.getTracing().watch(FETCH);
-        final MemoryKey key = new MemoryKey(request.getType(), request.getSeries());
-        final List<MetricCollection> groups = doFetch(key, request.getRange(), watcher);
+        final List<MetricCollection> groups =
+            doFetch(request.getKey(), request.getType(), request.getRange(), watcher);
         return async.resolved(FetchData.of(w.end(), ImmutableList.of(), groups));
     }
 
@@ -137,21 +198,15 @@ public class MemoryBackend extends AbstractMetricBackend {
 
     @Override
     public AsyncFuture<Void> deleteKey(BackendKey key, QueryOptions options) {
-        storage.remove(new MemoryKey(key.getType(), key.getSeries()));
+        storage.remove(new MemoryKey(key.toMetricKey(), key.getType()));
         return async.resolved();
-    }
-
-    @Data
-    public static final class MemoryKey {
-        private final MetricType source;
-        private final Series series;
     }
 
     private void writeOne(final WriteMetric.Request request) {
         final MetricCollection g = request.getData();
 
-        final MemoryKey key = new MemoryKey(g.getType(), request.getSeries());
-        final NavigableMap<Long, Metric> tree = getOrCreate(key);
+        final NavigableMap<Long, Metric> tree =
+            getOrCreate(request.getKey(), request.getData().getType());
 
         synchronized (tree) {
             for (final Metric d : g.getData()) {
@@ -161,19 +216,20 @@ public class MemoryBackend extends AbstractMetricBackend {
     }
 
     private List<MetricCollection> doFetch(
-        final MemoryKey key, final DateRange range, final FetchQuotaWatcher watcher
+        final MetricKey key, final MetricType type, final DateRange range,
+        final FetchQuotaWatcher watcher
     ) {
-        final NavigableMap<Long, Metric> tree = storage.get(key);
+        final NavigableMap<Long, Metric> tree = storage.get(new MemoryKey(key, type));
 
         if (tree == null) {
-            return ImmutableList.of(MetricCollection.build(key.getSource(), ImmutableList.of()));
+            return ImmutableList.of(MetricCollection.build(type, ImmutableList.of()));
         }
 
         synchronized (tree) {
             final Iterable<Metric> metrics = tree.subMap(range.getStart(), range.getEnd()).values();
             final List<Metric> data = ImmutableList.copyOf(metrics);
             watcher.readData(data.size());
-            return ImmutableList.of(MetricCollection.build(key.getSource(), data));
+            return ImmutableList.of(MetricCollection.build(type, data));
         }
     }
 
@@ -183,23 +239,30 @@ public class MemoryBackend extends AbstractMetricBackend {
      * @param key The key to create the map under.
      * @return An existing, or a newly created navigable map for the given key.
      */
-    private NavigableMap<Long, Metric> getOrCreate(final MemoryKey key) {
-        final NavigableMap<Long, Metric> tree = storage.get(key);
+    private NavigableMap<Long, Metric> getOrCreate(final MetricKey key, final MetricType type) {
+        final MemoryKey k = new MemoryKey(key, type);
+        final NavigableMap<Long, Metric> tree = storage.get(k);
 
         if (tree != null) {
             return tree;
         }
 
         synchronized (createLock) {
-            final NavigableMap<Long, Metric> checked = storage.get(key);
+            final NavigableMap<Long, Metric> checked = storage.get(k);
 
             if (checked != null) {
                 return checked;
             }
 
             final NavigableMap<Long, Metric> created = new TreeMap<>();
-            storage.put(key, created);
+            storage.put(new MemoryKey(key, type), created);
             return created;
         }
+    }
+
+    @Data
+    static final class MemoryKey {
+        private final MetricKey key;
+        private final MetricType type;
     }
 }

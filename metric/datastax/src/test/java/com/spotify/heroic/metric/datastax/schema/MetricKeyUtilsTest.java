@@ -3,6 +3,7 @@ package com.spotify.heroic.metric.datastax.schema;
 import com.google.common.collect.ImmutableList;
 import com.spotify.heroic.metric.BackendKey;
 import com.spotify.heroic.metric.BackendKeyFilter;
+import com.spotify.heroic.metric.MetricKey;
 import com.spotify.heroic.metric.datastax.MetricsRowKey;
 import com.spotify.heroic.metric.datastax.TypeSerializer;
 import org.junit.Before;
@@ -13,13 +14,14 @@ import org.mockito.runners.MockitoJUnitRunner;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Optional;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doReturn;
 
 @RunWith(MockitoJUnitRunner.class)
-public class BackendKeyUtilsTest {
+public class MetricKeyUtilsTest {
     @Mock
     TypeSerializer<MetricsRowKey> serializer;
 
@@ -32,22 +34,27 @@ public class BackendKeyUtilsTest {
     @Mock
     SchemaInstance schema;
 
+    @Mock
+    MetricKey metricKey;
+
     @Before
     public void setup() throws IOException {
         doReturn(serializedKey).when(serializer).serialize(any(MetricsRowKey.class));
         doReturn(serializer).when(schema).rowKey();
+        doReturn(metricKey).when(key).toMetricKey();
+        doReturn(Optional.of("key")).when(metricKey).getKey();
     }
 
     @Test
     public void testFloatToToken() {
-        assertEquals(Long.MAX_VALUE, BackendKeyUtils.percentageToToken(1.0f));
-        assertEquals(Long.MIN_VALUE, BackendKeyUtils.percentageToToken(0.0f));
-        assertEquals(0, BackendKeyUtils.percentageToToken(0.5f));
+        assertEquals(Long.MAX_VALUE, MetricKeyUtils.percentageToToken(1.0f));
+        assertEquals(Long.MIN_VALUE, MetricKeyUtils.percentageToToken(0.0f));
+        assertEquals(0, MetricKeyUtils.percentageToToken(0.5f));
     }
 
     @Test
     public void testClause() throws Exception {
-        final BackendKeyUtils utils = new BackendKeyUtils("key", "keyspace", "table", schema);
+        final MetricKeyUtils utils = new MetricKeyUtils("key", "keyspace", "table", schema);
 
         final String base = "SELECT DISTINCT key, token(key) FROM keyspace.table";
 

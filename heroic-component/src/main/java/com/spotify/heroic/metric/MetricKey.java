@@ -21,34 +21,41 @@
 
 package com.spotify.heroic.metric;
 
+import com.google.common.base.Charsets;
+import com.google.common.hash.HashCode;
+import com.google.common.hash.HashFunction;
+import com.google.common.hash.Hasher;
+import com.google.common.hash.Hashing;
 import com.spotify.heroic.common.Series;
 import lombok.Data;
-import lombok.RequiredArgsConstructor;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
 
 @Data
-@RequiredArgsConstructor
-public class BackendKey {
+public class MetricKey {
+    static final HashFunction HASH_FUNCTION = Hashing.murmur3_128();
+
     private final Optional<String> key;
     private final SortedMap<String, String> tags;
-    private final long base;
-    private final MetricType type;
-    private final Optional<Long> token;
 
-    public static BackendKey of(final Series series, final long base) {
-        return new BackendKey(Optional.ofNullable(series.getKey()), series.getTags(), base,
-            MetricType.POINT, Optional.empty());
+    public HashCode hash() {
+        final Hasher hasher = HASH_FUNCTION.newHasher();
+
+        key.ifPresent(key -> {
+            hasher.putString(key, Charsets.UTF_8);
+        });
+
+        for (final Map.Entry<String, String> e : tags.entrySet()) {
+            hasher.putString(e.getKey(), Charsets.UTF_8);
+            hasher.putString(e.getValue(), Charsets.UTF_8);
+        }
+
+        return hasher.hash();
     }
 
-    public static BackendKey of(
-        final Optional<String> key, final SortedMap<String, String> tags, final long base
-    ) {
-        return new BackendKey(key, tags, base, MetricType.POINT, Optional.empty());
-    }
-
-    public MetricKey toMetricKey() {
-        return new MetricKey(key, tags);
+    public static MetricKey of(final Series series) {
+        return new MetricKey(Optional.ofNullable(series.getKey()), series.getTags());
     }
 }

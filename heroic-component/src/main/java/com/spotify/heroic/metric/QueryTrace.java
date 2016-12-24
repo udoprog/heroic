@@ -302,7 +302,7 @@ public interface QueryTrace {
 
         @Override
         public long elapsed() {
-            return w.elapsed(TimeUnit.MICROSECONDS);
+            return w.elapsed(TimeUnit.NANOSECONDS);
         }
     }
 

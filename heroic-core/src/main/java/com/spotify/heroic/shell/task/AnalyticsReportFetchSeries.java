@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spotify.heroic.analytics.MetricAnalytics;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.dagger.CoreComponent;
+import com.spotify.heroic.metric.MetricKey;
 import com.spotify.heroic.shell.AbstractShellTaskParams;
 import com.spotify.heroic.shell.ShellIO;
 import com.spotify.heroic.shell.ShellTask;
@@ -67,7 +68,7 @@ public class AnalyticsReportFetchSeries implements ShellTask {
 
         final Series series = Tasks.parseSeries(mapper, params.series);
         final LocalDate date = params.date.map(LocalDate::parse).orElseGet(LocalDate::now);
-        return metricAnalytics.reportFetchSeries(date, series);
+        return metricAnalytics.reportFetchSeries(date, MetricKey.of(series));
     }
 
     @ToString

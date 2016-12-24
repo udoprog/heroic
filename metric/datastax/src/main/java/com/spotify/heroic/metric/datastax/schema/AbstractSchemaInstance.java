@@ -37,9 +37,9 @@ public abstract class AbstractSchemaInstance implements SchemaInstance {
     @Override
     public Transform<Row, BackendKey> keyConverter() {
         return row -> {
-            final MetricsRowKey key = rowKey().deserialize(row.getBytes(this.key));
-            return new BackendKey(key.getSeries(), key.getBase(), MetricType.POINT,
-                Optional.of(row.getLong(1)));
+            final MetricsRowKey rowKey = rowKey().deserialize(row.getBytes(this.key));
+            return new BackendKey(rowKey.getKey(), rowKey.getTags(), rowKey.getBase(),
+                MetricType.POINT, Optional.empty());
         };
     }
 }

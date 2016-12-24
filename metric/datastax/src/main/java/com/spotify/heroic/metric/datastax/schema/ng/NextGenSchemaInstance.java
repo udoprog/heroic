@@ -25,13 +25,12 @@ import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.Row;
 import com.spotify.heroic.common.DateRange;
-import com.spotify.heroic.common.Series;
-import com.spotify.heroic.metric.BackendKey;
+import com.spotify.heroic.metric.MetricKey;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.datastax.MetricsRowKey;
 import com.spotify.heroic.metric.datastax.TypeSerializer;
 import com.spotify.heroic.metric.datastax.schema.AbstractSchemaInstance;
-import com.spotify.heroic.metric.datastax.schema.BackendKeyUtils;
+import com.spotify.heroic.metric.datastax.schema.MetricKeyUtils;
 import com.spotify.heroic.metric.datastax.schema.Schema.PreparedFetch;
 import eu.toolchain.async.Transform;
 import lombok.Data;
@@ -56,7 +55,7 @@ public class NextGenSchemaInstance extends AbstractSchemaInstance {
     private final PreparedStatement fetch;
     private final PreparedStatement delete;
     private final PreparedStatement count;
-    private final BackendKeyUtils keyUtils;
+    private final MetricKeyUtils keyUtils;
 
     public NextGenSchemaInstance(
         final String keyspace, final String pointsTable, final PreparedStatement write,
@@ -69,7 +68,7 @@ public class NextGenSchemaInstance extends AbstractSchemaInstance {
         this.fetch = fetch;
         this.delete = delete;
         this.count = count;
-        this.keyUtils = new BackendKeyUtils(KEY, keyspace, pointsTable, this);
+        this.keyUtils = new MetricKeyUtils(KEY, keyspace, pointsTable, this);
     }
 
     @Override
@@ -78,7 +77,7 @@ public class NextGenSchemaInstance extends AbstractSchemaInstance {
     }
 
     @Override
-    public BackendKeyUtils keyUtils() {
+    public MetricKeyUtils keyUtils() {
         return keyUtils;
     }
 
@@ -88,13 +87,13 @@ public class NextGenSchemaInstance extends AbstractSchemaInstance {
             final Map<Long, ByteBuffer> cache = new HashMap<>();
 
             @Override
-            public BoundStatement writePoint(Series series, Point d) throws IOException {
+            public BoundStatement writePoint(MetricKey metricKey, Point d) throws IOException {
                 final long base = calculateBaseTimestamp(d.getTimestamp());
 
                 ByteBuffer key = cache.get(base);
 
                 if (key == null) {
-                    key = ROW_KEY.serialize(new MetricsRowKey(series, base));
+                    key = ROW_KEY.serialize(MetricsRowKey.of(metricKey, base));
                     cache.put(base, key);
                 }
 
@@ -105,7 +104,7 @@ public class NextGenSchemaInstance extends AbstractSchemaInstance {
     }
 
     @Override
-    public List<PreparedFetch> ranges(final Series series, final DateRange range)
+    public List<PreparedFetch> ranges(final MetricKey backendKey, final DateRange range)
         throws IOException {
         final List<PreparedFetch> bases = new ArrayList<>();
 
@@ -119,7 +118,7 @@ public class NextGenSchemaInstance extends AbstractSchemaInstance {
                 continue;
             }
 
-            final ByteBuffer key = ROW_KEY.serialize(new MetricsRowKey(series, currentBase));
+            final ByteBuffer key = ROW_KEY.serialize(MetricsRowKey.of(backendKey, currentBase));
             final int startColumn = calculateColumnKey(modified.start());
             final int endColumn = calculateColumnKey(modified.end());
             final long base = currentBase;
@@ -150,10 +149,8 @@ public class NextGenSchemaInstance extends AbstractSchemaInstance {
     }
 
     @Override
-    public PreparedFetch row(final BackendKey key) throws IOException {
-        final long base = key.getBase();
-
-        final ByteBuffer k = ROW_KEY.serialize(new MetricsRowKey(key.getSeries(), base));
+    public PreparedFetch row(final MetricKey key, final long base) throws IOException {
+        final ByteBuffer k = ROW_KEY.serialize(MetricsRowKey.of(key, base));
 
         return new PreparedFetch() {
             @Override

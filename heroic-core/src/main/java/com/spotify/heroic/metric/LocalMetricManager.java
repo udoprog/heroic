@@ -47,6 +47,14 @@ import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import eu.toolchain.async.LazyTransform;
 import eu.toolchain.async.StreamCollector;
+import lombok.RequiredArgsConstructor;
+import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.NotImplementedException;
+import org.apache.commons.lang3.tuple.Pair;
+
+import javax.inject.Inject;
+import javax.inject.Named;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -54,13 +62,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import javax.inject.Inject;
-import javax.inject.Named;
-import lombok.RequiredArgsConstructor;
-import lombok.ToString;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.NotImplementedException;
-import org.apache.commons.lang3.tuple.Pair;
 
 @Slf4j
 @ToString(of = {})
@@ -212,8 +213,9 @@ public class LocalMetricManager implements MetricManager {
                 accept(b -> {
                     for (final Series s : result.getSeries()) {
                         fetches.add(() -> b
-                            .fetch(new FetchData.Request(source, s, range, options.getTracing()),
-                                watcher)
+                            .fetch(
+                                new FetchData.Request(options.getTracing(), MetricKey.of(s), source,
+                                    range), watcher)
                             .directTransform(d -> Pair.of(s, d)));
                     }
                 });

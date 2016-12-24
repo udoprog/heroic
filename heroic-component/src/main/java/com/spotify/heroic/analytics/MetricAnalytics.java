@@ -22,8 +22,8 @@
 package com.spotify.heroic.analytics;
 
 import com.spotify.heroic.async.AsyncObservable;
-import com.spotify.heroic.common.Series;
 import com.spotify.heroic.metric.MetricBackend;
+import com.spotify.heroic.metric.MetricKey;
 import eu.toolchain.async.AsyncFuture;
 
 import java.time.LocalDate;
@@ -51,8 +51,8 @@ public interface MetricAnalytics {
     /**
      * Report that the given series has been fetched.
      *
-     * @param series The series that has been fetched.
+     * @param key The series that has been fetched.
      * @return A future that will be resolved when the fetch has been persisted.
      */
-    AsyncFuture<Void> reportFetchSeries(LocalDate date, Series series);
+    AsyncFuture<Void> reportFetchSeries(LocalDate date, MetricKey key);
 }

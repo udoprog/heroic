@@ -24,7 +24,6 @@ package com.spotify.heroic.metric.datastax.schema.legacy;
 import com.spotify.heroic.metric.datastax.TypeSerializer;
 import lombok.RequiredArgsConstructor;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 
 @RequiredArgsConstructor
@@ -33,7 +32,7 @@ public class CompositeStream {
 
     private final ByteBuffer buffer;
 
-    public <T> T next(TypeSerializer<T> serializer) throws IOException {
+    public <T> T next(TypeSerializer<T> serializer) {
         final short segment = buffer.getShort();
         final ByteBuffer part = buffer.slice();
         part.limit(segment);

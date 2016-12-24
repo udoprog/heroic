@@ -21,6 +21,7 @@
 
 package com.spotify.heroic.metric.datastax.schema.ng;
 
+import com.google.common.base.Throwables;
 import com.spotify.heroic.metric.datastax.MetricsRowKey;
 import com.spotify.heroic.metric.datastax.MetricsRowKey_Serializer;
 import com.spotify.heroic.metric.datastax.TypeSerializer;
@@ -38,17 +39,21 @@ public class MetricsRowKeySerializer implements TypeSerializer<MetricsRowKey> {
     final Serializer<MetricsRowKey> serializer = new MetricsRowKey_Serializer(s, s.variableLong());
 
     @Override
-    public ByteBuffer serialize(MetricsRowKey value) throws IOException {
+    public ByteBuffer serialize(MetricsRowKey value) {
         try (final BytesSerialWriter w = s.writeBytes()) {
             serializer.serialize(w, value);
             return w.toByteBuffer();
+        } catch (final IOException e) {
+            throw Throwables.propagate(e);
         }
     }
 
     @Override
-    public MetricsRowKey deserialize(ByteBuffer buffer) throws IOException {
+    public MetricsRowKey deserialize(ByteBuffer buffer) {
         try (final SerialReader r = s.readByteBuffer(buffer)) {
             return serializer.deserialize(r);
+        } catch (final IOException e) {
+            throw Throwables.propagate(e);
         }
     }
 }

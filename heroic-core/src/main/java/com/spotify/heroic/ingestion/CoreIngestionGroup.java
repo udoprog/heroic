@@ -30,6 +30,7 @@ import com.spotify.heroic.metadata.MetadataBackend;
 import com.spotify.heroic.metadata.WriteMetadata;
 import com.spotify.heroic.metric.Metric;
 import com.spotify.heroic.metric.MetricBackend;
+import com.spotify.heroic.metric.MetricKey;
 import com.spotify.heroic.metric.QueryTrace;
 import com.spotify.heroic.metric.WriteMetric;
 import com.spotify.heroic.statistics.IngestionManagerReporter;
@@ -123,8 +124,8 @@ public class CoreIngestionGroup implements IngestionGroup {
         final MetricBackend metric, final Ingestion.Request write
     ) {
         return metric
-            .write(new WriteMetric.Request(write.getOptions().getTracing(), write.getSeries(),
-                write.getData()))
+            .write(new WriteMetric.Request(write.getOptions().getTracing(),
+                MetricKey.of(write.getSeries()), write.getData()))
             .directTransform(Ingestion::fromWriteMetric);
     }
 

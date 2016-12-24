@@ -69,7 +69,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
-import javax.inject.Inject;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
@@ -87,6 +86,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.inject.Inject;
 
 /**
  * MetricBackend for Heroic cassandra datastore.
@@ -151,7 +151,7 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
             final QueryTrace.NamedWatch w = request.getTracing().watch(FETCH);
 
             final List<PreparedFetch> prepared =
-                c.schema.ranges(request.getSeries(), request.getRange());
+                c.schema.ranges(request.getKey(), request.getRange());
 
             if (request.getType() == MetricType.POINT) {
                 return fetchDataPoints(w, limit, request.getTracing(), prepared, c);
@@ -255,7 +255,7 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
 
     @Override
     public AsyncFuture<List<String>> serializeKeyToHex(final BackendKey key) {
-        final MetricsRowKey rowKey = new MetricsRowKey(key.getSeries(), key.getBase());
+        final MetricsRowKey rowKey = MetricsRowKey.of(key);
 
         return connection.doto(c -> async.resolved(
             ImmutableList.of(Bytes.toHexString(c.schema.rowKey().serialize(rowKey)))));
@@ -265,16 +265,15 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
     public AsyncFuture<List<BackendKey>> deserializeKeyFromHex(String key) {
         return connection.doto(c -> {
             final MetricsRowKey rowKey = c.schema.rowKey().deserialize(Bytes.fromHexString(key));
-            return async.resolved(
-                ImmutableList.of(new BackendKey(rowKey.getSeries(), rowKey.getBase())));
+            return async.resolved(ImmutableList.of(
+                BackendKey.of(rowKey.getKey(), rowKey.getTags(), rowKey.getBase())));
         });
     }
 
     @Override
     public AsyncFuture<Void> deleteKey(BackendKey key, QueryOptions options) {
         return connection.doto(c -> {
-            final ByteBuffer k =
-                c.schema.rowKey().serialize(new MetricsRowKey(key.getSeries(), key.getBase()));
+            final ByteBuffer k = c.schema.rowKey().serialize(MetricsRowKey.of(key));
             return Async
                 .bind(async, c.session.executeAsync(c.schema.deleteKey(k)))
                 .directTransform(result -> null);
@@ -284,8 +283,8 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
     @Override
     public AsyncFuture<Long> countKey(BackendKey key, QueryOptions options) {
         return connection.doto(c -> {
-            final ByteBuffer k =
-                c.schema.rowKey().serialize(new MetricsRowKey(key.getSeries(), key.getBase()));
+            final ByteBuffer k = c.schema.rowKey().serialize(MetricsRowKey.of(key));
+
             return Async
                 .bind(async, c.session.executeAsync(c.schema.countKey(k)))
                 .directTransform(result -> {
@@ -301,7 +300,7 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
     @Override
     public AsyncFuture<MetricCollection> fetchRow(BackendKey key) {
         return connection.doto(c -> {
-            final Schema.PreparedFetch f = c.schema.row(key);
+            final Schema.PreparedFetch f = c.schema.row(key.toMetricKey(), key.getBase());
 
             final ResolvableFuture<MetricCollection> future = async.future();
 
@@ -329,8 +328,8 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
             final PreparedFetch f;
 
             try {
-                f = c.schema.row(key);
-            } catch (IOException e) {
+                f = c.schema.row(key.toMetricKey(), key.getBase());
+            } catch (final IOException e) {
                 throw new RuntimeException(e);
             }
 
@@ -415,7 +414,7 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
 
         if (g.getType() == MetricType.POINT) {
             for (final Point d : g.getDataAs(Point.class)) {
-                final BoundStatement stmt = session.writePoint(request.getSeries(), d);
+                final BoundStatement stmt = session.writePoint(request.getKey(), d);
 
                 callables.add(() -> {
                     return Async

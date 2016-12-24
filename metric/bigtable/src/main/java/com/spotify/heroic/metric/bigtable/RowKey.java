@@ -21,14 +21,23 @@
 
 package com.spotify.heroic.metric.bigtable;
 
-import com.spotify.heroic.common.Series;
+import com.spotify.heroic.metric.MetricKey;
 import eu.toolchain.serializer.AutoSerialize;
+import lombok.AccessLevel;
 import lombok.Data;
+import lombok.RequiredArgsConstructor;
+
+import java.util.SortedMap;
 
 @AutoSerialize
 @Data
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 public class RowKey {
-    private final Series series;
-
+    private final String key;
+    private final SortedMap<String, String> tags;
     private final long base;
+
+    public static RowKey of(final MetricKey key, final long base) {
+        return new RowKey(key.getKey().orElse(""), key.getTags(), base);
+    }
 }

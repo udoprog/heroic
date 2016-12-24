@@ -1,17 +1,5 @@
 package com.spotify.heroic;
 
-import static com.spotify.heroic.test.Data.points;
-import static com.spotify.heroic.test.Matchers.containsChild;
-import static com.spotify.heroic.test.Matchers.hasIdentifier;
-import static com.spotify.heroic.test.Matchers.identifierContains;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.not;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -31,16 +19,33 @@ import com.spotify.heroic.metric.RequestError;
 import com.spotify.heroic.metric.ResultLimit;
 import com.spotify.heroic.metric.ResultLimits;
 import com.spotify.heroic.metric.ShardedResultGroup;
+import com.spotify.heroic.metric.Tracing;
 import eu.toolchain.async.AsyncFuture;
+import org.junit.Before;
+import org.junit.Test;
+
+import java.io.PrintWriter;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
-import org.junit.Before;
-import org.junit.Test;
+
+import static com.spotify.heroic.test.Data.points;
+import static com.spotify.heroic.test.Matchers.containsChild;
+import static com.spotify.heroic.test.Matchers.hasIdentifier;
+import static com.spotify.heroic.test.Matchers.identifierContains;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.iterableWithSize;
+import static org.hamcrest.Matchers.not;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 
 public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
     private final Series s1 = Series.of("key1", ImmutableMap.of("shared", "a", "diff", "a"));
@@ -86,24 +91,46 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
     }
 
     public QueryResult query(final String queryString) throws Exception {
-        return query(query.newQueryFromString(queryString), builder -> {
+        return query(query.newQueryFromString(queryString), (builder, options) -> {
         });
     }
 
-    public QueryResult query(final String queryString, final Consumer<QueryBuilder> modifier)
-        throws Exception {
+    public QueryResult query(
+        final String queryString, final BiConsumer<QueryBuilder, QueryOptions.Builder> modifier
+    ) throws Exception {
         return query(query.newQueryFromString(queryString), modifier);
     }
 
-    public QueryResult query(final QueryBuilder builder, final Consumer<QueryBuilder> modifier)
-        throws Exception {
+    public QueryResult query(
+        final QueryBuilder builder, final BiConsumer<QueryBuilder, QueryOptions.Builder> modifier
+    ) throws Exception {
+        final QueryOptions.Builder options = QueryOptions.builder();
+        options.tracing(Tracing.enabled());
+
         builder
             .features(Optional.of(FeatureSet.of(Feature.DISTRIBUTED_AGGREGATIONS)))
             .source(Optional.of(MetricType.POINT))
             .rangeIfAbsent(Optional.of(new QueryDateRange.Absolute(10, 40)));
 
-        modifier.accept(builder);
-        return query.useDefaultGroup().query(builder.build()).get();
+        modifier.accept(builder, options);
+
+        builder.options(Optional.of(options.build()));
+
+        final Query finalQuery = builder.build();
+        final QueryResult result = query.useDefaultGroup().query(finalQuery).get();
+
+        if (finalQuery.getOptions().orElseGet(QueryOptions::defaults).getTracing().isEnabled()) {
+            /* verify that traces works, if enabled */
+            for (final URI uri : instanceUris()) {
+                // TODO: grpc URIs are configured with localhost:<port>.
+                if (!"grpc".equals(uri.getScheme())) {
+                    assertThat(result.getTrace(),
+                        containsChild(hasIdentifier(identifierContains(uri.toString()))));
+                }
+            }
+        }
+
+        return result;
     }
 
     @Test
@@ -130,7 +157,8 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
 
     @Test
     public void distributedQueryTraceTest() throws Exception {
-        final QueryResult result = query("sum(10ms) by shared");
+        final QueryResult result = query("sum(10ms) by shared", (builder, options) -> {
+        });
 
         // Verify that the top level QueryTrace is for CoreQueryManager
         assertThat(result.getTrace(), hasIdentifier(equalTo(CoreQueryManager.QUERY)));
@@ -167,9 +195,13 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
     @Test
     public void filterQueryTest() throws Exception {
         final QueryResult result =
-            query("average(10ms) by * | topk(2) | bottomk(1) | sum(10ms)", builder -> {
+            query("average(10ms) by * | topk(2) | bottomk(1) | sum(10ms)", (builder, options) -> {
                 builder.features(Optional.empty());
             });
+
+        final PrintWriter writer = new PrintWriter(System.out);
+        result.getTrace().formatTrace(writer);
+        writer.flush();
 
         final Set<MetricCollection> m = getResults(result);
         final List<Long> cadences = getCadences(result);
@@ -182,7 +214,7 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
 
     @Test
     public void deltaQueryTest() throws Exception {
-        final QueryResult result = query("delta", builder -> {
+        final QueryResult result = query("delta", (builder, options) -> {
             builder.features(Optional.empty());
         });
 
@@ -207,6 +239,10 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
     @Test
     public void filterLastQueryTest() throws Exception {
         final QueryResult result = query("average(10ms) by * | topk(2) | bottomk(1)");
+
+        for (final RequestError error : result.getErrors()) {
+            System.out.println(error);
+        }
 
         final Set<MetricCollection> m = getResults(result);
         final List<Long> cadences = getCadences(result);
@@ -244,12 +280,12 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
 
     @Test
     public void dataLimit() throws Exception {
-        final QueryResult result = query("*", builder -> {
-            builder.options(Optional.of(QueryOptions.builder().dataLimit(1L).build()));
+        final QueryResult result = query("*", (builder, options) -> {
+            options.dataLimit(1L);
         });
 
         // quota limits are always errors
-        assertEquals(2, result.getErrors().size());
+        assertThat(result.getErrors(), iterableWithSize(2));
 
         for (final RequestError e : result.getErrors()) {
             assertTrue((e instanceof QueryError));
@@ -263,8 +299,8 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
 
     @Test
     public void groupLimit() throws Exception {
-        final QueryResult result = query("*", builder -> {
-            builder.options(Optional.of(QueryOptions.builder().groupLimit(1L).build()));
+        final QueryResult result = query("*", (builder, options) -> {
+            options.groupLimit(1L);
         });
 
         assertEquals(0, result.getErrors().size());
@@ -274,9 +310,8 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
 
     @Test
     public void seriesLimitFailure() throws Exception {
-        final QueryResult result = query("*", builder -> {
-            builder.options(
-                Optional.of(QueryOptions.builder().seriesLimit(0L).failOnLimits(true).build()));
+        final QueryResult result = query("*", (builder, options) -> {
+            options.seriesLimit(0L).failOnLimits(true);
         });
 
         assertEquals(2, result.getErrors().size());
@@ -293,9 +328,8 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
 
     @Test
     public void groupLimitFailure() throws Exception {
-        final QueryResult result = query("*", builder -> {
-            builder.options(
-                Optional.of(QueryOptions.builder().groupLimit(0L).failOnLimits(true).build()));
+        final QueryResult result = query("*", (builder, options) -> {
+            options.groupLimit(0L).failOnLimits(true);
         });
 
         assertEquals(2, result.getErrors().size());

@@ -28,17 +28,15 @@ import com.spotify.heroic.HeroicConfigurationContext;
 import com.spotify.heroic.aggregation.AggregationFactory;
 import com.spotify.heroic.aggregation.AggregationRegistry;
 import com.spotify.heroic.common.JavaxRestFramework;
-import com.spotify.heroic.common.Series;
 import com.spotify.heroic.filter.FilterModifier;
 import com.spotify.heroic.lifecycle.LifeCycle;
 import com.spotify.heroic.lifecycle.LifeCycleRegistry;
 import com.spotify.heroic.scheduler.Scheduler;
 import eu.toolchain.async.AsyncFramework;
-import eu.toolchain.serializer.Serializer;
 import eu.toolchain.serializer.SerializerFramework;
 
-import javax.inject.Named;
 import java.util.concurrent.ExecutorService;
+import javax.inject.Named;
 
 /**
  * The component responsible for the loading phase of heroic.
@@ -57,8 +55,6 @@ public interface LoadingComponent {
     AggregationRegistry aggregationRegistry();
 
     AggregationFactory aggregationFactory();
-
-    Serializer<Series> series();
 
     AsyncFramework async();
 

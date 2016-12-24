@@ -30,6 +30,7 @@ import com.spotify.heroic.metric.FetchData;
 import com.spotify.heroic.metric.Metric;
 import com.spotify.heroic.metric.MetricBackendGroup;
 import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.MetricKey;
 import com.spotify.heroic.metric.MetricManager;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.Tracing;
@@ -100,7 +101,7 @@ public class Fetch implements ShellTask {
             QueryOptions.builder().tracing(Tracing.fromBoolean(params.tracing)).build();
 
         return readGroup
-            .fetch(new FetchData.Request(source, series, range, options.getTracing()))
+            .fetch(new FetchData.Request(options.getTracing(), MetricKey.of(series), source, range))
             .lazyTransform(result -> {
                 outer:
                 for (final MetricCollection g : result.getGroups()) {

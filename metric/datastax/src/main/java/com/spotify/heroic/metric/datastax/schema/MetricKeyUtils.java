@@ -33,14 +33,14 @@ import java.nio.ByteBuffer;
  *
  * @author udoprog
  */
-public class BackendKeyUtils {
+public class MetricKeyUtils {
     private final String column;
     private final String columnToken;
     private final String keyspace;
     private final String table;
     private final SchemaInstance schema;
 
-    public BackendKeyUtils(
+    public MetricKeyUtils(
         final String column, final String keyspace, final String table, final SchemaInstance schema
     ) {
         this.column = column;
@@ -112,14 +112,14 @@ public class BackendKeyUtils {
     SchemaBoundStatement gt(final BackendKeyFilter.GT clause) throws Exception {
         final BackendKey k = clause.getKey();
         final ByteBuffer buffer =
-            schema.rowKey().serialize(new MetricsRowKey(k.getSeries(), k.getBase()));
+            schema.rowKey().serialize(MetricsRowKey.of(k.toMetricKey(), k.getBase()));
         return new SchemaBoundStatement(columnToken + " > token(?)", ImmutableList.of(buffer));
     }
 
     SchemaBoundStatement gte(final BackendKeyFilter.GTE clause) throws Exception {
         final BackendKey k = clause.getKey();
         final ByteBuffer buffer =
-            schema.rowKey().serialize(new MetricsRowKey(k.getSeries(), k.getBase()));
+            schema.rowKey().serialize(MetricsRowKey.of(k.toMetricKey(), k.getBase()));
         return new SchemaBoundStatement(columnToken + " >= token(?)", ImmutableList.of(buffer));
     }
 
@@ -135,7 +135,7 @@ public class BackendKeyUtils {
     SchemaBoundStatement lt(final BackendKeyFilter.LT clause) throws Exception {
         final BackendKey k = clause.getKey();
         final ByteBuffer buffer =
-            schema.rowKey().serialize(new MetricsRowKey(k.getSeries(), k.getBase()));
+            schema.rowKey().serialize(MetricsRowKey.of(k.toMetricKey(), k.getBase()));
         return new SchemaBoundStatement(columnToken + " < token(?)", ImmutableList.of(buffer));
     }
 

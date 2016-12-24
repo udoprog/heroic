@@ -34,6 +34,7 @@ import com.spotify.heroic.metric.FetchData;
 import com.spotify.heroic.metric.FetchQuotaWatcher;
 import com.spotify.heroic.metric.MetricBackend;
 import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.MetricKey;
 import com.spotify.heroic.metric.MetricManagerModule;
 import com.spotify.heroic.metric.MetricModule;
 import com.spotify.heroic.metric.MetricType;
@@ -113,10 +114,12 @@ public abstract class AbstractMetricBackendIT {
 
         // write and read data back
         final MetricCollection points = Data.points().p(100000L, 42D).build();
-        backend.write(new WriteMetric.Request(Tracing.disabled(), s1, points)).get();
+        final MetricKey metricKey = MetricKey.of(s1);
+
+        backend.write(new WriteMetric.Request(Tracing.disabled(), metricKey, points)).get();
         FetchData data = backend
-            .fetch(new FetchData.Request(MetricType.POINT, s1, new DateRange(10000L, 200000L),
-                Tracing.disabled()), FetchQuotaWatcher.NO_QUOTA)
+            .fetch(new FetchData.Request(Tracing.disabled(), metricKey, MetricType.POINT,
+                new DateRange(10000L, 200000L)), FetchQuotaWatcher.NO_QUOTA)
             .get();
 
         assertEquals(ImmutableSet.of(points), ImmutableSet.copyOf(data.getGroups()));

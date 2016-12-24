@@ -24,8 +24,8 @@ package com.spotify.heroic.metric.datastax.schema;
 import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.Row;
 import com.spotify.heroic.common.DateRange;
-import com.spotify.heroic.common.Series;
 import com.spotify.heroic.metric.BackendKey;
+import com.spotify.heroic.metric.MetricKey;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.datastax.MetricsRowKey;
 import com.spotify.heroic.metric.datastax.TypeSerializer;
@@ -37,24 +37,24 @@ import java.nio.ByteBuffer;
 import java.util.List;
 
 public interface SchemaInstance {
-    public TypeSerializer<MetricsRowKey> rowKey();
+    TypeSerializer<MetricsRowKey> rowKey();
 
-    public List<PreparedFetch> ranges(final Series series, final DateRange range)
+    List<PreparedFetch> ranges(final MetricKey backendKey, final DateRange range)
         throws IOException;
 
-    public PreparedFetch row(final BackendKey key) throws IOException;
+    PreparedFetch row(final MetricKey backendKey, final long base) throws IOException;
 
-    public BoundStatement deleteKey(ByteBuffer k);
+    BoundStatement deleteKey(ByteBuffer k);
 
-    public BoundStatement countKey(ByteBuffer k);
+    BoundStatement countKey(ByteBuffer k);
 
-    public WriteSession writeSession();
+    WriteSession writeSession();
 
-    public Transform<Row, BackendKey> keyConverter();
+    Transform<Row, BackendKey> keyConverter();
 
-    public BackendKeyUtils keyUtils();
+    MetricKeyUtils keyUtils();
 
-    public static interface WriteSession {
-        public BoundStatement writePoint(Series series, Point d) throws IOException;
+    interface WriteSession {
+        BoundStatement writePoint(MetricKey backendKey, Point d) throws IOException;
     }
 }

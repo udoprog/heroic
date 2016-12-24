@@ -80,8 +80,7 @@ public class AnalyticsDumpFetchSeries implements ShellTask {
                 io
                     .out()
                     .println(mapper.writeValueAsString(
-                        new AnalyticsHits(series.getSeries().getHashCode().toString(),
-                            series.getHits())));
+                        new AnalyticsHits(series.getKey().hash().toString(), series.getHits())));
             } catch (JsonProcessingException e) {
                 throw new RuntimeException(e);
             }

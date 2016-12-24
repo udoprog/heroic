@@ -225,11 +225,6 @@ public class DataMigrate implements ShellTask {
         }
 
         void streamOne(final BackendKey key) {
-            if (!filter.apply(key.getSeries())) {
-                endOne(key);
-                return;
-            }
-
             from
                 .streamRow(key)
                 .observe(new RowObserver(errors, to, future, key, () -> done, this::endOneRuntime));
@@ -340,7 +335,7 @@ public class DataMigrate implements ShellTask {
             }
 
             final AsyncFuture<Void> write = to
-                .write(new WriteMetric.Request(Tracing.disabled(), key.getSeries(), value))
+                .write(new WriteMetric.Request(Tracing.disabled(), key.toMetricKey(), value))
                 .directTransform(v -> null);
 
             future.bind(write);

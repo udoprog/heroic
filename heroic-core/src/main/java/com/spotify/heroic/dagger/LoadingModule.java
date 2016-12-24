@@ -34,8 +34,6 @@ import com.spotify.heroic.aggregation.AggregationRegistry;
 import com.spotify.heroic.aggregation.CoreAggregationRegistry;
 import com.spotify.heroic.common.CoreJavaxRestFramework;
 import com.spotify.heroic.common.JavaxRestFramework;
-import com.spotify.heroic.common.Series;
-import com.spotify.heroic.common.Series_Serializer;
 import com.spotify.heroic.filter.CoreFilterModifier;
 import com.spotify.heroic.filter.FilterModifier;
 import com.spotify.heroic.lifecycle.CoreLifeCycleRegistry;
@@ -47,16 +45,16 @@ import dagger.Module;
 import dagger.Provides;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.TinyAsync;
-import eu.toolchain.serializer.Serializer;
 import eu.toolchain.serializer.SerializerFramework;
 import eu.toolchain.serializer.TinySerializer;
+import lombok.RequiredArgsConstructor;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Named;
-import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 @Module
@@ -96,12 +94,6 @@ public class LoadingModule {
     @LoadingScope
     AggregationFactory aggregationFactory(AggregationRegistry configuration) {
         return configuration.newAggregationFactory();
-    }
-
-    @Provides
-    @LoadingScope
-    Serializer<Series> series(@Named("common") SerializerFramework s) {
-        return new Series_Serializer(s);
     }
 
     @Provides

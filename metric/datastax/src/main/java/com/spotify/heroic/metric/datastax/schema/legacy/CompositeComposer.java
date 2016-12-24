@@ -23,7 +23,6 @@ package com.spotify.heroic.metric.datastax.schema.legacy;
 
 import com.spotify.heroic.metric.datastax.TypeSerializer;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,7 +33,7 @@ public class CompositeComposer {
     final List<ByteBuffer> buffers = new ArrayList<>();
     short size = 0;
 
-    public <T> void add(T key, TypeSerializer<T> s) throws IOException {
+    public <T> void add(T key, TypeSerializer<T> s) {
         final ByteBuffer buffer = s.serialize(key);
         buffers.add(buffer);
         size += buffer.limit();

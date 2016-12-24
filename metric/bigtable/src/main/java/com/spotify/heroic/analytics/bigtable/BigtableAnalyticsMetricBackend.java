@@ -76,7 +76,7 @@ class BigtableAnalyticsMetricBackend implements MetricBackend {
     public AsyncFuture<FetchData> fetch(
         final FetchData.Request request, final FetchQuotaWatcher watcher
     ) {
-        analytics.reportFetchSeries(LocalDate.now(), request.getSeries());
+        analytics.reportFetchSeries(LocalDate.now(), request.getKey());
         return backend.fetch(request, watcher);
     }
 

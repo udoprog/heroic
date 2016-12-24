@@ -21,23 +21,27 @@
 
 package com.spotify.heroic.metric.datastax;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.spotify.heroic.common.Series;
+import com.spotify.heroic.metric.BackendKey;
+import com.spotify.heroic.metric.MetricKey;
 import eu.toolchain.serializer.AutoSerialize;
 import lombok.Data;
+
+import java.util.Optional;
+import java.util.SortedMap;
 
 @AutoSerialize
 @Data
 public class MetricsRowKey {
-    private final Series series;
+    private final Optional<String> key;
+    private final SortedMap<String, String> tags;
     @AutoSerialize.Field(provided = true)
     private final long base;
 
-    @JsonCreator
-    public static MetricsRowKey create(
-        @JsonProperty("series") Series series, @JsonProperty("base") Long base
-    ) {
-        return new MetricsRowKey(series, base);
+    public static MetricsRowKey of(final MetricKey key, final long base) {
+        return new MetricsRowKey(key.getKey(), key.getTags(), base);
+    }
+
+    public static MetricsRowKey of(final BackendKey key) {
+        return new MetricsRowKey(key.getKey(), key.getTags(), key.getBase());
     }
 }

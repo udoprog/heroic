@@ -25,20 +25,20 @@ import com.spotify.heroic.metric.datastax.TypeSerializer;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.tuple.Pair;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 @RequiredArgsConstructor
-public class MapSerializer<A, B> implements TypeSerializer<Map<A, B>> {
+public class SortedMapSerializer<A, B> implements TypeSerializer<SortedMap<A, B>> {
     private final TypeSerializer<A> a;
     private final TypeSerializer<B> b;
 
     @Override
-    public ByteBuffer serialize(final Map<A, B> value) throws IOException {
+    public ByteBuffer serialize(final SortedMap<A, B> value) {
         final List<Pair<ByteBuffer, ByteBuffer>> buffers = new ArrayList<>();
 
         short size = 0;
@@ -67,10 +67,10 @@ public class MapSerializer<A, B> implements TypeSerializer<Map<A, B>> {
     }
 
     @Override
-    public Map<A, B> deserialize(ByteBuffer buffer) throws IOException {
+    public SortedMap<A, B> deserialize(ByteBuffer buffer) {
         final short len = buffer.getShort();
 
-        final Map<A, B> map = new LinkedHashMap<>();
+        final SortedMap<A, B> map = new TreeMap<>();
 
         for (short i = 0; i < len; i++) {
             final A key = next(buffer, a);
@@ -86,7 +86,7 @@ public class MapSerializer<A, B> implements TypeSerializer<Map<A, B>> {
         return map;
     }
 
-    private <T> T next(ByteBuffer buffer, TypeSerializer<T> serializer) throws IOException {
+    private <T> T next(ByteBuffer buffer, TypeSerializer<T> serializer) {
         final short segment = buffer.getShort();
         final ByteBuffer slice = buffer.slice();
         slice.limit(segment);
