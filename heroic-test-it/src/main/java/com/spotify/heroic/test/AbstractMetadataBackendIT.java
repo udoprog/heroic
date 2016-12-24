@@ -24,6 +24,7 @@ package com.spotify.heroic.test;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.spotify.heroic.HeroicConfig;
 import com.spotify.heroic.HeroicCore;
 import com.spotify.heroic.HeroicCoreInstance;
@@ -58,6 +59,7 @@ import org.mockito.runners.MockitoJUnitRunner;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.spotify.heroic.filter.Filter.and;
@@ -78,7 +80,8 @@ public abstract class AbstractMetadataBackendIT {
 
     private final Series s1 = Series.of("s1", ImmutableMap.of("role", "foo"));
     private final Series s2 = Series.of("s2", ImmutableMap.of("role", "bar"));
-    private final Series s3 = Series.of("s3", ImmutableMap.of("role", "baz"));
+    private final Series s3 =
+        Series.of("s3", ImmutableMap.of("role", "baz"), Optional.of(ImmutableSortedSet.of("role")));
 
     private final DateRange range = new DateRange(0L, 0L);
 
@@ -87,6 +90,7 @@ public abstract class AbstractMetadataBackendIT {
 
     protected boolean findTagsSupport = true;
     protected boolean orFilterSupport = true;
+    protected boolean scopeSupport = true;
 
     protected abstract MetadataModule setupModule() throws Exception;
 
@@ -191,13 +195,14 @@ public abstract class AbstractMetadataBackendIT {
 
         final FindKeys result = backend.findKeys(request).get();
 
-        assertEquals(ImmutableSet.of(s1.getKey(), s2.getKey(), s3.getKey()), result.getKeys());
+        assertEquals(ImmutableSet.of(s1.getKey().get(), s2.getKey().get(), s3.getKey().get()),
+            result.getKeys());
     }
 
     @Test
     public void countSeriesTest() throws Exception {
         final CountSeries.Request f =
-            new CountSeries.Request(not(matchKey(s2.getKey())), range, OptionalLimit.empty());
+            new CountSeries.Request(not(matchKey(s2.getKey().get())), range, OptionalLimit.empty());
 
         final CountSeries result = backend.countSeries(f).get();
         assertEquals(2L, result.getCount());
@@ -206,7 +211,8 @@ public abstract class AbstractMetadataBackendIT {
     @Test
     public void findSeriesIdsTest() throws Exception {
         final FindSeriesIds.Request f =
-            new FindSeriesIds.Request(not(matchKey(s2.getKey())), range, OptionalLimit.empty());
+            new FindSeriesIds.Request(not(matchKey(s2.getKey().get())), range,
+                OptionalLimit.empty());
 
         final FindSeriesIds result = backend.findSeriesIds(f).get();
         assertEquals(ImmutableSet.of(s1.hash(), s3.hash()), result.getIds());
@@ -216,7 +222,8 @@ public abstract class AbstractMetadataBackendIT {
     public void deleteSeriesTest() throws Exception {
         {
             final DeleteSeries.Request request =
-                new DeleteSeries.Request(not(matchKey(s2.getKey())), range, OptionalLimit.empty());
+                new DeleteSeries.Request(not(matchKey(s2.getKey().get())), range,
+                    OptionalLimit.empty());
 
             backend.deleteSeries(request).get();
         }
@@ -236,19 +243,20 @@ public abstract class AbstractMetadataBackendIT {
         assertEquals(ImmutableSet.of(s1.hash(), s2.hash(), s3.hash()), findIds(TrueFilter.get()));
         assertEquals(ImmutableSet.of(), findIds(FalseFilter.get()));
 
-        assertEquals(ImmutableSet.of(s2.hash()), findIds(matchKey(s2.getKey())));
+        assertEquals(ImmutableSet.of(s2.hash()), findIds(matchKey(s2.getKey().get())));
 
-        assertEquals(ImmutableSet.of(s1.hash(), s3.hash()), findIds(not(matchKey(s2.getKey()))));
+        assertEquals(ImmutableSet.of(s1.hash(), s3.hash()),
+            findIds(not(matchKey(s2.getKey().get()))));
 
         assertEquals(ImmutableSet.of(s1.hash()), findIds(matchTag("role", "foo")));
 
         if (orFilterSupport) {
             assertEquals(ImmutableSet.of(s1.hash(), s2.hash()),
-                findIds(or(matchKey(s1.getKey()), matchKey(s2.getKey()))));
+                findIds(or(matchKey(s1.getKey().get()), matchKey(s2.getKey().get()))));
         }
 
         assertEquals(ImmutableSet.of(s1.hash()),
-            findIds(and(matchKey(s1.getKey()), matchTag("role", "foo"))));
+            findIds(and(matchKey(s1.getKey().get()), matchTag("role", "foo"))));
 
         assertEquals(ImmutableSet.of(s1.hash(), s2.hash(), s3.hash()), findIds(hasTag("role")));
     }
@@ -264,7 +272,8 @@ public abstract class AbstractMetadataBackendIT {
         final MetadataBackend metadata, final Series s, final DateRange range
     ) throws Exception {
         final FindSeries.Request f =
-            new FindSeries.Request(new MatchKeyFilter(s.getKey()), range, OptionalLimit.empty());
+            new FindSeries.Request(new MatchKeyFilter(s.getKey().get()), range,
+                OptionalLimit.empty());
 
         return metadata
             .write(new WriteMetadata.Request(Tracing.disabled(), s, range))
@@ -275,7 +284,7 @@ public abstract class AbstractMetadataBackendIT {
                     }
 
                     return null;
-                }), RetryPolicy.timed(10000, RetryPolicy.exponential(100, 200)))
+                }), RetryPolicy.timed(10000, RetryPolicy.exponential(100, 500)))
                 .directTransform(r -> null));
     }
 }

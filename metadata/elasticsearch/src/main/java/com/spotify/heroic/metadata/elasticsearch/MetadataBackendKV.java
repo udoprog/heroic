@@ -91,6 +91,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -330,10 +331,11 @@ public class MetadataBackendKV extends AbstractElasticsearchMetadataBackend
     @Override
     protected Series toSeries(SearchHit hit) {
         final Map<String, Object> source = hit.getSource();
-        final String key = (String) source.get(KEY);
+        final Optional<String> key = Optional.ofNullable((String) source.get(KEY));
         final Iterator<Map.Entry<String, String>> tags =
             ((List<String>) source.get(TAGS)).stream().map(this::buildTag).iterator();
-        return Series.of(key, tags);
+
+        return Series.of(key, tags, Optional.empty());
     }
 
     private <T, O> AsyncFuture<O> entries(
@@ -429,7 +431,11 @@ public class MetadataBackendKV extends AbstractElasticsearchMetadataBackend
     }
 
     static void buildContext(final XContentBuilder b, Series series) throws IOException {
-        b.field(KEY, series.getKey());
+        final Optional<String> key = series.getKey();
+
+        if (key.isPresent()) {
+            b.field(KEY, key.get());
+        }
 
         b.startArray(TAGS);
 

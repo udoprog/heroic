@@ -91,20 +91,21 @@ import org.elasticsearch.search.aggregations.bucket.nested.NestedBuilder;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.aggregations.bucket.terms.TermsBuilder;
 
-import javax.inject.Inject;
-import javax.inject.Named;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import javax.inject.Inject;
+import javax.inject.Named;
 
 import static org.elasticsearch.index.query.FilterBuilders.andFilter;
 import static org.elasticsearch.index.query.FilterBuilders.boolFilter;
@@ -457,7 +458,11 @@ public class MetadataBackendV1 extends AbstractElasticsearchMetadataBackend
 
         public static void buildMetadataDoc(final XContentBuilder b, Series series)
             throws IOException {
-            b.field(METADATA_KEY, series.getKey());
+            final Optional<String> key = series.getKey();
+
+            if (key.isPresent()) {
+                b.field(METADATA_KEY, key.get());
+            }
 
             b.startArray(METADATA_TAGS);
 

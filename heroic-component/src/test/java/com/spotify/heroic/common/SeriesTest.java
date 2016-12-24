@@ -1,6 +1,9 @@
 package com.spotify.heroic.common;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Test;
 
 import java.util.HashSet;
@@ -32,13 +35,24 @@ public class SeriesTest {
     }
 
     @Test
+    public void testMeaningSerialize() throws Exception {
+        final ObjectMapper m = new ObjectMapper();
+
+        final Series.Scope scope =
+            new Series.ListScope(ImmutableList.of(Pair.of("what", "disk-used")));
+
+        final String out = m.writeValueAsString(scope);
+        assertEquals("{\"what\":\"disk-used\"}", out);
+    }
+
+    @Test
     public void toDSLTest() {
         final Series a = Series.of("system.cpu-user-perc",
             ImmutableMap.of("role", "heroicapi", "host", "heroicapi1.sto.spotify.net", "site",
                 "sto"));
 
         assertEquals(
-            "system.cpu-user-perc {host=heroicapi1.sto.spotify.net, role=heroicapi, site=sto}",
-            a.toDSL());
+            "system.cpu-user-perc {host=heroicapi1.sto.spotify.net, role=heroicapi, site=sto} " +
+                "$scope()", a.toDSL());
     }
 }

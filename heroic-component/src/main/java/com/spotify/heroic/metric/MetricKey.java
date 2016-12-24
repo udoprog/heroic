@@ -56,6 +56,6 @@ public class MetricKey {
     }
 
     public static MetricKey of(final Series series) {
-        return new MetricKey(Optional.ofNullable(series.getKey()), series.getTags());
+        return new MetricKey(series.getKey(), series.getTags());
     }
 }

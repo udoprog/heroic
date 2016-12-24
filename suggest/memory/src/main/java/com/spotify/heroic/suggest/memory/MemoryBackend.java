@@ -75,6 +75,7 @@ public class MemoryBackend implements SuggestBackend, Grouped {
 
     private final HashMap<String, KeyDocument> keyIndex = new HashMap<>();
     private final HashMap<TagId, TagDocument> tagIndex = new HashMap<>();
+    private final HashMap<String, ScopeDocument> scopeIndex = new HashMap<>();
     private final SortedSet<Series> series = new TreeSet<>();
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -234,11 +235,13 @@ public class MemoryBackend implements SuggestBackend, Grouped {
         try {
             series.add(s);
 
-            keyIndex.put(s.getKey(), new KeyDocument(s.getKey(), s));
+            s.getKey().ifPresent(key -> {
+                keyIndex.put(key, new KeyDocument(key, s));
 
-            for (final String t : analyze(s.getKey())) {
-                putEntry(keys, t, s.getKey());
-            }
+                for (final String t : analyze(key)) {
+                    putEntry(keys, t, key);
+                }
+            });
 
             for (final Map.Entry<String, String> tag : s.getTags().entrySet()) {
                 final TagId id = new TagId(tag.getKey(), tag.getValue());
@@ -335,6 +338,14 @@ public class MemoryBackend implements SuggestBackend, Grouped {
         return series.stream().filter(filter::apply).onClose(l::unlock);
     }
 
+    private Stream<ScopeDocument> lookupScope(final Filter filter) {
+        final Lock l = lock.readLock();
+        l.lock();
+        return scopeIndex.values().stream()
+                         // .filter(e -> filter.applyScope(e.scope))
+                         .onClose(l::unlock);
+    }
+
     @Data
     static class TagId {
         private final String key;
@@ -351,5 +362,11 @@ public class MemoryBackend implements SuggestBackend, Grouped {
     static class TagDocument {
         private final TagId id;
         private final Series series;
+    }
+
+    @Data
+    static class ScopeDocument {
+        private final TagId id;
+        private final Series.Scope scope;
     }
 }

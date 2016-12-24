@@ -182,8 +182,10 @@ public class MemoryBackend implements MetadataBackend {
 
     @Override
     public AsyncFuture<FindKeys> findKeys(final FindKeys.Request request) {
-        final Set<String> keys = ImmutableSet.copyOf(
-            lookup(request.getFilter(), request.getLimit()).map(Series::getKey).iterator());
+        final Set<String> keys =
+            ImmutableSet.copyOf(lookup(request.getFilter(), request.getLimit()).flatMap(s -> {
+                return s.getKey().map(Stream::of).orElseGet(Stream::empty);
+            }).iterator());
 
         return async.resolved(FindKeys.of(keys, keys.size(), 0));
     }

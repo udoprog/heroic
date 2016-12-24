@@ -30,7 +30,6 @@ import com.spotify.heroic.metric.FetchData;
 import com.spotify.heroic.metric.Metric;
 import com.spotify.heroic.metric.MetricBackendGroup;
 import com.spotify.heroic.metric.MetricCollection;
-import com.spotify.heroic.metric.MetricKey;
 import com.spotify.heroic.metric.MetricManager;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.Tracing;

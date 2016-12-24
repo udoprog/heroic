@@ -34,8 +34,8 @@ public class MatchKeyFilter implements Filter {
     private final String value;
 
     @Override
-    public boolean apply(Series series) {
-        return series.getKey().equals(value);
+    public boolean apply(final Series series) {
+        return series.getKey().map(value::equals).orElse(false);
     }
 
     @Override

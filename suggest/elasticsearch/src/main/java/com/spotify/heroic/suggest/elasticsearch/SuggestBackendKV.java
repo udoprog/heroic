@@ -653,7 +653,9 @@ public class SuggestBackendKV extends AbstractElasticsearchBackend
     }
 
     static void buildContext(final XContentBuilder b, final Series series) throws IOException {
-        b.field(KEY, series.getKey());
+        if (series.getKey().isPresent()) {
+            b.field(KEY, series.getKey().get());
+        }
 
         b.startArray(TAGS);
 

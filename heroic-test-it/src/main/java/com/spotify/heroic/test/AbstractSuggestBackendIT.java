@@ -187,10 +187,10 @@ public abstract class AbstractSuggestBackendIT {
             .get()
             .getSuggestions()
             .stream()
-            .map(s -> s.getKey())
+            .map(KeySuggest.Suggestion::getKey)
             .collect(Collectors.toSet());
 
-        assertEquals(ImmutableSet.of(s1.getKey(), s2.getKey()), result);
+        assertEquals(ImmutableSet.of(s1.getKey().get(), s2.getKey().get()), result);
     }
 
     private AsyncFuture<Void> writeSeries(
@@ -207,8 +207,9 @@ public abstract class AbstractSuggestBackendIT {
         final List<AsyncFuture<Void>> checks = new ArrayList<>();
 
         checks.add(backend
-            .tagSuggest(new TagSuggest.Request(matchKey(s.getKey()), range, OptionalLimit.empty(),
-                MatchOptions.builder().build(), Optional.empty(), Optional.empty()))
+            .tagSuggest(
+                new TagSuggest.Request(matchKey(s.getKey().get()), range, OptionalLimit.empty(),
+                    MatchOptions.builder().build(), Optional.empty(), Optional.empty()))
             .directTransform(result -> {
                 if (result.getSuggestions().isEmpty()) {
                     throw new IllegalStateException("No suggestion available for the given series");
@@ -218,8 +219,9 @@ public abstract class AbstractSuggestBackendIT {
             }));
 
         checks.add(backend
-            .keySuggest(new KeySuggest.Request(matchKey(s.getKey()), range, OptionalLimit.empty(),
-                MatchOptions.builder().build(), Optional.empty()))
+            .keySuggest(
+                new KeySuggest.Request(matchKey(s.getKey().get()), range, OptionalLimit.empty(),
+                    MatchOptions.builder().build(), Optional.empty()))
             .directTransform(result -> {
                 if (result.getSuggestions().isEmpty()) {
                     throw new IllegalStateException("No suggestion available for the given series");

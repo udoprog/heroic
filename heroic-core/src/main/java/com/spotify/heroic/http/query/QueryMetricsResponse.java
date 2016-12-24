@@ -26,12 +26,12 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.spotify.heroic.common.DateRange;
+import com.spotify.heroic.common.Series;
 import com.spotify.heroic.common.Statistics;
 import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.QueryTrace;
 import com.spotify.heroic.metric.RequestError;
 import com.spotify.heroic.metric.ResultLimits;
-import com.spotify.heroic.metric.SeriesValues;
 import com.spotify.heroic.metric.ShardedResultGroup;
 import lombok.Data;
 import lombok.NonNull;
@@ -43,6 +43,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
 @Data
 @JsonSerialize(using = QueryMetricsResponse.Serializer.class)
@@ -83,10 +85,15 @@ public class QueryMetricsResponse {
             serializeCommonTags(g, common);
 
             g.writeFieldName("result");
-            serializeResult(g, common, result);
+
+            final Set<Series.Scope> scopes = new HashSet<>();
+
+            serializeResult(g, common, result, scopes);
 
             g.writeFieldName("errors");
             serializeErrors(g, response.getErrors());
+
+            g.writeObjectField("scopes", scopes);
 
             g.writeEndObject();
         }
@@ -128,28 +135,29 @@ public class QueryMetricsResponse {
             final Map<String, SortedSet<String>> common = new HashMap<>();
             final Set<String> blacklist = new HashSet<>();
 
+            final Map<String, SortedSet<String>> tags = new HashMap<>();
+
             for (final ShardedResultGroup r : result) {
-                final Set<Map.Entry<String, SortedSet<String>>> entries =
-                    SeriesValues.fromSeries(r.getSeries().iterator()).getTags().entrySet();
+                r.getSeries().forEach(s -> populateTags(s, tags));
+            }
 
-                for (final Map.Entry<String, SortedSet<String>> e : entries) {
-                    if (blacklist.contains(e.getKey())) {
-                        continue;
-                    }
-
-                    final SortedSet<String> previous = common.put(e.getKey(), e.getValue());
-
-                    if (previous == null) {
-                        continue;
-                    }
-
-                    if (previous.equals(e.getValue())) {
-                        continue;
-                    }
-
-                    blacklist.add(e.getKey());
-                    common.remove(e.getKey());
+            for (final Map.Entry<String, SortedSet<String>> e : tags.entrySet()) {
+                if (blacklist.contains(e.getKey())) {
+                    continue;
                 }
+
+                final SortedSet<String> previous = common.put(e.getKey(), e.getValue());
+
+                if (previous == null) {
+                    continue;
+                }
+
+                if (previous.equals(e.getValue())) {
+                    continue;
+                }
+
+                blacklist.add(e.getKey());
+                common.remove(e.getKey());
             }
 
             return common;
@@ -157,16 +165,19 @@ public class QueryMetricsResponse {
 
         private void serializeResult(
             final JsonGenerator g, final Map<String, SortedSet<String>> common,
-            final List<ShardedResultGroup> result
+            final List<ShardedResultGroup> result, final Set<Series.Scope> scopes
         ) throws IOException {
-
             g.writeStartArray();
 
             for (final ShardedResultGroup group : result) {
                 g.writeStartObject();
 
                 final MetricCollection collection = group.getMetrics();
-                final SeriesValues series = SeriesValues.fromSeries(group.getSeries().iterator());
+
+                final SortedSet<String> keys = new TreeSet<>();
+                final Map<String, SortedSet<String>> tags = new TreeMap<>();
+
+                populateMetadata(group, keys, tags, scopes);
 
                 g.writeStringField("type", collection.getType().identifier());
                 g.writeStringField("hash", Integer.toHexString(group.hashCode()));
@@ -174,9 +185,9 @@ public class QueryMetricsResponse {
                 g.writeNumberField("cadence", group.getCadence());
                 g.writeObjectField("values", collection.getData());
 
-                writeKey(g, series.getKeys());
-                writeTags(g, common, series.getTags());
-                writeTagCounts(g, series.getTags());
+                writeKey(g, keys);
+                writeTags(g, common, tags);
+                writeTagCounts(g, tags);
 
                 g.writeEndObject();
             }
@@ -237,6 +248,32 @@ public class QueryMetricsResponse {
             }
 
             g.writeEndObject();
+        }
+    }
+
+    private static void populateMetadata(
+        final ShardedResultGroup group, final SortedSet<String> keys,
+        final Map<String, SortedSet<String>> tags, final Set<Series.Scope> scopes
+    ) {
+        for (final Series series : group.getSeries()) {
+            series.getKey().ifPresent(keys::add);
+            scopes.add(series.getScope());
+            populateTags(series, tags);
+        }
+    }
+
+    private static void populateTags(
+        final Series series, final Map<String, SortedSet<String>> tags
+    ) {
+        for (final Map.Entry<String, String> e : series.getTags().entrySet()) {
+            SortedSet<String> values = tags.get(e.getKey());
+
+            if (values == null) {
+                values = new TreeSet<>();
+                tags.put(e.getKey(), values);
+            }
+
+            values.add(e.getValue());
         }
     }
 }

@@ -51,7 +51,6 @@ public class BackendKeyArgument {
     }
 
     public BackendKey toBackendKey() {
-        return new BackendKey(Optional.ofNullable(series.getKey()), series.getTags(), base, type,
-            token);
+        return new BackendKey(series.getKey(), series.getTags(), base, type, token);
     }
 }

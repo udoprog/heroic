@@ -38,8 +38,8 @@ public class BackendKey {
     private final Optional<Long> token;
 
     public static BackendKey of(final Series series, final long base) {
-        return new BackendKey(Optional.ofNullable(series.getKey()), series.getTags(), base,
-            MetricType.POINT, Optional.empty());
+        return new BackendKey(series.getKey(), series.getTags(), base, MetricType.POINT,
+            Optional.empty());
     }
 
     public static BackendKey of(
