@@ -1,8 +1,8 @@
 package com.spotify.heroic.elasticsearch;
 
 import com.spotify.heroic.common.OptionalLimit;
-import com.spotify.heroic.elasticsearch.AbstractElasticsearchMetadataBackend.LimitedSet;
-import com.spotify.heroic.elasticsearch.AbstractElasticsearchMetadataBackend.ScrollTransform;
+import com.spotify.heroic.elasticsearch.AbstractElasticsearchBackend.LimitedSet;
+import com.spotify.heroic.elasticsearch.AbstractElasticsearchBackend.ScrollTransform;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import eu.toolchain.async.LazyTransform;
@@ -54,15 +54,11 @@ public class ScrollTransformTest {
     SearchHits searchHits;
 
     private final SearchHit[] searchHits1 = {
-        mock(SearchHit.class),
-        mock(SearchHit.class),
-        mock(SearchHit.class),
+        mock(SearchHit.class), mock(SearchHit.class), mock(SearchHit.class),
     };
 
     private final SearchHit[] searchHits2 = {
-        mock(SearchHit.class),
-        mock(SearchHit.class),
-        mock(SearchHit.class),
+        mock(SearchHit.class), mock(SearchHit.class), mock(SearchHit.class),
     };
 
     private final SearchHit[] emptySearchHits = {};
@@ -78,8 +74,8 @@ public class ScrollTransformTest {
                 InvocationOnMock invocation
             ) throws Exception {
                 LazyTransform<SearchResponse, LimitedSet<Integer>> transform =
-                    (LazyTransform<SearchResponse, LimitedSet<Integer>>)
-                        invocation.getArguments()[0];
+                    (LazyTransform<SearchResponse, LimitedSet<Integer>>) invocation.getArguments
+                        ()[0];
                 return transform.transform(searchResponse);
             }
         }).when(response).lazyTransform(any(LazyTransform.class));
@@ -94,26 +90,23 @@ public class ScrollTransformTest {
     }
 
     public ScrollTransform<SearchHit> createScrollTransform(
-        Integer limit,
-        Supplier<AsyncFuture<SearchResponse>> scroller
-    ){
+        Integer limit, Supplier<AsyncFuture<SearchResponse>> scroller
+    ) {
         final OptionalLimit optionalLimit = OptionalLimit.of(limit);
         return new ScrollTransform<>(async, optionalLimit, scroller, Function.identity());
     }
 
-    public LimitedSet<SearchHit> createLimitSet(Integer limit, SearchHit[]... pages){
+    public LimitedSet<SearchHit> createLimitSet(Integer limit, SearchHit[]... pages) {
         Set<SearchHit> set = new HashSet<>();
 
-        Stream<SearchHit> stream = Arrays.stream(pages)
-              .map(Arrays::stream)
-              .reduce(Stream.empty(), Stream::concat);
+        Stream<SearchHit> stream =
+            Arrays.stream(pages).map(Arrays::stream).reduce(Stream.empty(), Stream::concat);
 
-        if (limit!=null){
+        if (limit != null) {
             stream = stream.limit(limit);
         }
 
-        stream.map(Function.identity())
-              .forEach(set::add);
+        stream.map(Function.identity()).forEach(set::add);
 
         return new LimitedSet<>(set, limit != null);
     }

@@ -21,7 +21,6 @@
 
 package com.spotify.heroic.elasticsearch;
 
-import com.google.common.collect.ImmutableSet;
 import com.spotify.heroic.async.AsyncObservable;
 import com.spotify.heroic.async.AsyncObserver;
 import com.spotify.heroic.common.OptionalLimit;
@@ -36,7 +35,6 @@ import eu.toolchain.async.Borrowed;
 import eu.toolchain.async.FutureDone;
 import eu.toolchain.async.LazyTransform;
 import eu.toolchain.async.Managed;
-import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
@@ -57,8 +55,6 @@ import java.util.function.Supplier;
 
 public abstract class AbstractElasticsearchMetadataBackend extends AbstractElasticsearchBackend
     implements MetadataBackend {
-    public static final TimeValue SCROLL_TIME = TimeValue.timeValueSeconds(5);
-
     private final String type;
 
     public AbstractElasticsearchMetadataBackend(final AsyncFramework async, final String type) {
@@ -71,65 +67,6 @@ public abstract class AbstractElasticsearchMetadataBackend extends AbstractElast
     protected abstract FilterBuilder filter(Filter filter);
 
     protected abstract Series toSeries(SearchHit hit);
-
-    protected <T> AsyncFuture<LimitedSet<T>> scrollEntries(
-        final Connection c, final SearchRequestBuilder request, final OptionalLimit limit,
-        final Function<SearchHit, T> converter
-    ) {
-        return bind(request.execute()).lazyTransform((initial) -> {
-            if (initial.getScrollId() == null) {
-                return async.resolved(LimitedSet.of());
-            }
-
-            final String scrollId = initial.getScrollId();
-
-            final Supplier<AsyncFuture<SearchResponse>> scroller =
-                () -> bind(c.prepareSearchScroll(scrollId).setScroll(SCROLL_TIME).execute());
-
-            return scroller.get().lazyTransform(
-                new ScrollTransform<>(async, limit, scroller, converter)
-            );
-        });
-    }
-
-    @RequiredArgsConstructor
-    public static class ScrollTransform<T> implements LazyTransform<SearchResponse, LimitedSet<T>> {
-        private final AsyncFramework async;
-        private final OptionalLimit limit;
-        private final Supplier<AsyncFuture<SearchResponse>> scroller;
-
-        int size = 0;
-        int duplicates = 0;
-        final Set<T> results = new HashSet<>();
-        final Function<SearchHit, T> converter;
-
-        @Override
-        public AsyncFuture<LimitedSet<T>> transform(final SearchResponse response)
-            throws Exception {
-            final SearchHit[] hits = response.getHits().getHits();
-
-            for (final SearchHit hit : hits) {
-                final T convertedHit = converter.apply(hit);
-
-                if (!results.add(convertedHit)) {
-                    duplicates += 1;
-                } else {
-                    size += 1;
-                }
-
-                if (limit.isGreater(size)) {
-                    results.remove(convertedHit);
-                    return async.resolved(new LimitedSet<>(limit.limitSet(results), true));
-                }
-            }
-
-            if (hits.length == 0) {
-                return async.resolved(new LimitedSet<>(results, false));
-            }
-
-            return scroller.get().lazyTransform(this);
-        }
-    }
 
     @RequiredArgsConstructor
     public class ScrollTransformStream<T> implements LazyTransform<SearchResponse, Void> {
@@ -260,15 +197,5 @@ public abstract class AbstractElasticsearchMetadataBackend extends AbstractElast
                 }
             });
         };
-    }
-
-    @Data
-    public static class LimitedSet<T> {
-        private final Set<T> set;
-        private final boolean limited;
-
-        public static <T> LimitedSet<T> of() {
-            return new LimitedSet<>(ImmutableSet.of(), false);
-        }
     }
 }
