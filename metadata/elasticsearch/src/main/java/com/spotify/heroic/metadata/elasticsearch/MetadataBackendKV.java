@@ -42,6 +42,7 @@ import com.spotify.heroic.filter.MatchKeyFilter;
 import com.spotify.heroic.filter.MatchTagFilter;
 import com.spotify.heroic.filter.NotFilter;
 import com.spotify.heroic.filter.OrFilter;
+import com.spotify.heroic.filter.ScopeFilter;
 import com.spotify.heroic.filter.StartsWithFilter;
 import com.spotify.heroic.filter.TrueFilter;
 import com.spotify.heroic.lifecycle.LifeCycleRegistry;
@@ -93,6 +94,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -118,6 +121,8 @@ public class MetadataBackendKV extends AbstractElasticsearchMetadataBackend
     static final String KEY = "key";
     static final String TAGS = "tags";
     static final String TAG_KEYS = "tag_keys";
+    static final String SCOPE_HASH = "scope_hash";
+    static final String SCOPE = "scope";
     static final Character TAG_DELIMITER = '\0';
 
     static final String TYPE_METADATA = "metadata";
@@ -335,7 +340,10 @@ public class MetadataBackendKV extends AbstractElasticsearchMetadataBackend
         final Iterator<Map.Entry<String, String>> tags =
             ((List<String>) source.get(TAGS)).stream().map(this::buildTag).iterator();
 
-        return Series.of(key, tags, Optional.empty());
+        final Optional<SortedSet<String>> scope =
+            Optional.ofNullable((List<String>) source.get(SCOPE)).map(TreeSet::new);
+
+        return Series.of(key, tags, scope);
     }
 
     private <T, O> AsyncFuture<O> entries(
@@ -452,6 +460,16 @@ public class MetadataBackendKV extends AbstractElasticsearchMetadataBackend
         }
 
         b.endArray();
+
+        b.field(SCOPE_HASH, series.getScope().hash());
+
+        b.startArray(SCOPE);
+
+        for (final Map.Entry<String, String> e : series.getScope()) {
+            b.value(e.getKey());
+        }
+
+        b.endArray();
     }
 
     private static final Filter.Visitor<FilterBuilder> FILTER_CONVERTER =
@@ -500,6 +518,11 @@ public class MetadataBackendKV extends AbstractElasticsearchMetadataBackend
             @Override
             public FilterBuilder visitMatchKey(final MatchKeyFilter matchKey) {
                 return termFilter(KEY, matchKey.getValue());
+            }
+
+            @Override
+            public FilterBuilder visitScope(final ScopeFilter scope) {
+                return termFilter(SCOPE_HASH, scope.getScope().hash());
             }
 
             @Override
