@@ -24,10 +24,12 @@ package com.spotify.heroic.generator;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.spotify.heroic.common.Series;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 
 public class RandomMetadataGenerator implements MetadataGenerator {
@@ -55,7 +57,7 @@ public class RandomMetadataGenerator implements MetadataGenerator {
     private Series generateOne(int index) {
         final String key = generateKey(index);
         final Map<String, String> tags = generateTags(index);
-        return Series.of(key, tags);
+        return Series.of(key, tags, Optional.of(ImmutableSortedSet.of("what")));
     }
 
     private String generateKey(int index) {
