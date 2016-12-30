@@ -22,20 +22,15 @@
 package com.spotify.heroic.metric;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import com.spotify.heroic.aggregation.AggregationSession;
 import com.spotify.heroic.common.Series;
-import lombok.AccessLevel;
 import lombok.Data;
-import lombok.RequiredArgsConstructor;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * A collection of metrics.
@@ -67,89 +62,103 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * @see Event
  * @see MetricGroup
  */
-@Data
-@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
-public abstract class MetricCollection {
-    final MetricType type;
-    final List<? extends Metric> data;
-
+public interface MetricCollection {
     /**
      * Helper method to fetch a collection of the given type, if applicable.
      *
-     * @param expected The expected type to read.
-     * @return A list of the expected type.
+     * @param expected the expected type
+     * @return a list of the expected type or {@link java.util.Optional#empty()}
+     * @deprecated use {@link #getDataUnsafe()} (for pre-checked)
+     */
+    default <T> List<T> getDataAs(final Class<T> expected) {
+        return getDataOptional(expected).orElseThrow(() -> new IllegalArgumentException(
+            "expected (" + expected.getCanonicalName() + ") but is (" + this.getType() + ")"));
+    }
+
+    /**
+     * Get the type of the collection.
+     *
+     * @return type of the collection
+     */
+    MetricType getType();
+
+    /**
+     * Get size of the underlying collection.
+     *
+     * @return a long
+     */
+    default long size() {
+        return getData().size();
+    }
+
+    /**
+     * Get the underlying data of the collection.
+     * <p>
+     * This is an unsafe operation and must always be preceded by a type check.
+     *
+     * @return data of the collection
      */
     @SuppressWarnings("unchecked")
-    public <T> List<T> getDataAs(Class<T> expected) {
-        if (!expected.isAssignableFrom(type.type())) {
-            throw new IllegalArgumentException(
-                String.format("Cannot assign type (%s) to expected (%s)", type, expected));
-        }
-
-        return (List<T>) data;
+    default <T> List<T> getDataUnsafe() {
+        return (List<T>) getData();
     }
+
+    /**
+     * Safely access the underlying data of the collection.
+     *
+     * @param type class of type to expect
+     * @param <T> type to expect
+     * @return an optional containing the data if the underlying type matches, {@link
+     * java.util.Optional#empty()} otherwise
+     */
+    <T> Optional<List<T>> getDataOptional(Class<T> type);
+
+    /**
+     * Get the underlying data of the collection.
+     *
+     * @return data of the collection
+     */
+    List<? extends Metric> getData();
+
+    /**
+     * Check if the collection is empty.
+     *
+     * @return {@code true} if the collection is empty
+     */
+    boolean isEmpty();
 
     /**
      * Update the given aggregation with the content of this collection.
      */
-    public abstract void updateAggregation(
+    void updateAggregation(
         AggregationSession session, Map<String, String> tags, Set<Series> series
     );
 
-    public int size() {
-        return data.size();
+    static MetricCollection empty() {
+        return points(ImmutableList.of());
     }
 
-    public boolean isEmpty() {
-        return data.isEmpty();
+    static MetricCollection groups(List<MetricGroup> metrics) {
+        return new MetricGroups(metrics);
     }
 
-    private static final MetricCollection empty = new EmptyMetricCollection();
-
-    public static MetricCollection empty() {
-        return empty;
+    static MetricCollection points(List<Point> metrics) {
+        return new Points(metrics);
     }
 
-    // @formatter:off
-    private static final
-    Map<MetricType, Function<List<? extends Metric>, MetricCollection>> adapters = ImmutableMap.of(
-        MetricType.GROUP, GroupCollection::new,
-        MetricType.POINT, PointCollection::new,
-        MetricType.EVENT, EventCollection::new,
-        MetricType.SPREAD, SpreadCollection::new,
-        MetricType.CARDINALITY, CardinalityCollection::new
-    );
-    // @formatter:on
-
-    public static MetricCollection groups(List<MetricGroup> metrics) {
-        return new GroupCollection(metrics);
+    static MetricCollection events(List<Event> metrics) {
+        return new Events(metrics);
     }
 
-    public static MetricCollection points(List<Point> metrics) {
-        return new PointCollection(metrics);
+    static MetricCollection spreads(List<Spread> metrics) {
+        return new Spreads(metrics);
     }
 
-    public static MetricCollection events(List<Event> metrics) {
-        return new EventCollection(metrics);
+    static MetricCollection cardinality(List<Payload> metrics) {
+        return new Cardinalities(metrics);
     }
 
-    public static MetricCollection spreads(List<Spread> metrics) {
-        return new SpreadCollection(metrics);
-    }
-
-    public static MetricCollection cardinality(List<Payload> metrics) {
-        return new CardinalityCollection(metrics);
-    }
-
-    public static MetricCollection build(
-        final MetricType key, final List<? extends Metric> metrics
-    ) {
-        final Function<List<? extends Metric>, MetricCollection> adapter =
-            checkNotNull(adapters.get(key), "adapter does not exist for type");
-        return adapter.apply(metrics);
-    }
-
-    public static MetricCollection mergeSorted(
+    static MetricCollection mergeSorted(
         final MetricType type, final List<List<? extends Metric>> values
     ) {
         final List<Metric> data = ImmutableList.copyOf(Iterators.mergeSorted(
@@ -159,92 +168,185 @@ public abstract class MetricCollection {
     }
 
     @SuppressWarnings("unchecked")
-    private static class PointCollection extends MetricCollection {
-        PointCollection(List<? extends Metric> points) {
-            super(MetricType.POINT, points);
-        }
-
-        @Override
-        public void updateAggregation(
-            AggregationSession session, Map<String, String> tags, Set<Series> series
-        ) {
-            session.updatePoints(tags, series, adapt());
-        }
-
-        private List<Point> adapt() {
-            return (List<Point>) data;
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private static class EventCollection extends MetricCollection {
-        EventCollection(List<? extends Metric> events) {
-            super(MetricType.EVENT, events);
-        }
-
-        @Override
-        public void updateAggregation(
-            AggregationSession session, Map<String, String> tags, Set<Series> series
-        ) {
-            session.updateEvents(tags, series, adapt());
-        }
-
-        private List<Event> adapt() {
-            return (List<Event>) data;
+    static MetricCollection build(final MetricType type, List<? extends Metric> data) {
+        switch (type) {
+            case POINT:
+                return new Points((List<Point>) data);
+            case EVENT:
+                return new Events((List<Event>) data);
+            case SPREAD:
+                return new Spreads((List<Spread>) data);
+            case GROUP:
+                return new MetricGroups((List<MetricGroup>) data);
+            case CARDINALITY:
+                return new Cardinalities((List<Payload>) data);
+            default:
+                throw new IllegalArgumentException("type");
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private static class SpreadCollection extends MetricCollection {
-        SpreadCollection(List<? extends Metric> spread) {
-            super(MetricType.SPREAD, spread);
+    @Data
+    class Points implements MetricCollection {
+        final List<Point> data;
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public <T> Optional<List<T>> getDataOptional(final Class<T> expected) {
+            if (expected != Point.class) {
+                return Optional.empty();
+            }
+
+            return Optional.of((List<T>) data);
+        }
+
+        @Override
+        public MetricType getType() {
+            return MetricType.POINT;
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return data.isEmpty();
         }
 
         @Override
         public void updateAggregation(
-            AggregationSession session, Map<String, String> tags, Set<Series> series
+            final AggregationSession session, final Map<String, String> tags,
+            final Set<Series> series
         ) {
-            session.updateSpreads(tags, series, adapt());
-        }
-
-        private List<Spread> adapt() {
-            return (List<Spread>) data;
+            session.updatePoints(tags, series, data);
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private static class GroupCollection extends MetricCollection {
-        GroupCollection(List<? extends Metric> groups) {
-            super(MetricType.GROUP, groups);
+    @Data
+    class Events implements MetricCollection {
+        final List<Event> data;
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public <T> Optional<List<T>> getDataOptional(final Class<T> expected) {
+            if (expected != Event.class) {
+                return Optional.empty();
+            }
+
+            return Optional.of((List<T>) data);
+        }
+
+        @Override
+        public MetricType getType() {
+            return MetricType.EVENT;
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return data.isEmpty();
         }
 
         @Override
         public void updateAggregation(
-            AggregationSession session, Map<String, String> tags, Set<Series> series
+            final AggregationSession session, final Map<String, String> tags,
+            final Set<Series> series
         ) {
-            session.updateGroup(tags, series, adapt());
-        }
-
-        private List<MetricGroup> adapt() {
-            return (List<MetricGroup>) data;
+            session.updateEvents(tags, series, data);
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private static class CardinalityCollection extends MetricCollection {
-        CardinalityCollection(List<? extends Metric> cardinality) {
-            super(MetricType.CARDINALITY, cardinality);
+    @Data
+    class Spreads implements MetricCollection {
+        final List<Spread> data;
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public <T> Optional<List<T>> getDataOptional(final Class<T> expected) {
+            if (expected != Spread.class) {
+                return Optional.empty();
+            }
+
+            return Optional.of((List<T>) data);
+        }
+
+        @Override
+        public MetricType getType() {
+            return MetricType.SPREAD;
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return data.isEmpty();
         }
 
         @Override
         public void updateAggregation(
-            AggregationSession session, Map<String, String> tags, Set<Series> series
+            final AggregationSession session, final Map<String, String> tags,
+            final Set<Series> series
         ) {
-            session.updatePayload(tags, series, adapt());
+            session.updateSpreads(tags, series, data);
+        }
+    }
+
+    @Data
+    class MetricGroups implements MetricCollection {
+        final List<MetricGroup> data;
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public <T> Optional<List<T>> getDataOptional(final Class<T> expected) {
+            if (expected != MetricGroup.class) {
+                return Optional.empty();
+            }
+
+            return Optional.of((List<T>) data);
         }
 
-        private List<Payload> adapt() {
-            return (List<Payload>) data;
+        @Override
+        public MetricType getType() {
+            return MetricType.GROUP;
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return data.isEmpty();
+        }
+
+        @Override
+        public void updateAggregation(
+            final AggregationSession session, final Map<String, String> tags,
+            final Set<Series> series
+        ) {
+            session.updateGroup(tags, series, data);
+        }
+    }
+
+    @Data
+    class Cardinalities implements MetricCollection {
+        final List<Payload> data;
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public <T> Optional<List<T>> getDataOptional(final Class<T> expected) {
+            if (expected != Payload.class) {
+                return Optional.empty();
+            }
+
+            return Optional.of((List<T>) data);
+        }
+
+        @Override
+        public MetricType getType() {
+            return MetricType.CARDINALITY;
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return data.isEmpty();
+        }
+
+        @Override
+        public void updateAggregation(
+            final AggregationSession session, final Map<String, String> tags,
+            final Set<Series> series
+        ) {
+            session.updatePayload(tags, series, data);
         }
     }
 }

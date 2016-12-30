@@ -76,7 +76,7 @@ public class FetchData {
                         fetchGroups.put(g.getType(), data);
                     }
 
-                    data.addAll(g.data);
+                    data.addAll(g.getData());
                 }
             }
 
