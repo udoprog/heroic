@@ -42,7 +42,6 @@ import com.spotify.heroic.metric.MetricModule;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.WriteMetric;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestRule;
@@ -142,7 +141,6 @@ public abstract class AbstractMetricBackendIT {
         assertEqualMetrics(mc, fetchMetrics(request, true));
     }
 
-    @SuppressFBWarnings("RV_ABSOLUTE_VALUE_OF_RANDOM_INT")
     @Test
     public void testWriteAndFetchLongSeries() throws Exception {
         Random random = new Random(1);
@@ -152,7 +150,8 @@ public abstract class AbstractMetricBackendIT {
         long timestamp = 1;
         while (timestamp > 0) {
             points.p(timestamp, random.nextDouble());
-            timestamp += Math.abs(random.nextLong()) / 100000;
+            final long value = random.nextLong();
+            timestamp += Math.abs(value) / 100000;
         }
 
         MetricCollection mc = points.build();
