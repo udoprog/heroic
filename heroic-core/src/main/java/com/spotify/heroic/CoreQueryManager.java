@@ -22,7 +22,6 @@
 package com.spotify.heroic;
 
 import com.google.common.collect.ImmutableSortedSet;
-
 import com.spotify.heroic.aggregation.Aggregation;
 import com.spotify.heroic.aggregation.AggregationCombiner;
 import com.spotify.heroic.aggregation.AggregationContext;
@@ -65,17 +64,18 @@ import com.spotify.heroic.metric.QueryTrace;
 import com.spotify.heroic.metric.ResultLimits;
 import com.spotify.heroic.metric.Tracing;
 import com.spotify.heroic.metric.WriteMetric;
+import com.spotify.heroic.querylogging.QueryContext;
+import com.spotify.heroic.querylogging.QueryLogger;
+import com.spotify.heroic.querylogging.QueryLoggerFactory;
 import com.spotify.heroic.suggest.KeySuggest;
 import com.spotify.heroic.suggest.TagKeyCount;
 import com.spotify.heroic.suggest.TagSuggest;
 import com.spotify.heroic.suggest.TagValueSuggest;
 import com.spotify.heroic.suggest.TagValuesSuggest;
-
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import eu.toolchain.async.Collector;
 import eu.toolchain.async.Transform;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -84,10 +84,8 @@ import java.util.SortedSet;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-
 import javax.inject.Inject;
 import javax.inject.Named;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -106,12 +104,14 @@ public class CoreQueryManager implements QueryManager {
     private final QueryCache queryCache;
     private final AggregationFactory aggregations;
     private final OptionalLimit groupLimit;
+    private final QueryLogger queryLogger;
 
     @Inject
     public CoreQueryManager(
         @Named("features") final Features features, final AsyncFramework async,
         final ClusterManager cluster, final QueryParser parser, final QueryCache queryCache,
-        final AggregationFactory aggregations, @Named("groupLimit") final OptionalLimit groupLimit
+        final AggregationFactory aggregations, @Named("groupLimit") final OptionalLimit groupLimit,
+        final QueryLoggerFactory queryLoggerFactory
     ) {
         this.features = features;
         this.async = async;
@@ -120,6 +120,7 @@ public class CoreQueryManager implements QueryManager {
         this.queryCache = queryCache;
         this.aggregations = aggregations;
         this.groupLimit = groupLimit;
+        this.queryLogger = queryLoggerFactory.create("CoreQueryManager");
     }
 
     @Override
@@ -184,11 +185,13 @@ public class CoreQueryManager implements QueryManager {
         private final List<ClusterShard> shards;
 
         @Override
-        public AsyncFuture<QueryResult> query(Query q) {
+        public AsyncFuture<QueryResult> query(final Query q, final QueryContext queryContext) {
             final QueryOptions options = q.getOptions().orElseGet(QueryOptions::defaults);
             final Tracing tracing = options.getTracing();
 
             final QueryTrace.NamedWatch shardWatch = tracing.watch(QUERY_SHARD);
+
+            queryLogger.logQuery(queryContext, q);
 
             final List<AsyncFuture<QueryResultPart>> futures = new ArrayList<>();
 
@@ -239,7 +242,10 @@ public class CoreQueryManager implements QueryManager {
             }
 
             final FullQuery.Request request =
-                new FullQuery.Request(source, filter, range, aggregationInstance, options);
+                new FullQuery.Request(source, filter, range, aggregationInstance, options,
+                    queryContext);
+
+            queryLogger.logOutgoingRequestToShards(queryContext, request);
 
             return queryCache.load(request, () -> {
                 for (final ClusterShard shard : shards) {
@@ -248,6 +254,10 @@ public class CoreQueryManager implements QueryManager {
                     final AsyncFuture<QueryResultPart> queryPart = shard
                         .apply(g -> g.query(request), getStoreTracesTransform(shardLocalWatch))
                         .catchFailed(FullQuery.shardError(shardLocalWatch, shard))
+                        .directTransform(fullQuery -> {
+                            queryLogger.logIncomingResponseFromShard(queryContext, fullQuery);
+                            return fullQuery;
+                        })
                         .directTransform(QueryResultPart.fromResultGroup(shard));
 
                     futures.add(queryPart);
@@ -255,8 +265,12 @@ public class CoreQueryManager implements QueryManager {
 
                 final OptionalLimit limit = options.getGroupLimit().orElse(groupLimit);
 
-                return async.collect(futures,
-                    QueryResult.collectParts(QUERY, range, combiner, limit));
+                return async
+                    .collect(futures, QueryResult.collectParts(QUERY, range, combiner, limit))
+                    .directTransform(queryResult -> {
+                        queryLogger.logQueryTrace(queryContext, queryResult.getTrace());
+                        return queryResult;
+                    });
             });
         }
 

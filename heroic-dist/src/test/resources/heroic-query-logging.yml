@@ -1,0 +1,2 @@
+queryLogging:
+  type: slf4j

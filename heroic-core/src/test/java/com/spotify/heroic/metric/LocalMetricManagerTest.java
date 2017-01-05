@@ -1,8 +1,13 @@
 package com.spotify.heroic.metric;
 
 import static org.junit.Assert.assertNotNull;
+import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.spotify.heroic.querylogging.Slf4jQueryLogger;
+import com.spotify.heroic.querylogging.Slf4jQueryLoggerFactory;
 import com.spotify.heroic.common.GroupSet;
 import com.spotify.heroic.common.Groups;
 import com.spotify.heroic.common.OptionalLimit;
@@ -56,8 +61,13 @@ public class LocalMetricManagerTest {
         final GroupSet<MetricBackend> groupSet =
             GroupSet.build(Collections.singletonList(metricBackend), Optional.empty());
 
+        Slf4jQueryLogger queryLogger = mock(Slf4jQueryLogger.class);
+        Slf4jQueryLoggerFactory queryLoggerFactory = mock(Slf4jQueryLoggerFactory.class);
+        when(queryLoggerFactory.create(any())).thenReturn(queryLogger);
+
         manager = new LocalMetricManager(groupLimit, seriesLimit, aggregationLimit, dataLimit,
-            fetchParallelism, failOnLimits, async, groupSet, metadata, reporter);
+            fetchParallelism, failOnLimits, async, groupSet, metadata, reporter,
+            queryLoggerFactory);
     }
 
     @Test

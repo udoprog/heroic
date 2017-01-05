@@ -24,9 +24,8 @@ package com.spotify.heroic;
 import com.spotify.heroic.common.OptionalLimit;
 import dagger.Module;
 import dagger.Provides;
-import lombok.Data;
-
 import javax.inject.Named;
+import lombok.Data;
 
 @Module
 @Data

@@ -34,12 +34,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
+import java.util.UUID;
+
 import lombok.Data;
 import lombok.NonNull;
 
 @Data
 @JsonSerialize(using = QueryMetricsResponse.Serializer.class)
 public class QueryMetricsResponse {
+    @NonNull
+    private final UUID queryId;
+
     @NonNull
     private final DateRange range;
 

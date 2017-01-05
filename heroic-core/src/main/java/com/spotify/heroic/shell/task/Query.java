@@ -23,6 +23,8 @@ package com.spotify.heroic.shell.task;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.spotify.heroic.querylogging.QueryContext;
+import com.spotify.heroic.querylogging.QueryContextFactory;
 import com.spotify.heroic.QueryDateRange;
 import com.spotify.heroic.QueryManager;
 import com.spotify.heroic.QueryOptions;
@@ -73,6 +75,7 @@ public class Query implements ShellTask {
         final Parameters params = (Parameters) base;
 
         final String queryString = params.query.stream().collect(Collectors.joining(" "));
+        final QueryContext queryContext = QueryContextFactory.create(Optional.empty());
 
         final ObjectMapper indent = mapper.copy();
         indent.configure(SerializationFeature.INDENT_OUTPUT, true);
@@ -95,7 +98,7 @@ public class Query implements ShellTask {
                 .newQueryFromString(queryString)
                 .options(Optional.of(options))
                 .rangeIfAbsent(range)
-                .build())
+                .build(), queryContext)
             .directTransform(result -> {
                 for (final RequestError e : result.getErrors()) {
                     io.out().println(String.format("ERR: %s", e.toString()));
