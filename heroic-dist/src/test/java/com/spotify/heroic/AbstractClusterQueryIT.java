@@ -1,5 +1,41 @@
 package com.spotify.heroic;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.spotify.heroic.common.Feature;
+import com.spotify.heroic.common.FeatureSet;
+import com.spotify.heroic.common.Series;
+import com.spotify.heroic.dagger.CoreComponent;
+import com.spotify.heroic.ingestion.Ingestion;
+import com.spotify.heroic.ingestion.IngestionComponent;
+import com.spotify.heroic.ingestion.IngestionManager;
+import com.spotify.heroic.metric.FullQuery;
+import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.MetricType;
+import com.spotify.heroic.metric.QueryError;
+import com.spotify.heroic.metric.QueryResult;
+import com.spotify.heroic.metric.QueryTrace;
+import com.spotify.heroic.metric.RequestError;
+import com.spotify.heroic.metric.ResultLimit;
+import com.spotify.heroic.metric.ResultLimits;
+import com.spotify.heroic.metric.ShardedResultGroup;
+import com.spotify.heroic.querylogging.QueryContext;
+import com.spotify.heroic.querylogging.QueryContextFactory;
+import com.spotify.heroic.querylogging.QueryLogger;
+import eu.toolchain.async.AsyncFuture;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
+
 import static com.spotify.heroic.test.Data.points;
 import static com.spotify.heroic.test.Matchers.containsChild;
 import static com.spotify.heroic.test.Matchers.hasIdentifier;
@@ -12,42 +48,18 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.spotify.heroic.common.Feature;
-import com.spotify.heroic.common.FeatureSet;
-import com.spotify.heroic.common.Series;
-import com.spotify.heroic.dagger.CoreComponent;
-import com.spotify.heroic.ingestion.Ingestion;
-import com.spotify.heroic.ingestion.IngestionComponent;
-import com.spotify.heroic.ingestion.IngestionManager;
-import com.spotify.heroic.metric.MetricCollection;
-import com.spotify.heroic.metric.MetricType;
-import com.spotify.heroic.metric.QueryError;
-import com.spotify.heroic.metric.QueryResult;
-import com.spotify.heroic.metric.RequestError;
-import com.spotify.heroic.metric.ResultLimit;
-import com.spotify.heroic.metric.ResultLimits;
-import com.spotify.heroic.metric.ShardedResultGroup;
-import com.spotify.heroic.querylogging.QueryContext;
-import com.spotify.heroic.querylogging.QueryContextFactory;
-import eu.toolchain.async.AsyncFuture;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.function.Consumer;
-import java.util.stream.Collectors;
-import org.junit.Before;
-import org.junit.Test;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
     private final Series s1 = Series.of("key1", ImmutableMap.of("shared", "a", "diff", "a"));
     private final Series s2 = Series.of("key1", ImmutableMap.of("shared", "a", "diff", "b"));
     private final Series s3 = Series.of("key1", ImmutableMap.of("shared", "a", "diff", "c"));
+
+    /* the number of queries run */
+    private int queryCount = 0;
 
     private QueryManager query;
 
@@ -65,6 +77,35 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
         queryContext = QueryContextFactory.create(Optional.empty());
 
         query = instances.get(0).inject(CoreComponent::queryManager);
+    }
+
+    @After
+    public final void verifyLoggers() {
+        final QueryLogger coreQueryManager = getQueryLogger("CoreQueryManager").orElseThrow(
+            () -> new AssertionError("Should have logger for CoreQueryManager"));
+
+        final QueryLogger localMetricManager = getQueryLogger("LocalMetricManager").orElseThrow(
+            () -> new AssertionError("Should have logger for LocalMetricManager"));
+
+        /* number of expected log-calls is related to the number of queries performed during the
+         * test */
+        final int apiNodeCount = queryCount;
+        final int dataNodeCount = queryCount * 2;
+
+        verify(coreQueryManager, times(apiNodeCount)).logQuery(any(QueryContext.class),
+            any(Query.class));
+        verify(coreQueryManager, times(apiNodeCount)).logOutgoingRequestToShards(
+            any(QueryContext.class), any(FullQuery.Request.class));
+        verify(localMetricManager, times(dataNodeCount)).logIncomingRequestAtNode(
+            any(QueryContext.class), any(FullQuery.Request.class));
+        verify(localMetricManager, times(dataNodeCount)).logOutgoingResponseAtNode(
+            any(QueryContext.class), any(FullQuery.class));
+        verify(coreQueryManager, times(dataNodeCount)).logIncomingResponseFromShard(
+            any(QueryContext.class), any(FullQuery.class));
+        verify(coreQueryManager, times(apiNodeCount)).logQueryTrace(any(QueryContext.class),
+            any(QueryTrace.class));
+
+        verifyNoMoreInteractions(coreQueryManager, localMetricManager);
     }
 
     @Override
@@ -101,6 +142,8 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
 
     public QueryResult query(final QueryBuilder builder, final Consumer<QueryBuilder> modifier)
         throws Exception {
+        queryCount += 1;
+
         builder
             .features(Optional.of(FeatureSet.of(Feature.DISTRIBUTED_AGGREGATIONS)))
             .source(Optional.of(MetricType.POINT))
