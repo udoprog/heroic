@@ -1,0 +1,193 @@
+"http-query-text":
+  properties:
+    "@message":
+      type: nested
+      properties:
+        type:
+          type: string
+        component:
+          type: string
+        queryId:
+          type: string
+        clientContext:
+          type: object
+          enabled: false
+        data:
+          type: nested
+          properties:
+            httpContext:
+              type: nested
+              properties:
+                addr:
+                  type: ip
+                host:
+                  type: string
+                port:
+                  type: integer
+                userAgent:
+                  type: string
+                clientId:
+                  type: string
+            query:
+              type: string
+              index: "not_analyzed"
+
+"http-query-json":
+  properties:
+    "@message":
+      type: nested
+      properties:
+        type:
+          type: string
+        component:
+          type: string
+        queryId:
+          type: string
+        clientContext:
+          type: object
+          enabled: false
+        data:
+          type: nested
+          properties:
+            httpContext:
+              type: nested
+              properties:
+                addr:
+                  type: ip
+                host:
+                  type: string
+                port:
+                  type: integer
+                userAgent:
+                  type: string
+                clientId:
+                  type: string
+            query:
+              type: object
+              enabled: false
+
+"query":
+  properties:
+    "@message":
+      type: nested
+      properties:
+        type:
+          type: string
+        component:
+          type: string
+        queryId:
+          type: string
+        clientContext:
+          type: object
+          enabled: false
+        data:
+          type: object
+          enabled: false
+
+"outgoing-request-to-shards":
+  properties:
+    "@message":
+      type: nested
+      properties:
+        type:
+          type: string
+        component:
+          type: string
+        queryId:
+          type: string
+        clientContext:
+          type: object
+          enabled: false
+        data:
+          type: object
+          enabled: false
+
+"incoming-request-at-node":
+  properties:
+    "@message":
+      type: nested
+      properties:
+        type:
+          type: string
+        component:
+          type: string
+        queryId:
+          type: string
+        clientContext:
+          type: object
+          enabled: false
+        data:
+          type: object
+          enabled: false
+
+"outgoing-response-at-node":
+  properties:
+    "@message":
+      type: nested
+      properties:
+        type:
+          type: string
+        component:
+          type: string
+        queryId:
+          type: string
+        clientContext:
+          type: object
+          enabled: false
+        data:
+          type: object
+          enabled: false
+
+"incoming-response-from-shard":
+  properties:
+    "@message":
+      type: nested
+      properties:
+        type:
+          type: string
+        component:
+          type: string
+        queryId:
+          type: string
+        clientContext:
+          type: object
+          enabled: false
+        data:
+          type: object
+          enabled: false
+
+"query-trace":
+  properties:
+    "@message":
+      type: nested
+      properties:
+        type:
+          type: string
+        component:
+          type: string
+        queryId:
+          type: string
+        clientContext:
+          type: object
+          enabled: false
+        data:
+          type: object
+          enabled: false
+
+"final-response":
+  properties:
+    "@message":
+      type: nested
+      properties:
+        type:
+          type: string
+        component:
+          type: string
+        queryId:
+          type: string
+        clientContext:
+          type: object
+          enabled: false
+        data:
+          type: object
+          enabled: false
