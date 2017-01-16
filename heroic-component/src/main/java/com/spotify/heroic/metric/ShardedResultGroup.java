@@ -21,12 +21,16 @@
 
 package com.spotify.heroic.metric;
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 import com.spotify.heroic.common.Series;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-
-import java.util.Map;
-import java.util.Set;
 
 @Data
 @EqualsAndHashCode
@@ -39,5 +43,45 @@ public final class ShardedResultGroup {
 
     public boolean isEmpty() {
         return metrics.isEmpty();
+    }
+
+    public static MultiSummary summarize(List<ShardedResultGroup> resultGroups) {
+        Multimap<String, String> shardSummary = HashMultimap.create();
+        Multimap<String, String> keySummary = HashMultimap.create();
+        SeriesSetsSummarizer seriesSummarizer = new SeriesSetsSummarizer();
+        MetricCollection.MultiSummary.Builder groupSummarizer =
+            new MetricCollection.MultiSummary.Builder();
+        Optional<Long> cadence = Optional.empty();
+
+        for (ShardedResultGroup rg : resultGroups) {
+            // shard
+            for (Map.Entry<String, String> e : rg.getShard().entrySet()) {
+                shardSummary.put(e.getKey(), e.getValue());
+            }
+
+            // key
+            for (Map.Entry<String, String> e : rg.getKey().entrySet()) {
+                keySummary.put(e.getKey(), e.getValue());
+            }
+
+            seriesSummarizer.add(rg.getSeries());
+            groupSummarizer.add(rg.getMetrics());
+
+            cadence = Optional.of(rg.getCadence());
+        }
+
+        SeriesSetsSummarizer.Summary seriesSummary = seriesSummarizer.end();
+        MetricCollection.MultiSummary groupSummary = groupSummarizer.end();
+        return new MultiSummary(shardSummary.asMap(), keySummary.asMap(), seriesSummary,
+            groupSummary, cadence);
+    }
+
+    @Data
+    public static class MultiSummary {
+        private final Map<String, Collection<String>> shardSummary;
+        private final Map<String, Collection<String>> keySummary;
+        private final SeriesSetsSummarizer.Summary seriesSummary;
+        private final MetricCollection.MultiSummary groupSummary;
+        private final Optional<Long> cadence;
     }
 }

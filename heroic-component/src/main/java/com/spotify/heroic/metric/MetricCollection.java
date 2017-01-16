@@ -21,21 +21,21 @@
 
 package com.spotify.heroic.metric;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import com.spotify.heroic.aggregation.AggregationSession;
 import com.spotify.heroic.common.Series;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
 import lombok.AccessLevel;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * A collection of metrics.
@@ -245,6 +245,62 @@ public abstract class MetricCollection {
 
         private List<Payload> adapt() {
             return (List<Payload>) data;
+        }
+    }
+
+    @Data
+    public static class MultiSummary {
+        private final Optional<MetricType> type;
+        private final Optional<Integer> min;
+        private final Optional<Integer> max;
+        private final Optional<Integer> mean;
+        private final Optional<Long> totalSum;
+
+        public static class Builder {
+            private MetricType type;
+            private int nonZeroCount;
+            private int min;
+            private int max;
+            private long totalSum;
+
+            public Builder() {
+                this.type = null;
+                this.nonZeroCount = 0;
+                this.min = Integer.MAX_VALUE;
+                this.max = Integer.MIN_VALUE;
+                this.totalSum = 0;
+            }
+
+            public void add(MetricCollection mc) {
+                type = mc.getType();
+                int groupSize = mc.getData().size();
+                if (groupSize != 0) {
+                    nonZeroCount++;
+                    totalSum += groupSize;
+                    if (groupSize < min) {
+                        min = groupSize;
+                    }
+                    if (groupSize > max) {
+                        max = groupSize;
+                    }
+                }
+            }
+
+            public MultiSummary end() {
+                Optional<MetricType> optMetricType = Optional.empty();
+                Optional<Integer> optMin = Optional.empty();
+                Optional<Integer> optMax = Optional.empty();
+                Optional<Integer> optMean = Optional.empty();
+                Optional<Long> optTotalSum = Optional.empty();
+                if (nonZeroCount != 0) {
+                    optMetricType = Optional.of(type);
+                    optMin = Optional.of(min);
+                    optMax = Optional.of(max);
+                    optMean = Optional.of((int) (totalSum / (long) nonZeroCount));
+                    optTotalSum = Optional.of(totalSum);
+                }
+                return new MultiSummary(optMetricType, optMin, optMax, optMean, optTotalSum);
+            }
         }
     }
 }
