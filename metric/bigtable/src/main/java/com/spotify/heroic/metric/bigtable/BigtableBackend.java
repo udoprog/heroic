@@ -64,6 +64,13 @@ import eu.toolchain.async.RetryResult;
 import eu.toolchain.serializer.BytesSerialWriter;
 import eu.toolchain.serializer.Serializer;
 import eu.toolchain.serializer.SerializerFramework;
+import lombok.RequiredArgsConstructor;
+import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
+
+import javax.inject.Inject;
+import javax.inject.Named;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -72,12 +79,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
-import javax.inject.Inject;
-import javax.inject.Named;
-import lombok.RequiredArgsConstructor;
-import lombok.ToString;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.Pair;
 
 @BigtableScope
 @ToString(of = {"connection"})
@@ -86,6 +87,10 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
     /* maxmimum number of cells supported for each batch mutation */
     public static final int MAX_BATCH_SIZE = 10000;
 
+    public static final QueryTrace.Identifier WRITE_ONE =
+        QueryTrace.identifier(BigtableBackend.class, "write_one");
+    public static final QueryTrace.Identifier WRITE =
+        QueryTrace.identifier(BigtableBackend.class, "write");
     public static final QueryTrace.Identifier FETCH_SEGMENT =
         QueryTrace.identifier(BigtableBackend.class, "fetch_segment");
     public static final QueryTrace.Identifier FETCH =
@@ -195,8 +200,9 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
             final Series series = request.getSeries();
             final BigtableDataClient client = c.dataClient();
             final MetricCollection g = request.getData();
+            final QueryTrace.NamedWatch watch = request.getTracing().watch(WRITE);
 
-            return writeTyped(series, client, g);
+            return writeTyped(series, client, g, watch);
         });
     }
 
@@ -267,29 +273,32 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
     }
 
     private AsyncFuture<WriteMetric> writeTyped(
-        final Series series, final BigtableDataClient client, final MetricCollection g
+        final Series series, final BigtableDataClient client, final MetricCollection g,
+        final QueryTrace.NamedWatch watch
     ) throws IOException {
         switch (g.getType()) {
             case POINT:
                 return writeBatch(POINTS, series, client, g.getDataAs(Point.class),
-                    d -> serializeValue(d.getValue()));
+                    d -> serializeValue(d.getValue()), watch);
             case EVENT:
                 return writeBatch(EVENTS, series, client, g.getDataAs(Event.class),
-                    BigtableBackend.this::serializeEvent);
+                    BigtableBackend.this::serializeEvent, watch);
             default:
                 return async.resolved(WriteMetric.error(
-                    QueryError.fromMessage("Unsupported metric type: " + g.getType())));
+                    QueryError.fromMessage("Unsupported metric type: " + g.getType()),
+                    watch.end()));
         }
     }
 
     private <T extends Metric> AsyncFuture<WriteMetric> writeBatch(
         final String columnFamily, final Series series, final BigtableDataClient client,
-        final List<T> batch, final Function<T, ByteString> serializer
+        final List<T> batch, final Function<T, ByteString> serializer,
+        final QueryTrace.NamedWatch watch
     ) throws IOException {
         // common case for consumers
         if (batch.size() == 1) {
-            return writeOne(columnFamily, series, client, batch.get(0), serializer).onFinished(
-                written::mark);
+            return writeOne(columnFamily, series, client, batch.get(0), serializer,
+                watch).onFinished(written::mark);
         }
 
         final List<Pair<RowKey, Mutations>> saved = new ArrayList<>();
@@ -323,27 +332,29 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
         final ImmutableList.Builder<AsyncFuture<WriteMetric>> writes = ImmutableList.builder();
 
         for (final Pair<RowKey, Mutations> e : saved) {
+            final QueryTrace.NamedWatch watchOne = watch.watch(WRITE_ONE);
             final ByteString rowKeyBytes = serialize(e.getKey(), rowKeySerializer);
 
             writes.add(client
                 .mutateRow(table, rowKeyBytes, e.getValue())
-                .directTransform(result -> WriteMetric.of()));
+                .directTransform(result -> WriteMetric.of(watchOne.end())));
         }
 
         for (final Map.Entry<RowKey, Mutations.Builder> e : building.entrySet()) {
+            final QueryTrace.NamedWatch watchOne = watch.watch(WRITE_ONE);
             final ByteString rowKeyBytes = serialize(e.getKey(), rowKeySerializer);
 
             writes.add(client
                 .mutateRow(table, rowKeyBytes, e.getValue().build())
-                .directTransform(result -> WriteMetric.of()));
+                .directTransform(result -> WriteMetric.of(watchOne.end())));
         }
 
-        return async.collect(writes.build(), WriteMetric.reduce());
+        return async.collect(writes.build(), WriteMetric.reduce(watch));
     }
 
     private <T extends Metric> AsyncFuture<WriteMetric> writeOne(
         final String columnFamily, Series series, BigtableDataClient client, T p,
-        Function<T, ByteString> serializer
+        Function<T, ByteString> serializer, final QueryTrace.NamedWatch watch
     ) throws IOException {
         final long timestamp = p.getTimestamp();
         final long base = base(timestamp);
@@ -362,7 +373,7 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
 
         return client
             .mutateRow(table, rowKeyBytes, builder.build())
-            .directTransform(result -> WriteMetric.of());
+            .directTransform(result -> WriteMetric.of(watch.end()));
     }
 
     private <T extends Metric> AsyncFuture<FetchData> fetchBatch(
@@ -378,11 +389,13 @@ public class BigtableBackend extends AbstractMetricBackend implements LifeCycles
             final AsyncFuture<List<FlatRow>> readRows = client.readRows(table, ReadRowsRequest
                 .builder()
                 .rowKey(p.keyBlob)
-                .filter(RowFilter.chain(Arrays.asList(RowFilter
-                    .newColumnRangeBuilder(columnFamily)
-                    .startQualifierOpen(p.startKey)
-                    .endQualifierClosed(p.endKey)
-                    .build(), RowFilter.onlyLatestCell())))
+                .filter(RowFilter.chain(Arrays.asList(
+                    RowFilter
+                        .newColumnRangeBuilder(columnFamily)
+                        .startQualifierOpen(p.startKey)
+                        .endQualifierClosed(p.endKey)
+                        .build(),
+                    RowFilter.onlyLatestCell())))
                 .build());
 
             final Function<FlatRow.Cell, T> transform = cell -> {

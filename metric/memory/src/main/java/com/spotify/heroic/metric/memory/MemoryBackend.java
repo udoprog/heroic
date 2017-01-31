@@ -56,6 +56,9 @@ import lombok.ToString;
  */
 @ToString(exclude = {"storage", "async", "createLock"})
 public class MemoryBackend extends AbstractMetricBackend {
+    private static final QueryTrace.Identifier WRITE =
+        QueryTrace.identifier(MemoryBackend.class, "write");
+
     public static final String MEMORY_KEYS = "memory-keys";
 
     public static final QueryTrace.Identifier FETCH =
@@ -108,8 +111,9 @@ public class MemoryBackend extends AbstractMetricBackend {
 
     @Override
     public AsyncFuture<WriteMetric> write(WriteMetric.Request request) {
+        final QueryTrace.NamedWatch watch = request.getTracing().watch(WRITE);
         writeOne(request);
-        return async.resolved(WriteMetric.of());
+        return async.resolved(WriteMetric.of(watch.end()));
     }
 
     @Override

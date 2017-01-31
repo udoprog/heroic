@@ -24,7 +24,9 @@ package com.spotify.heroic.suggest;
 import com.google.common.collect.ImmutableList;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
+import com.spotify.heroic.metric.QueryTrace;
 import com.spotify.heroic.metric.RequestError;
+import com.spotify.heroic.metric.Tracing;
 import eu.toolchain.async.Collector;
 import java.util.List;
 import lombok.Data;
@@ -32,23 +34,26 @@ import lombok.Data;
 @Data
 public class WriteSuggest {
     private final List<RequestError> errors;
+    private final QueryTrace trace;
     private final List<String> ids;
 
-    public static WriteSuggest of() {
-        return new WriteSuggest(ImmutableList.of(), ImmutableList.of());
+    public static WriteSuggest of(final QueryTrace trace) {
+        return new WriteSuggest(ImmutableList.of(), trace, ImmutableList.of());
     }
 
-    public static Collector<WriteSuggest, WriteSuggest> reduce() {
+    public static Collector<WriteSuggest, WriteSuggest> reduce(final QueryTrace.NamedWatch watch) {
         return requests -> {
             final ImmutableList.Builder<RequestError> errors = ImmutableList.builder();
+            final QueryTrace.Joiner traceJoiner = watch.joiner();
             final ImmutableList.Builder<String> ids = ImmutableList.builder();
 
             for (final WriteSuggest r : requests) {
                 errors.addAll(r.getErrors());
+                traceJoiner.addChild(r.getTrace());
                 ids.addAll(r.getIds());
             }
 
-            return new WriteSuggest(errors.build(), ids.build());
+            return new WriteSuggest(errors.build(), traceJoiner.result(), ids.build());
         };
     }
 
@@ -56,5 +61,6 @@ public class WriteSuggest {
     public static class Request {
         private final Series series;
         private final DateRange range;
+        private final Tracing tracing;
     }
 }

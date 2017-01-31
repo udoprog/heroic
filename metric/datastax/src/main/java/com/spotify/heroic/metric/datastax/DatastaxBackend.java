@@ -63,6 +63,13 @@ import eu.toolchain.async.Managed;
 import eu.toolchain.async.ResolvableFuture;
 import eu.toolchain.async.StreamCollector;
 import eu.toolchain.async.Transform;
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
+import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
+
+import javax.inject.Inject;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
@@ -80,12 +87,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.inject.Inject;
-import lombok.AccessLevel;
-import lombok.Data;
-import lombok.RequiredArgsConstructor;
-import lombok.ToString;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * MetricBackend for Heroic cassandra datastore.
@@ -424,6 +425,9 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
             }
         }
 
+        /* we used to instru */
+        final QueryTrace.NamedWatch watch = request.getTracing().watch(WRITE);
+
         return async.eventuallyCollect(callables, new StreamCollector<Void, WriteMetric>() {
             final ConcurrentLinkedQueue<Throwable> errors = new ConcurrentLinkedQueue<>();
 
@@ -456,7 +460,7 @@ public class DatastaxBackend extends AbstractMetricBackend implements LifeCycles
                 final List<RequestError> errors =
                     Stream.concat(errorStream, cancelledStream).collect(Collectors.toList());
 
-                return new WriteMetric(errors);
+                return new WriteMetric(errors, watch.end());
             }
         }, 500);
     }

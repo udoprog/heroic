@@ -32,34 +32,49 @@ import lombok.Data;
 @Data
 public class WriteMetric {
     private final List<RequestError> errors;
+    private final QueryTrace trace;
 
-    public static WriteMetric of() {
-        return new WriteMetric(ImmutableList.of());
+    public static WriteMetric of(final QueryTrace trace) {
+        return new WriteMetric(ImmutableList.of(), trace);
     }
 
-    public static WriteMetric error(final RequestError error) {
-        return new WriteMetric(ImmutableList.of(error));
+    public static WriteMetric error(final RequestError error, final QueryTrace trace) {
+        return new WriteMetric(ImmutableList.of(error), trace);
     }
 
-    public static Transform<Throwable, WriteMetric> shardError(final ClusterShard c) {
-        return e -> new WriteMetric(ImmutableList.of(ShardError.fromThrowable(c, e)));
+    public static Transform<Throwable, WriteMetric> shardError(
+        final ClusterShard c, final QueryTrace.NamedWatch watch
+    ) {
+        return e -> new WriteMetric(ImmutableList.of(ShardError.fromThrowable(c, e)), watch.end());
     }
 
-    public static Collector<WriteMetric, WriteMetric> reduce() {
+    public static Collector<WriteMetric, WriteMetric> reduce(final QueryTrace.NamedWatch watch) {
         return results -> {
             final ImmutableList.Builder<RequestError> errors = ImmutableList.builder();
+            final QueryTrace.Joiner joiner = watch.joiner();
 
             for (final WriteMetric r : results) {
                 errors.addAll(r.getErrors());
+                joiner.addChild(r.getTrace());
             }
 
-            return new WriteMetric(errors.build());
+            return new WriteMetric(errors.build(), joiner.result());
         };
+    }
+
+    public WriteMetric withTraces(
+        final QueryTrace.NamedWatch watch, final List<QueryTrace> siblings
+    ) {
+        final QueryTrace.Joiner joiner = watch.joiner();
+        siblings.forEach(joiner::addChild);
+        joiner.addChild(trace);
+        return new WriteMetric(errors, joiner.result());
     }
 
     @Data
     public static class Request {
         private final Series series;
         private final MetricCollection data;
+        private final Tracing tracing;
     }
 }

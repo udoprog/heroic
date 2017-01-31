@@ -82,9 +82,11 @@ public class CoreIngestionGroup implements IngestionGroup {
     }
 
     protected AsyncFuture<Ingestion> syncWrite(final Ingestion.Request request) {
+        final QueryTrace.NamedWatch watch = request.getOptions().getTracing().watch(WRITE);
+
         if (!filter.get().apply(request.getSeries())) {
             reporter.reportDroppedByFilter();
-            return async.resolved(Ingestion.of());
+            return async.resolved(Ingestion.of(watch.end()));
         }
 
         try {
@@ -96,13 +98,15 @@ public class CoreIngestionGroup implements IngestionGroup {
 
         reporter.incrementConcurrentWrites();
 
-        return doWrite(request).onFinished(() -> {
+        return doWrite(request, watch).onFinished(() -> {
             writePermits.release();
             reporter.decrementConcurrentWrites();
         });
     }
 
-    protected AsyncFuture<Ingestion> doWrite(final Ingestion.Request request) {
+    protected AsyncFuture<Ingestion> doWrite(
+        final Ingestion.Request request, final QueryTrace.NamedWatch watch
+    ) {
         final List<AsyncFuture<Ingestion>> futures = new ArrayList<>();
 
         final Supplier<DateRange> range = rangeSupplier(request);
@@ -111,14 +115,15 @@ public class CoreIngestionGroup implements IngestionGroup {
         metadata.map(m -> doMetadataWrite(m, request, range.get())).ifPresent(futures::add);
         suggest.map(s -> doSuggestWrite(s, request, range.get())).ifPresent(futures::add);
 
-        return async.collect(futures, Ingestion.reduce());
+        return async.collect(futures, Ingestion.reduce(watch));
     }
 
     protected AsyncFuture<Ingestion> doMetricWrite(
         final MetricBackend metric, final Ingestion.Request write
     ) {
         return metric
-            .write(new WriteMetric.Request(write.getSeries(), write.getData()))
+            .write(new WriteMetric.Request(write.getSeries(), write.getData(),
+                write.getOptions().getTracing()))
             .directTransform(Ingestion::fromWriteMetric);
     }
 
@@ -126,7 +131,8 @@ public class CoreIngestionGroup implements IngestionGroup {
         final MetadataBackend metadata, final Ingestion.Request write, final DateRange range
     ) {
         return metadata
-            .write(new WriteMetadata.Request(write.getSeries(), range))
+            .write(new WriteMetadata.Request(write.getSeries(), range,
+                write.getOptions().getTracing()))
             .directTransform(Ingestion::fromWriteMetadata);
     }
 
@@ -134,7 +140,8 @@ public class CoreIngestionGroup implements IngestionGroup {
         final SuggestBackend suggest, final Ingestion.Request write, final DateRange range
     ) {
         return suggest
-            .write(new WriteSuggest.Request(write.getSeries(), range))
+            .write(
+                new WriteSuggest.Request(write.getSeries(), range, write.getOptions().getTracing()))
             .directTransform(Ingestion::fromWriteSuggest);
     }
 

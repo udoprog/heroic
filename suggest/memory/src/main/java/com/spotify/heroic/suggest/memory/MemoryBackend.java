@@ -39,6 +39,10 @@ import com.spotify.heroic.suggest.TagValuesSuggest;
 import com.spotify.heroic.suggest.WriteSuggest;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
+import lombok.Data;
+import lombok.ToString;
+
+import javax.inject.Inject;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -56,9 +60,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.inject.Inject;
-import lombok.Data;
-import lombok.ToString;
 
 @MemoryScope
 @ToString(of = {})
@@ -223,6 +224,7 @@ public class MemoryBackend implements SuggestBackend, Grouped {
 
     @Override
     public AsyncFuture<WriteSuggest> write(final WriteSuggest.Request request) {
+        final QueryTrace.NamedWatch watch = request.getTracing().watch(WRITE);
         final Series s = request.getSeries();
 
         final Lock l = lock.writeLock();
@@ -252,7 +254,7 @@ public class MemoryBackend implements SuggestBackend, Grouped {
                 }
             }
 
-            return async.resolved(WriteSuggest.of());
+            return async.resolved(WriteSuggest.of(watch.end()));
         } finally {
             l.unlock();
         }

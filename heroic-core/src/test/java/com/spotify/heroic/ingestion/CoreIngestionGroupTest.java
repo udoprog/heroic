@@ -20,6 +20,8 @@ import com.spotify.heroic.common.Series;
 import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.metadata.MetadataBackend;
 import com.spotify.heroic.metric.MetricBackend;
+import com.spotify.heroic.metric.QueryTrace;
+import com.spotify.heroic.metric.Tracing;
 import com.spotify.heroic.statistics.IngestionManagerReporter;
 import com.spotify.heroic.suggest.SuggestBackend;
 import eu.toolchain.async.AsyncFramework;
@@ -75,11 +77,14 @@ public class CoreIngestionGroupTest {
     private Series series;
     @Mock
     private DateRange range;
+    @Mock
+    private QueryTrace.NamedWatch namedWatch;
 
     @Before
     public void setup() {
         doReturn(series).when(request).getSeries();
         doReturn(writeOptions).when(request).getOptions();
+        doReturn(Tracing.DEFAULT).when(writeOptions).getTracing();
 
         doAnswer(invocation -> {
             ((FutureFinished) invocation.getArguments()[0]).finished();
@@ -129,7 +134,7 @@ public class CoreIngestionGroupTest {
         doReturn(true).when(filter).apply(series);
         doNothing().when(writePermits).acquire();
         doNothing().when(writePermits).release();
-        doReturn(expected).when(group).doWrite(request);
+        doReturn(expected).when(group).doWrite(eq(request), any(QueryTrace.NamedWatch.class));
 
         assertEquals(expected, group.syncWrite(request));
 
@@ -139,7 +144,7 @@ public class CoreIngestionGroupTest {
         verify(writePermits).release();
         verify(reporter).incrementConcurrentWrites();
         verify(reporter).decrementConcurrentWrites();
-        verify(group).doWrite(request);
+        verify(group).doWrite(eq(request), any(QueryTrace.NamedWatch.class));
         verify(expected).onFinished(any(FutureFinished.class));
     }
 
@@ -155,7 +160,7 @@ public class CoreIngestionGroupTest {
         doNothing().when(writePermits).release();
 
         doReturn(other).when(expected).onFinished(any(FutureFinished.class));
-        doReturn(other).when(group).doWrite(request);
+        doReturn(other).when(group).doWrite(eq(request), any(QueryTrace.NamedWatch.class));
 
         assertEquals(expected, group.syncWrite(request));
 
@@ -166,7 +171,7 @@ public class CoreIngestionGroupTest {
         verify(reporter, never()).incrementConcurrentWrites();
         verify(reporter, never()).decrementConcurrentWrites();
         verify(reporter).reportDroppedByFilter();
-        verify(group, never()).doWrite(request);
+        verify(group, never()).doWrite(eq(request), any(QueryTrace.NamedWatch.class));
         verify(other, never()).onFinished(any(FutureFinished.class));
     }
 
@@ -184,7 +189,7 @@ public class CoreIngestionGroupTest {
         doNothing().when(writePermits).release();
 
         doReturn(other).when(expected).onFinished(any(FutureFinished.class));
-        doReturn(other).when(group).doWrite(request);
+        doReturn(other).when(group).doWrite(eq(request), any(QueryTrace.NamedWatch.class));
 
         assertEquals(expected, group.syncWrite(request));
 
@@ -194,7 +199,7 @@ public class CoreIngestionGroupTest {
         verify(writePermits, never()).release();
         verify(reporter, never()).incrementConcurrentWrites();
         verify(reporter, never()).decrementConcurrentWrites();
-        verify(group, never()).doWrite(request);
+        verify(group, never()).doWrite(eq(request), any(QueryTrace.NamedWatch.class));
         verify(other, never()).onFinished(any(FutureFinished.class));
     }
 
@@ -212,7 +217,7 @@ public class CoreIngestionGroupTest {
         doReturn(other).when(group).doMetadataWrite(metadata, request, range);
         doReturn(other).when(group).doSuggestWrite(suggest, request, range);
 
-        assertEquals(expected, group.doWrite(request));
+        assertEquals(expected, group.doWrite(request, namedWatch));
 
         verify(group).rangeSupplier(request);
         verify(group).doMetricWrite(metric, request);
@@ -235,7 +240,7 @@ public class CoreIngestionGroupTest {
         doReturn(other).when(group).doMetadataWrite(metadata, request, range);
         doReturn(other).when(group).doSuggestWrite(suggest, request, range);
 
-        assertEquals(expected, group.doWrite(request));
+        assertEquals(expected, group.doWrite(request, namedWatch));
 
         verify(group).rangeSupplier(request);
         verify(group).doMetricWrite(metric, request);

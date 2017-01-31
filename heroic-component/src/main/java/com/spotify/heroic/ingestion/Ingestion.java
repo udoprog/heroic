@@ -27,6 +27,7 @@ import com.spotify.heroic.common.Series;
 import com.spotify.heroic.metadata.WriteMetadata;
 import com.spotify.heroic.metric.Metric;
 import com.spotify.heroic.metric.MetricCollection;
+import com.spotify.heroic.metric.QueryTrace;
 import com.spotify.heroic.metric.RequestError;
 import com.spotify.heroic.metric.ShardError;
 import com.spotify.heroic.metric.WriteMetric;
@@ -40,30 +41,35 @@ import lombok.Data;
 @Data
 public class Ingestion {
     private final List<RequestError> errors;
+    private final QueryTrace trace;
 
     /**
      * Build an ingestion instance from the given trace.
      *
+     * @param trace Trace of the current ingestion.
      * @return an {@link com.spotify.heroic.ingestion.Ingestion}
      */
-    public static Ingestion of() {
-        return new Ingestion(ImmutableList.of());
+    public static Ingestion of(final QueryTrace trace) {
+        return new Ingestion(ImmutableList.of(), trace);
     }
 
     /**
      * Build a collector that reduces multiple Ingestion instances into a single one.
      *
+     * @param watch Trace watch.
      * @return an {@link com.spotify.heroic.ingestion.Ingestion}
      */
-    public static Collector<Ingestion, Ingestion> reduce() {
+    public static Collector<Ingestion, Ingestion> reduce(final QueryTrace.NamedWatch watch) {
         return results -> {
             final ImmutableList.Builder<RequestError> errors = ImmutableList.builder();
+            final ImmutableList.Builder<QueryTrace> children = ImmutableList.builder();
 
             for (final Ingestion r : results) {
                 errors.addAll(r.errors);
+                children.add(r.getTrace());
             }
 
-            return new Ingestion(errors.build());
+            return new Ingestion(errors.build(), watch.end(children.build()));
         };
     }
 
@@ -71,10 +77,14 @@ public class Ingestion {
      * Build a function that captured a shard error as an Ingestion.
      *
      * @param shard Shard where the error would originate from.
+     * @param watch Trace watch.
      * @return a {@link eu.toolchain.async.Transform}
      */
-    public static Transform<Throwable, Ingestion> shardError(final ClusterShard shard) {
-        return e -> new Ingestion(ImmutableList.of(ShardError.fromThrowable(shard, e)));
+    public static Transform<Throwable, Ingestion> shardError(
+        final ClusterShard shard, final QueryTrace.NamedWatch watch
+    ) {
+        return e -> new Ingestion(ImmutableList.of(ShardError.fromThrowable(shard, e)),
+            watch.end());
     }
 
     /**
@@ -85,7 +95,7 @@ public class Ingestion {
      * @return an {@link com.spotify.heroic.ingestion.Ingestion}
      */
     public static Ingestion fromWriteSuggest(final WriteSuggest writeSuggest) {
-        return new Ingestion(writeSuggest.getErrors());
+        return new Ingestion(writeSuggest.getErrors(), writeSuggest.getTrace());
     }
 
     /**
@@ -96,7 +106,7 @@ public class Ingestion {
      * @return an {@link com.spotify.heroic.ingestion.Ingestion}
      */
     public static Ingestion fromWriteMetadata(final WriteMetadata writeMetadata) {
-        return new Ingestion(writeMetadata.getErrors());
+        return new Ingestion(writeMetadata.getErrors(), writeMetadata.getTrace());
     }
 
     /**
@@ -107,7 +117,7 @@ public class Ingestion {
      * @return an {@link com.spotify.heroic.ingestion.Ingestion}
      */
     public static Ingestion fromWriteMetric(final WriteMetric writeMetric) {
-        return new Ingestion(writeMetric.getErrors());
+        return new Ingestion(writeMetric.getErrors(), writeMetric.getTrace());
     }
 
     /**

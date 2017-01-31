@@ -25,8 +25,10 @@ import com.google.common.collect.ImmutableList;
 import com.spotify.heroic.cluster.ClusterShard;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
+import com.spotify.heroic.metric.QueryTrace;
 import com.spotify.heroic.metric.RequestError;
 import com.spotify.heroic.metric.ShardError;
+import com.spotify.heroic.metric.Tracing;
 import eu.toolchain.async.Collector;
 import eu.toolchain.async.Transform;
 import java.util.List;
@@ -35,29 +37,48 @@ import lombok.Data;
 @Data
 public class WriteMetadata {
     private final List<RequestError> errors;
+    private final QueryTrace trace;
 
-    public static WriteMetadata of() {
-        return new WriteMetadata(ImmutableList.of());
+    public static WriteMetadata of(final QueryTrace trace) {
+        return new WriteMetadata(ImmutableList.of(), trace);
     }
 
-    public static Transform<Throwable, WriteMetadata> shardError(final ClusterShard c) {
-        return e -> new WriteMetadata(ImmutableList.of(ShardError.fromThrowable(c, e)));
+    public static Transform<Throwable, WriteMetadata> shardError(
+        final ClusterShard c, final QueryTrace.NamedWatch watch
+    ) {
+        return e -> new WriteMetadata(ImmutableList.of(ShardError.fromThrowable(c, e)),
+            watch.end());
     }
 
-    public static Collector<WriteMetadata, WriteMetadata> reduce() {
+    public static Collector<WriteMetadata, WriteMetadata> reduce(
+        final QueryTrace.NamedWatch watch
+    ) {
         return requests -> {
             final ImmutableList.Builder<RequestError> errors = ImmutableList.builder();
+            final QueryTrace.Joiner traceJoiner = watch.joiner();
+
             for (final WriteMetadata r : requests) {
                 errors.addAll(r.getErrors());
+                traceJoiner.addChild(r.getTrace());
             }
 
-            return new WriteMetadata(errors.build());
+            return new WriteMetadata(errors.build(), traceJoiner.result());
         };
+    }
+
+    public WriteMetadata withTraces(
+        final QueryTrace.NamedWatch watch, final List<QueryTrace> siblings
+    ) {
+        final QueryTrace.Joiner joiner = watch.joiner();
+        siblings.forEach(joiner::addChild);
+        joiner.addChild(trace);
+        return new WriteMetadata(errors, joiner.result());
     }
 
     @Data
     public static class Request {
         private final Series series;
         private final DateRange range;
+        private final Tracing tracing;
     }
 }

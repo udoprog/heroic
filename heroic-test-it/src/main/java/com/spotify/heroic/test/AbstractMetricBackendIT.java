@@ -188,7 +188,7 @@ public abstract class AbstractMetricBackendIT {
     private void verifyReadWrite(
         final MetricCollection input, final MetricCollection expected, final DateRange range
     ) throws Exception {
-        backend.write(new WriteMetric.Request(s1, input)).get();
+        backend.write(new WriteMetric.Request(s1, input, Tracing.DEFAULT)).get();
 
         FetchData data = backend
             .fetch(new FetchData.Request(expected.getType(), s1, range, Tracing.DEFAULT),

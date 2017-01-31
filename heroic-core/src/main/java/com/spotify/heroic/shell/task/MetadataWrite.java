@@ -27,6 +27,7 @@ import com.spotify.heroic.common.Series;
 import com.spotify.heroic.dagger.CoreComponent;
 import com.spotify.heroic.metadata.MetadataManager;
 import com.spotify.heroic.metadata.WriteMetadata;
+import com.spotify.heroic.metric.Tracing;
 import com.spotify.heroic.shell.AbstractShellTaskParams;
 import com.spotify.heroic.shell.ShellIO;
 import com.spotify.heroic.shell.ShellTask;
@@ -68,7 +69,7 @@ public class MetadataWrite implements ShellTask {
 
         return metadataManager
             .useGroup(params.group)
-            .write(new WriteMetadata.Request(series, DateRange.now()))
+            .write(new WriteMetadata.Request(series, DateRange.now(), Tracing.DEFAULT))
             .directTransform(v -> null);
     }
 

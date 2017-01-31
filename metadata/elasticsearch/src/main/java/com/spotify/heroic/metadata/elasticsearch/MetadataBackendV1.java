@@ -21,15 +21,6 @@
 
 package com.spotify.heroic.metadata.elasticsearch;
 
-import static org.elasticsearch.index.query.FilterBuilders.andFilter;
-import static org.elasticsearch.index.query.FilterBuilders.boolFilter;
-import static org.elasticsearch.index.query.FilterBuilders.matchAllFilter;
-import static org.elasticsearch.index.query.FilterBuilders.nestedFilter;
-import static org.elasticsearch.index.query.FilterBuilders.notFilter;
-import static org.elasticsearch.index.query.FilterBuilders.prefixFilter;
-import static org.elasticsearch.index.query.FilterBuilders.regexpFilter;
-import static org.elasticsearch.index.query.FilterBuilders.termFilter;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
@@ -63,6 +54,7 @@ import com.spotify.heroic.metadata.FindSeriesIds;
 import com.spotify.heroic.metadata.FindTags;
 import com.spotify.heroic.metadata.MetadataBackend;
 import com.spotify.heroic.metadata.WriteMetadata;
+import com.spotify.heroic.metric.QueryTrace;
 import com.spotify.heroic.statistics.MetadataBackendReporter;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
@@ -70,20 +62,6 @@ import eu.toolchain.async.LazyTransform;
 import eu.toolchain.async.Managed;
 import eu.toolchain.async.ManagedAction;
 import eu.toolchain.async.Transform;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
-import java.util.concurrent.Callable;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import javax.inject.Inject;
-import javax.inject.Named;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
@@ -113,10 +91,39 @@ import org.elasticsearch.search.aggregations.bucket.nested.NestedBuilder;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.aggregations.bucket.terms.TermsBuilder;
 
+import javax.inject.Inject;
+import javax.inject.Named;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.concurrent.Callable;
+import java.util.function.Consumer;
+import java.util.function.Function;
+
+import static org.elasticsearch.index.query.FilterBuilders.andFilter;
+import static org.elasticsearch.index.query.FilterBuilders.boolFilter;
+import static org.elasticsearch.index.query.FilterBuilders.matchAllFilter;
+import static org.elasticsearch.index.query.FilterBuilders.nestedFilter;
+import static org.elasticsearch.index.query.FilterBuilders.notFilter;
+import static org.elasticsearch.index.query.FilterBuilders.prefixFilter;
+import static org.elasticsearch.index.query.FilterBuilders.regexpFilter;
+import static org.elasticsearch.index.query.FilterBuilders.termFilter;
+
 @ElasticsearchScope
 @ToString(of = {"connection"})
 public class MetadataBackendV1 extends AbstractElasticsearchMetadataBackend
     implements MetadataBackend, LifeCycles {
+    private static final QueryTrace.Identifier WRITE =
+        QueryTrace.identifier(MetadataBackendV1.class, "write");
+    private static final QueryTrace.Identifier WRITE_METADATA =
+        QueryTrace.identifier(MetadataBackendV1.class, "write/metadata");
+
     private static final TimeValue SCROLL_TIME = TimeValue.timeValueMillis(5000);
     private static final int SCROLL_SIZE = 1000;
 
@@ -200,6 +207,8 @@ public class MetadataBackendV1 extends AbstractElasticsearchMetadataBackend
     @Override
     public AsyncFuture<WriteMetadata> write(final WriteMetadata.Request request) {
         return doto(c -> {
+            final QueryTrace.NamedWatch watch = request.getTracing().watch(WRITE);
+
             final Series series = request.getSeries();
             final DateRange range = request.getRange();
             final String id = series.hash();
@@ -214,6 +223,8 @@ public class MetadataBackendV1 extends AbstractElasticsearchMetadataBackend
                     continue;
                 }
 
+                final QueryTrace.NamedWatch metadataWatch = watch.watch(WRITE_METADATA);
+
                 final XContentBuilder source = XContentFactory.jsonBuilder();
 
                 source.startObject();
@@ -226,10 +237,11 @@ public class MetadataBackendV1 extends AbstractElasticsearchMetadataBackend
                     .setSource(source)
                     .setOpType(OpType.CREATE);
 
-                futures.add(bind(builder.execute()).directTransform(result -> WriteMetadata.of()));
+                futures.add(bind(builder.execute()).directTransform(
+                    result -> WriteMetadata.of(metadataWatch.end())));
             }
 
-            return async.collect(futures, WriteMetadata.reduce());
+            return async.collect(futures, WriteMetadata.reduce(watch));
         });
     }
 

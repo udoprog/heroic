@@ -339,7 +339,7 @@ public class DataMigrate implements ShellTask {
             }
 
             final AsyncFuture<Void> write = to
-                .write(new WriteMetric.Request(key.getSeries(), value))
+                .write(new WriteMetric.Request(key.getSeries(), value, Tracing.NONE))
                 .directTransform(v -> null);
 
             future.bind(write);

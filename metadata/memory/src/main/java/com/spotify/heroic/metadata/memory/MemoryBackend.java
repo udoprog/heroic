@@ -42,15 +42,16 @@ import com.spotify.heroic.metadata.WriteMetadata;
 import com.spotify.heroic.metric.QueryTrace;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
+import lombok.ToString;
+
+import javax.inject.Inject;
+import javax.inject.Named;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.inject.Inject;
-import javax.inject.Named;
-import lombok.ToString;
 
 @MemoryScope
 @ToString(exclude = {"async", "storage"})
@@ -88,8 +89,9 @@ public class MemoryBackend implements MetadataBackend {
 
     @Override
     public AsyncFuture<WriteMetadata> write(final WriteMetadata.Request request) {
+        final QueryTrace.NamedWatch watch = request.getTracing().watch(WRITE);
         this.storage.add(request.getSeries());
-        return async.resolved(WriteMetadata.of());
+        return async.resolved(WriteMetadata.of(watch.end()));
     }
 
     @Override

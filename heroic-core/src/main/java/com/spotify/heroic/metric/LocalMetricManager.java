@@ -52,6 +52,12 @@ import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import eu.toolchain.async.LazyTransform;
 import eu.toolchain.async.StreamCollector;
+import lombok.RequiredArgsConstructor;
+import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.NotImplementedException;
+import org.apache.commons.lang3.tuple.Pair;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -62,11 +68,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import javax.inject.Inject;
 import javax.inject.Named;
-import lombok.RequiredArgsConstructor;
-import lombok.ToString;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.NotImplementedException;
-import org.apache.commons.lang3.tuple.Pair;
 
 @Slf4j
 @ToString(of = {})
@@ -96,8 +97,7 @@ public class LocalMetricManager implements MetricManager {
      * @param groupLimit The maximum amount of groups this manager will allow to be generated.
      * @param seriesLimit The maximum amount of series in total an entire query may use.
      * @param aggregationLimit The maximum number of (estimated) data points a single aggregation
-     * may
-     * produce.
+     * may produce.
      * @param dataLimit The maximum number of samples a single query is allowed to fetch.
      * @param fetchParallelism How many fetches that are allowed to be performed in parallel.
      */
@@ -310,7 +310,8 @@ public class LocalMetricManager implements MetricManager {
 
         @Override
         public AsyncFuture<WriteMetric> write(final WriteMetric.Request write) {
-            return async.collect(map(b -> b.write(write)), WriteMetric.reduce());
+            final QueryTrace.NamedWatch w = write.getTracing().watch(WRITE);
+            return async.collect(map(b -> b.write(write)), WriteMetric.reduce(w));
         }
 
         @Override

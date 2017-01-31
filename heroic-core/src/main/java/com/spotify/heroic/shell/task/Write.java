@@ -45,15 +45,16 @@ import dagger.Component;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import eu.toolchain.async.Transform;
+import lombok.ToString;
+import org.kohsuke.args4j.Option;
+
+import javax.inject.Inject;
+import javax.inject.Named;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import javax.inject.Inject;
-import javax.inject.Named;
-import lombok.ToString;
-import org.kohsuke.args4j.Option;
 
 @TaskUsage("Write a single, or a set of events")
 @TaskName("write")
@@ -136,7 +137,9 @@ public class Write implements ShellTask {
             final Ingestion.Request request =
                 new Ingestion.Request(WriteOptions.defaults(), series, group);
 
-            writes.add(g.write(request).directTransform(reportResult("metrics", io.out())));
+            writes.add(g
+                .write(request)
+                .directTransform(reportResult("metrics", io.out())));
         }
 
         return async.collectAndDiscard(writes);
@@ -146,6 +149,7 @@ public class Write implements ShellTask {
         return (result) -> {
             synchronized (out) {
                 out.println(String.format("%s: Trace:", title));
+                result.getTrace().formatTrace(out);
                 out.flush();
             }
 

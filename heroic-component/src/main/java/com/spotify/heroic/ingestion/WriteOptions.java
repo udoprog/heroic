@@ -21,12 +21,25 @@
 
 package com.spotify.heroic.ingestion;
 
+import com.spotify.heroic.metric.Tracing;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
+import java.util.Optional;
+
 @Data
 public class WriteOptions {
+    public static final Tracing DEFAULT_TRACING = Tracing.NONE;
+
     public static final WriteOptions DEFAULTS = builder().build();
+
+    /**
+     * Indicates if tracing is enabled.
+     * <p>
+     * Traces queries will include a {@link com.spotify.heroic.metric.QueryTrace} object that
+     * indicates detailed timings of the request.
+     */
+    private final Tracing tracing;
 
     public static WriteOptions defaults() {
         return DEFAULTS;
@@ -38,8 +51,19 @@ public class WriteOptions {
 
     @AllArgsConstructor
     public static class Builder {
+        private Optional<Tracing> tracing = Optional.empty();
+
+        public Builder() {
+        }
+
+        public Builder tracing(Tracing tracing) {
+            this.tracing = Optional.of(tracing);
+            return this;
+        }
+
         public WriteOptions build() {
-            return new WriteOptions();
+            final Tracing tracing = this.tracing.orElse(DEFAULT_TRACING);
+            return new WriteOptions(tracing);
         }
     }
 }

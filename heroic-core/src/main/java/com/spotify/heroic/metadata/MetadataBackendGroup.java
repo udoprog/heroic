@@ -29,9 +29,10 @@ import com.spotify.heroic.common.Statistics;
 import com.spotify.heroic.metric.QueryTrace;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
+
+import java.util.List;
 
 @RequiredArgsConstructor
 @ToString(of = {"backends"})
@@ -93,7 +94,8 @@ public class MetadataBackendGroup implements MetadataBackend {
 
     @Override
     public AsyncFuture<WriteMetadata> write(final WriteMetadata.Request request) {
-        return async.collect(run(b -> b.write(request)), WriteMetadata.reduce());
+        final QueryTrace.NamedWatch w = request.getTracing().watch(WRITE);
+        return async.collect(run(b -> b.write(request)), WriteMetadata.reduce(w));
     }
 
     @Override

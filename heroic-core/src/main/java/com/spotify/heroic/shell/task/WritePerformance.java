@@ -106,7 +106,7 @@ public class WritePerformance implements ShellTask {
                         ImmutableList.builder();
 
                     for (final MetricCollection group : result.getGroups()) {
-                        writes.add(new WriteMetric.Request(s, group));
+                        writes.add(new WriteMetric.Request(s, group, Tracing.NONE));
                     }
 
                     return writes.build();
@@ -247,7 +247,7 @@ public class WritePerformance implements ShellTask {
 
                 writes.add(() -> target.write(w).directTransform(result -> {
                     final long runtime = System.currentTimeMillis() - start;
-                    return new Times(ImmutableList.of(), runtime);
+                    return new Times(ImmutableList.of(result.getTrace().elapsed()), runtime);
                 }));
             }
         }

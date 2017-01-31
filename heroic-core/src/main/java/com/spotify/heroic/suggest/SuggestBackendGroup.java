@@ -28,10 +28,11 @@ import com.spotify.heroic.common.Statistics;
 import com.spotify.heroic.metric.QueryTrace;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
-import java.util.List;
-import java.util.function.Function;
 import lombok.Data;
 import lombok.ToString;
+
+import java.util.List;
+import java.util.function.Function;
 
 @Data
 @ToString(of = {"backends"})
@@ -79,7 +80,8 @@ public class SuggestBackendGroup implements SuggestBackend {
 
     @Override
     public AsyncFuture<WriteSuggest> write(final WriteSuggest.Request request) {
-        return async.collect(run(b -> b.write(request)), WriteSuggest.reduce());
+        final QueryTrace.NamedWatch w = request.getTracing().watch(WRITE);
+        return async.collect(run(b -> b.write(request)), WriteSuggest.reduce(w));
     }
 
     @Override

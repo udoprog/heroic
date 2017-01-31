@@ -21,20 +21,6 @@
 
 package com.spotify.heroic.suggest.elasticsearch;
 
-import static com.spotify.heroic.suggest.elasticsearch.ElasticsearchSuggestUtils.loadJsonResource;
-import static com.spotify.heroic.suggest.elasticsearch.ElasticsearchSuggestUtils.variables;
-import static org.elasticsearch.index.query.FilterBuilders.andFilter;
-import static org.elasticsearch.index.query.FilterBuilders.boolFilter;
-import static org.elasticsearch.index.query.FilterBuilders.matchAllFilter;
-import static org.elasticsearch.index.query.FilterBuilders.notFilter;
-import static org.elasticsearch.index.query.FilterBuilders.orFilter;
-import static org.elasticsearch.index.query.FilterBuilders.prefixFilter;
-import static org.elasticsearch.index.query.FilterBuilders.termFilter;
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.filteredQuery;
-import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
-
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -62,6 +48,7 @@ import com.spotify.heroic.filter.StartsWithFilter;
 import com.spotify.heroic.filter.TrueFilter;
 import com.spotify.heroic.lifecycle.LifeCycleRegistry;
 import com.spotify.heroic.lifecycle.LifeCycles;
+import com.spotify.heroic.metric.QueryTrace;
 import com.spotify.heroic.statistics.SuggestBackendReporter;
 import com.spotify.heroic.suggest.KeySuggest;
 import com.spotify.heroic.suggest.SuggestBackend;
@@ -74,23 +61,6 @@ import com.spotify.heroic.suggest.WriteSuggest;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import eu.toolchain.async.Managed;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Optional;
-import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
-import java.util.function.Function;
-import java.util.function.Supplier;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import javax.inject.Inject;
-import javax.inject.Named;
 import lombok.ToString;
 import org.apache.commons.lang3.tuple.Pair;
 import org.elasticsearch.action.index.IndexRequest.OpType;
@@ -119,10 +89,49 @@ import org.elasticsearch.search.aggregations.metrics.cardinality.CardinalityBuil
 import org.elasticsearch.search.aggregations.metrics.tophits.TopHits;
 import org.elasticsearch.search.aggregations.metrics.tophits.TopHitsBuilder;
 
+import javax.inject.Inject;
+import javax.inject.Named;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+import static com.spotify.heroic.suggest.elasticsearch.ElasticsearchSuggestUtils.loadJsonResource;
+import static com.spotify.heroic.suggest.elasticsearch.ElasticsearchSuggestUtils.variables;
+import static org.elasticsearch.index.query.FilterBuilders.andFilter;
+import static org.elasticsearch.index.query.FilterBuilders.boolFilter;
+import static org.elasticsearch.index.query.FilterBuilders.matchAllFilter;
+import static org.elasticsearch.index.query.FilterBuilders.notFilter;
+import static org.elasticsearch.index.query.FilterBuilders.orFilter;
+import static org.elasticsearch.index.query.FilterBuilders.prefixFilter;
+import static org.elasticsearch.index.query.FilterBuilders.termFilter;
+import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
+import static org.elasticsearch.index.query.QueryBuilders.filteredQuery;
+import static org.elasticsearch.index.query.QueryBuilders.matchAllQuery;
+import static org.elasticsearch.index.query.QueryBuilders.termQuery;
+
 @ElasticsearchScope
 @ToString(of = {"connection"})
 public class SuggestBackendKV extends AbstractElasticsearchBackend
     implements SuggestBackend, Grouped, LifeCycles {
+    public static final QueryTrace.Identifier WRITE =
+        QueryTrace.identifier(SuggestBackendKV.class, "write");
+    public static final QueryTrace.Identifier WRITE_SERIES =
+        QueryTrace.identifier(SuggestBackendKV.class, "write/series");
+    public static final QueryTrace.Identifier WRITE_TAG =
+        QueryTrace.identifier(SuggestBackendKV.class, "write/tag");
+
     public static final String WRITE_CACHE_SIZE = "write-cache-size";
 
     static final String TAG_TYPE = "tag";
@@ -531,6 +540,7 @@ public class SuggestBackendKV extends AbstractElasticsearchBackend
     @Override
     public AsyncFuture<WriteSuggest> write(final WriteSuggest.Request request) {
         return connection.doto((final Connection c) -> {
+            final QueryTrace.NamedWatch watch = request.getTracing().watch(WRITE);
             final Series s = request.getSeries();
             final DateRange range = request.getRange();
 
@@ -560,14 +570,18 @@ public class SuggestBackendKV extends AbstractElasticsearchBackend
                 buildContext(series, s);
                 series.endObject();
 
+                final QueryTrace.NamedWatch seriesWatch = watch.watch(WRITE_SERIES);
+
                 writes.add(bind(c
                     .index(index, SERIES_TYPE)
                     .setId(seriesId)
                     .setSource(series)
                     .setOpType(OpType.CREATE)
-                    .execute()).directTransform(response -> WriteSuggest.of()));
+                    .execute()).directTransform(response -> WriteSuggest.of(seriesWatch.end())));
 
                 for (final Map.Entry<String, String> e : s.getTags().entrySet()) {
+                    final QueryTrace.NamedWatch tagWatch = watch.watch(WRITE_TAG);
+
                     final XContentBuilder suggest = XContentFactory.jsonBuilder();
 
                     suggest.startObject();
@@ -582,11 +596,11 @@ public class SuggestBackendKV extends AbstractElasticsearchBackend
                         .setId(suggestId)
                         .setSource(suggest)
                         .setOpType(OpType.CREATE)
-                        .execute()).directTransform(response -> WriteSuggest.of()));
+                        .execute()).directTransform(response -> WriteSuggest.of(tagWatch.end())));
                 }
             }
 
-            return async.collect(writes, WriteSuggest.reduce());
+            return async.collect(writes, WriteSuggest.reduce(watch));
         });
     }
 

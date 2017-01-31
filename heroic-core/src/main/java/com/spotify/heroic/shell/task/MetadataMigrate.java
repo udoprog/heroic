@@ -32,6 +32,7 @@ import com.spotify.heroic.metadata.Entries;
 import com.spotify.heroic.metadata.MetadataBackend;
 import com.spotify.heroic.metadata.MetadataManager;
 import com.spotify.heroic.metadata.WriteMetadata;
+import com.spotify.heroic.metric.Tracing;
 import com.spotify.heroic.shell.ShellIO;
 import com.spotify.heroic.shell.ShellTask;
 import com.spotify.heroic.shell.TaskName;
@@ -121,7 +122,8 @@ public class MetadataMigrate implements ShellTask {
                                 io.out().flush();
                             }
 
-                            target.write(new WriteMetadata.Request(s, params.getRange()));
+                            target.write(
+                                new WriteMetadata.Request(s, params.getRange(), Tracing.NONE));
                         }
 
                         return async.resolved();

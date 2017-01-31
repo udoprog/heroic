@@ -96,6 +96,10 @@ public class CoreQueryManager implements QueryManager {
         QueryTrace.identifier(CoreQueryManager.class, "query_shard");
     public static final QueryTrace.Identifier QUERY =
         QueryTrace.identifier(CoreQueryManager.class, "query");
+    public static final QueryTrace.Identifier WRITE_SERIES =
+        QueryTrace.identifier(CoreQueryManager.class, "write_series");
+    public static final QueryTrace.Identifier WRITE_METRIC =
+        QueryTrace.identifier(CoreQueryManager.class, "write_metric");
 
     private final Features features;
     private final AsyncFramework async;
@@ -357,13 +361,18 @@ public class CoreQueryManager implements QueryManager {
 
         @Override
         public AsyncFuture<WriteMetadata> writeSeries(final WriteMetadata.Request request) {
-            return run(g -> g.writeSeries(request), WriteMetadata::shardError,
-                WriteMetadata.reduce());
+            final Tracing tracing = request.getTracing();
+            final QueryTrace.NamedWatch w = tracing.watch(WRITE_SERIES);
+            return run(g -> g.writeSeries(request), e -> WriteMetadata.shardError(e, w),
+                WriteMetadata.reduce(w), (result, traces) -> result.withTraces(w, traces), tracing);
         }
 
         @Override
         public AsyncFuture<WriteMetric> writeMetric(final WriteMetric.Request write) {
-            return run(g -> g.writeMetric(write), WriteMetric::shardError, WriteMetric.reduce());
+            final Tracing tracing = write.getTracing();
+            final QueryTrace.NamedWatch w = tracing.watch(WRITE_METRIC);
+            return run(g -> g.writeMetric(write), e -> WriteMetric.shardError(e, w),
+                WriteMetric.reduce(w), (result, traces) -> result.withTraces(w, traces), tracing);
         }
 
         @Override
