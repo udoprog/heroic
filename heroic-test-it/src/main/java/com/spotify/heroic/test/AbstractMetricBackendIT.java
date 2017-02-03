@@ -107,8 +107,14 @@ public abstract class AbstractMetricBackendIT {
                         .map(GroupMember::getMember)
                         .findFirst())
                     .orElseThrow(() -> new IllegalStateException("Failed to find backend"));
-                base.evaluate();
-                core.shutdown().get();
+
+                try {
+                    base.evaluate();
+                } finally {
+                    core.shutdown().get();
+                }
+
+                postShutdown();
             } else {
                 log.info("Omitting " + description + " since module is not configured");
             }
@@ -130,6 +136,12 @@ public abstract class AbstractMetricBackendIT {
      * Setup backend-specific support.
      */
     protected void setupSupport() {
+    }
+
+    /**
+     * Hook called after core has been stopped.
+     */
+    protected void postShutdown() throws Exception {
     }
 
     @Test
@@ -163,8 +175,8 @@ public abstract class AbstractMetricBackendIT {
         assumeTrue("max batch size", maxBatchSize.isPresent());
         final int maxBatchSize = this.maxBatchSize.get();
 
-        newCase().denseStart(100).dense(maxBatchSize * 4).forEach((input, expected) -> {
-            verifyReadWrite(input, expected, new DateRange(99L, 100L + (maxBatchSize * 4)));
+        newCase().denseStart(100000).dense(maxBatchSize * 4).forEach((input, expected) -> {
+            verifyReadWrite(input, expected, new DateRange(99999L, 100000L + (maxBatchSize * 4)));
         });
     }
 

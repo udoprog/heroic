@@ -144,7 +144,7 @@ public class CassandraProfile extends HeroicProfileBase {
                     parameters.join(Arrays.stream(ConsistencyLevel.values()).map(cl -> cl.name())
                             .iterator())),
             parameter("retryPolicy", "The retry policy to use (useful when migrating " +
-                    "data)", "aggressive"),
+                    "snapshot)", "aggressive"),
             parameter("numRetries", "The number of retries to attempt for the current " +
                     "retry policy", "<int>"),
             parameter("rotateHost", "The number of retries to attempt before rotating " +

@@ -27,9 +27,8 @@ import com.spotify.heroic.common.RequestTimer;
 import com.spotify.heroic.common.Series;
 import eu.toolchain.async.Collector;
 import eu.toolchain.async.Transform;
-import lombok.Data;
-
 import java.util.List;
+import lombok.Data;
 
 @Data
 public class WriteMetric {
@@ -40,7 +39,7 @@ public class WriteMetric {
         return new WriteMetric(ImmutableList.of(), ImmutableList.of());
     }
 
-    private static WriteMetric of(final Long time) {
+    public static WriteMetric of(final long time) {
         return new WriteMetric(ImmutableList.of(), ImmutableList.of(time));
     }
 

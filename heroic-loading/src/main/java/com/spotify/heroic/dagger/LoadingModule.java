@@ -131,8 +131,8 @@ public class LoadingModule {
 
     @Provides
     @LoadingScope
-    Scheduler scheduler(final ScheduledExecutorService scheduler) {
-        return new DefaultScheduler(scheduler);
+    Scheduler scheduler(final AsyncFramework async, final ScheduledExecutorService scheduler) {
+        return new DefaultScheduler(async, scheduler);
     }
 
     @Provides

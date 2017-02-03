@@ -22,10 +22,12 @@
 package com.spotify.heroic.common;
 
 import com.google.common.collect.TreeMultiset;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.Data;
+import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.tuple.Pair;
 
 /**
@@ -40,13 +42,22 @@ public class Histogram {
     private final Optional<Long> max;
     private final Optional<Double> mean;
     private final Optional<Long> sum;
+    private final long count;
 
     public static Builder builder() {
-        return new Builder();
+        final TreeMultiset<Long> samples = TreeMultiset.create(Long::compareTo);
+        return new Builder(samples);
     }
 
+    public static Builder builder(final Collection<Long> input) {
+        final TreeMultiset<Long> samples = TreeMultiset.create(Long::compareTo);
+        samples.addAll(input);
+        return new Builder(samples);
+    }
+
+    @RequiredArgsConstructor
     public static class Builder {
-        private final TreeMultiset<Long> samples = TreeMultiset.create(Long::compareTo);
+        private final TreeMultiset<Long> samples;
 
         public void add(final long sample) {
             samples.add(sample);
@@ -62,7 +73,8 @@ public class Histogram {
             final Optional<Long> max = nth(entries, 1.00);
             final Pair<Optional<Double>, Optional<Long>> mean = meanAndSum(entries);
 
-            return new Histogram(median, p75, p99, min, max, mean.getLeft(), mean.getRight());
+            return new Histogram(median, p75, p99, min, max, mean.getLeft(), mean.getRight(),
+                samples.size());
         }
 
         private Pair<Optional<Double>, Optional<Long>> meanAndSum(final List<Long> entries) {
@@ -94,6 +106,10 @@ public class Histogram {
                 Math.max(0, (int) Math.round(((double) samples.size()) * n) - 1));
 
             return Optional.of(samples.get(index));
+        }
+
+        public void addAll(final Builder other) {
+            this.samples.addAll(other.samples);
         }
     }
 }

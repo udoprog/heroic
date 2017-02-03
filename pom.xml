@@ -25,6 +25,7 @@
     <module>metric/datastax</module>
     <module>metric/bigtable</module>
     <module>metric/memory</module>
+    <module>metric/filesystem</module>
     <module>metadata/elasticsearch</module>
     <module>metadata/memory</module>
     <module>suggest/elasticsearch</module>
@@ -60,7 +61,7 @@
     <semantic-metrics.version>0.2.3</semantic-metrics.version>
     <netty.version>4.1.0.CR3</netty.version>
     <tiny-async.version>1.11.0</tiny-async.version>
-    <tiny-serializer.version>1.4.5</tiny-serializer.version>
+    <tiny-serializer.version>1.5.0</tiny-serializer.version>
     <antlr.version>4.5</antlr.version>
     <log4j.version>2.2</log4j.version>
     <elasticsearch.version>1.7.5</elasticsearch.version>
@@ -345,6 +346,11 @@
       <dependency>
         <groupId>com.spotify.heroic.metric</groupId>
         <artifactId>heroic-metric-memory</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.spotify.heroic.metric</groupId>
+        <artifactId>heroic-metric-filesystem</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
@@ -765,6 +771,13 @@
         <version>2.0.31-beta</version>
         <scope>test</scope>
       </dependency>
+
+      <dependency>
+        <groupId>org.jmock</groupId>
+        <artifactId>jmock</artifactId>
+        <version>2.8.2</version>
+        <scope>test</scope>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -854,6 +867,23 @@
                     </resource>
                   </transformer>
                 </transformers>
+              </configuration>
+            </execution>
+          </executions>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-dependency-plugin</artifactId>
+          <version>3.0.0</version>
+          <executions>
+            <execution>
+              <goals>
+                <goal>build-classpath</goal>
+              </goals>
+
+              <configuration>
+                <outputFile>${project.build.directory}/.classpath</outputFile>
               </configuration>
             </execution>
           </executions>

@@ -22,12 +22,14 @@
 package com.spotify.heroic.metric;
 
 import com.google.common.hash.Hasher;
+import eu.toolchain.serializer.AutoSerialize;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+@AutoSerialize
 @Data
 @EqualsAndHashCode
-public class Point implements Metric {
+public class Point implements Metric, Comparable<Point> {
     private final long timestamp;
     private final double value;
 
@@ -40,5 +42,10 @@ public class Point implements Metric {
     public void hash(final Hasher hasher) {
         hasher.putInt(MetricType.POINT.ordinal());
         hasher.putDouble(value);
+    }
+
+    @Override
+    public int compareTo(final Point o) {
+        return Long.compare(timestamp, o.timestamp);
     }
 }
