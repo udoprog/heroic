@@ -26,11 +26,13 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.common.hash.Hasher;
+import eu.toolchain.serializer.AutoSerialize;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 import java.util.Map;
 
+@AutoSerialize
 @Data
 @EqualsAndHashCode
 public class Event implements Metric {

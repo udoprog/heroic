@@ -31,12 +31,12 @@ import com.spotify.heroic.profile.ClusterProfile;
 import com.spotify.heroic.profile.CollectdConsumerProfile;
 import com.spotify.heroic.profile.ElasticsearchMetadataProfile;
 import com.spotify.heroic.profile.ElasticsearchSuggestProfile;
+import com.spotify.heroic.profile.FilesystemProfile;
 import com.spotify.heroic.profile.KafkaConsumerProfile;
 import com.spotify.heroic.profile.MemoryCacheProfile;
 import com.spotify.heroic.profile.MemoryProfile;
 import com.spotify.heroic.profile.QueryLoggingProfile;
 import com.spotify.heroic.profile.WebProfile;
-
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.io.PrintWriter;
@@ -89,6 +89,7 @@ public class HeroicModules {
         .put("memory-cache", new MemoryCacheProfile())
         .put("web", new WebProfile())
         .put("query-logging", new QueryLoggingProfile())
+        .put("fs", new FilesystemProfile())
     .build();
     // @formatter:on
 

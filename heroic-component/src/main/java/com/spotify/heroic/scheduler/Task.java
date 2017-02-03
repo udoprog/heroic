@@ -21,6 +21,7 @@
 
 package com.spotify.heroic.scheduler;
 
+@FunctionalInterface
 public interface Task {
-    public void run() throws Exception;
+    void run() throws Exception;
 }
