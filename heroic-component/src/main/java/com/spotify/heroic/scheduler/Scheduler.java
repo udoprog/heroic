@@ -24,7 +24,6 @@ package com.spotify.heroic.scheduler;
 import java.util.concurrent.TimeUnit;
 
 public interface Scheduler {
-
     /**
      * Schedule a task to be executed periodically.
      * <p>
@@ -56,4 +55,12 @@ public interface Scheduler {
      * @param task Task to execute.
      */
     void schedule(String name, long value, TimeUnit unit, Task task);
+
+    /**
+     * Setup a task that can only have one run scheduled at any given time.
+     *
+     * @param name name of task
+     * @return a handler for the unique task
+     */
+    UniqueTaskHandle unique(String name);
 }

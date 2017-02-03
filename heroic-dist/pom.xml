@@ -94,6 +94,19 @@
         </plugins>
       </build>
     </profile>
+
+    <profile>
+      <id>build-classpath</id>
+
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-dependency-plugin</artifactId>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
   </profiles>
 
   <build>
