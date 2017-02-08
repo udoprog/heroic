@@ -1,10 +1,11 @@
 package com.spotify.heroic.metric.filesystem.wal;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.spotify.heroic.common.Duration;
-import com.spotify.heroic.function.ThrowingConsumer;
 import com.spotify.heroic.metric.filesystem.io.FilesFramework;
+import com.spotify.heroic.metric.filesystem.io.SegmentIterable;
 import com.spotify.heroic.scheduler.Scheduler;
 import com.spotify.heroic.scheduler.UniqueTaskHandle;
 import eu.toolchain.async.AsyncFramework;
@@ -41,11 +42,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 
 @Slf4j
-class FileWal implements Wal {
+public class FileWal<T> implements Wal<T> {
     public static final String LOG_PREFIX = "log_";
     private static final long MAX_LOG_SIZE = 1024 * 1024 * 16;
     private static final BaseEncoding BASE16 = BaseEncoding.base16();
-    private static final int MAX_PENDING_FLUSHES = 10;
 
     public static final EnumSet<StandardOpenOption> ID_PATH_WRITE_OPTIONS =
         EnumSet.of(StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.DSYNC);
@@ -53,6 +53,9 @@ class FileWal implements Wal {
         EnumSet.of(StandardOpenOption.READ);
     public static final EnumSet<StandardOpenOption> READ_LOG_OPTIONS =
         EnumSet.of(StandardOpenOption.READ);
+
+    private final WalReceiver<T> receiver;
+    private final Serializer<T> valueSerializer;
 
     private final AsyncFramework async;
     private final FilesFramework files;
@@ -78,16 +81,19 @@ class FileWal implements Wal {
     /**
      * Current open transaction file.
      */
-    private volatile FileChannel file = null;
+    private volatile FileChannel writeFile = null;
 
     private final ConcurrentSkipListSet<Long> pendingTransactions = new ConcurrentSkipListSet<>();
     private final LongAccumulator maxTxId = new LongAccumulator(Math::max, Wal.DISABLED_TXID);
 
     public FileWal(
-        final AsyncFramework async, final FilesFramework files,
-        final SerializerFramework serializer, final Scheduler scheduler, final Path rootPath,
-        final Duration flushDuration, final long maxTransactionsPerFlush
+        final WalReceiver<T> receiver, final Serializer<T> valueSerializer,
+        final AsyncFramework async, final SerializerFramework serializer, final Scheduler scheduler,
+        final FilesFramework files, final Path rootPath, final Duration flushDuration
     ) {
+        this.receiver = receiver;
+        this.valueSerializer = valueSerializer;
+
         this.async = async;
         this.files = files;
         this.serializer = serializer;
@@ -108,25 +114,20 @@ class FileWal implements Wal {
 
     @Override
     public AsyncFuture<Void> close() {
-        return flushTask.stop().lazyTransform(ignore -> {
-            return async.call(() -> {
-                syncImmediate();
+        return flushTask.stop().lazyTransform(ignore -> async.call(() -> {
+            syncImmediate();
 
-                if (file != null) {
-                    file.close();
-                    file = null;
-                }
+            if (writeFile != null) {
+                writeFile.close();
+                writeFile = null;
+            }
 
-                return null;
-            }, flushThread);
-        });
+            return null;
+        }, flushThread));
     }
 
     @Override
-    public <T> AsyncFuture<Void> write(
-        final T value, final Serializer<T> valueSerializer,
-        final ThrowingConsumer<Long> applyConsumer
-    ) {
+    public AsyncFuture<Void> write(final T value) {
         return async.call(() -> {
             final long txId = this.currentId.incrementAndGet();
 
@@ -141,8 +142,9 @@ class FileWal implements Wal {
             final int checksum = calculcateChecksum(bytes);
 
             flushImmediate(new WalBytesEntry(txId, bytes, checksum));
-            applyConsumer.accept(txId);
 
+            receiver.receive(SegmentIterable.fromIterable(
+                ImmutableList.of(new WalEntry<>(txId, value, checksum))));
             return null;
         }, flushThread);
     }
@@ -207,12 +209,12 @@ class FileWal implements Wal {
     }
 
     private void flushImmediate(final WalBytesEntry record) throws Exception {
-        final FileChannel logFile = openLogFile(record);
+        final FileChannel writeFile = openWriteFile(record);
 
         final byte[] bytes = record.getBytes();
         final int checksum = record.getChecksum();
 
-        final SerialWriter buffer = serializer.writeByteChannel(logFile);
+        final SerialWriter buffer = serializer.writeByteChannel(writeFile);
 
         valueSizeSerializer.serialize(buffer, bytes.length);
         buffer.write(bytes);
@@ -236,8 +238,8 @@ class FileWal implements Wal {
     }
 
     private void syncImmediate() throws Exception {
-        if (file != null) {
-            file.force(true);
+        if (writeFile != null) {
+            writeFile.force(true);
         }
 
         final long committedId = getLatestCommittedId();
@@ -251,26 +253,26 @@ class FileWal implements Wal {
     /**
      * Open, or return a channel to the appropriate log file.
      */
-    private FileChannel openLogFile(final WalBytesEntry record) throws Exception {
-        FileChannel file = this.file;
+    private FileChannel openWriteFile(final WalBytesEntry record) throws Exception {
+        FileChannel file = this.writeFile;
 
         if (file == null) {
-            file = rotateLog(record.getTxId());
-            this.file = file;
+            file = rotateWriteFile(record.getTxId());
+            this.writeFile = file;
         }
 
         // rotate if record doesn't fit
         if (file.position() + record.getBytes().length > MAX_LOG_SIZE) {
-            file = rotateLog(record.getTxId());
-            this.file = file;
+            file = rotateWriteFile(record.getTxId());
+            this.writeFile = file;
         }
 
         return file;
     }
 
-    private FileChannel rotateLog(final long txId) throws Exception {
-        if (file != null) {
-            file.close();
+    private FileChannel rotateWriteFile(final long txId) throws Exception {
+        if (writeFile != null) {
+            writeFile.close();
         }
 
         final Path path = rootPath.resolve(String.format("%s%016x", LOG_PREFIX, txId));
@@ -279,20 +281,16 @@ class FileWal implements Wal {
     }
 
     @Override
-    public <T> void recover(
-        final Supplier<Recovery<T>> recoverySupplier, final Serializer<T> valueSerializer
-    ) throws Exception {
+    public void recover(final Supplier<Recovery<T>> recoverySupplier) throws Exception {
         if (!files.isDirectory(rootPath)) {
             log.trace("creating directory: " + rootPath);
             files.createDirectory(rootPath);
         }
 
-        recoverEntries(recoverySupplier, valueSerializer);
+        recoverEntries(recoverySupplier);
     }
 
-    private <T> void recoverEntries(
-        final Supplier<Recovery<T>> recoverySupplier, final Serializer<T> valueSerializer
-    ) throws Exception {
+    private void recoverEntries(final Supplier<Recovery<T>> recoverySupplier) throws Exception {
         final TxIdFile walId = readWalId();
 
         final long committedId = walId.getCommittedId();
@@ -319,7 +317,7 @@ class FileWal implements Wal {
                 while (buffer.position() < totalSize) {
                     offset += 1;
 
-                    final WalEntry<T> entry = deserializeEntry(buffer, totalSize, valueSerializer);
+                    final WalEntry<T> entry = deserializeEntry(buffer, totalSize);
 
                     // skip records which we've already confirmed as committed.
                     if (entry.getTxId() <= committedId) {
@@ -359,9 +357,8 @@ class FileWal implements Wal {
     /**
      * Deserialize a single entry.
      */
-    private <T> WalEntry<T> deserializeEntry(
-        final SerialReader buffer, final long totalSize, final Serializer<T> valueSerializer
-    ) throws Exception {
+    private WalEntry<T> deserializeEntry(final SerialReader buffer, final long totalSize)
+        throws Exception {
         final long remaining = totalSize - buffer.position();
 
         if (remaining < 8) {
