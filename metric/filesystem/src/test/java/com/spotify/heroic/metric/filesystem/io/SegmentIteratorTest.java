@@ -31,7 +31,7 @@ public class SegmentIteratorTest {
 
         final List<Integer> result;
 
-        try (final SegmentIterator<Integer> iterator = SegmentIterator.mergeSorted(iterators)) {
+        try (final SegmentIterator<Integer> iterator = SegmentIterator.mergeUnique(iterators)) {
             result = ImmutableList.copyOf(iterator.toIterator());
         }
 

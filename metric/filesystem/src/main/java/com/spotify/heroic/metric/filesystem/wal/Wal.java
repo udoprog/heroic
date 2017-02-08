@@ -13,6 +13,11 @@ public interface Wal {
     long DISABLED_TXID = 0L;
 
     /**
+     * Largest possible TxId, never expected to occur in the wild.
+     */
+    long LAST_TXID = Long.MAX_VALUE;
+
+    /**
      * Writes the given entry to the log, and returns its transaction ID.
      */
     AsyncFuture<Void> close();
