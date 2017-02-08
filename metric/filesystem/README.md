@@ -6,7 +6,18 @@ installation.
 
 ## TODO
 
-* When recovering WAL log, don't flush everything into memory first, do one log file at a time.
+* Let the `Wal` decide how many transactions should be persisted, and offload memory usage by using
+  a `SegmentIterator` over mmap:ed segments of the transaction logs instead of storing all of them
+  on heap. This would also simplify rate limiting for how quickly things should be written to disk.
+* Garbage collection. This should also act as policies that can be applied for incoming requests,
+  or metrics recovered from the `Wal` as well.
+  See [Garbage Collection][gc] below.
+* Compaction. A must-have feature for long-term retention.
+  This would allow the merging of smaller data files into larger ones to reduce filesystem
+  overhead. It could also allow for more efficient scanning of data by adding indexes to the
+  beginning of the larger files indicating offsets for certain ranges.
+
+[gc]: #garbage-collection
 
 ## Testing
 
@@ -78,10 +89,10 @@ of an incomplete flush.
 
 #### Last TxId (`<storage>/wal/id`)
 
-Stores the last generated TxId, and the last _committed_ TxId.
+Stores the last _committed_ TxId and its checksum.
 
-A _committed_ TxId is one where it has been verified that the given ID has been persisted
-to data directories.
+A _committed_ TxId is one where it has been verified that the given ID has been persisted to data
+directories.
 
 ### Garbage Collection
 
