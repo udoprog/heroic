@@ -75,7 +75,13 @@ public class MergeSortedSegmentIterator<T extends Comparable<T>> implements Segm
 
         @Override
         public int compareTo(final Entry<T> o) {
-            return value.compareTo(o.value);
+            final int v = value.compareTo(o.value);
+
+            if (v != 0) {
+                return v;
+            }
+
+            return Long.compare(iterator.slot(), o.iterator.slot());
         }
     }
 

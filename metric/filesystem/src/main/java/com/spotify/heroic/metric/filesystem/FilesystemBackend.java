@@ -113,6 +113,7 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
 import lombok.Data;
+import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -122,6 +123,7 @@ import org.apache.commons.lang3.tuple.Pair;
 @Singleton
 @Slf4j
 @Data
+@ToString(of = {})
 public class FilesystemBackend extends AbstractMetricBackend implements LifeCycles {
     public static final QueryTrace.Identifier FETCH =
         QueryTrace.identifier(FilesystemBackend.class, "fetch");
@@ -482,21 +484,24 @@ public class FilesystemBackend extends AbstractMetricBackend implements LifeCycl
     private void flushWriteState(final WriteState state) throws Exception {
         if (state.points.changed) {
             flushSegments(MetricType.POINT, state.lastTxId, pointsSegments, state.points.snapshot,
-                input -> segmentEntryIterator(input, SegmentPoint::new),
+                input -> segmentEntryIterator(input, Wal.LAST_TXID, SegmentPoint::new),
                 segmentEncoding::writePoints);
         }
 
         if (state.events.changed) {
             flushSegments(EVENT, state.lastTxId, eventsSegments, state.events.snapshot,
-                input -> segmentEntryIterator(input, SegmentEvent::new),
+                input -> segmentEntryIterator(input, Wal.LAST_TXID, SegmentEvent::new),
                 segmentEncoding::writeEvents);
         }
     }
 
     private <T extends Comparable<T>, V> SegmentIterator<T> segmentEntryIterator(
-        final NavigableMap<Long, V> input, final BiFunction<Long, V, T> toSegmentEntry
+        final NavigableMap<Long, V> input, final long txId,
+        final BiFunction<Long, V, T> toSegmentEntry
     ) {
         final Iterator<Map.Entry<Long, V>> entries = input.entrySet().iterator();
+
+        final long slot = slotForTxId(txId);
 
         return new SegmentIterator<T>() {
             @Override
@@ -509,7 +514,24 @@ public class FilesystemBackend extends AbstractMetricBackend implements LifeCycl
                 final Map.Entry<Long, V> e = entries.next();
                 return toSegmentEntry.apply(e.getKey(), e.getValue());
             }
+
+            @Override
+            public long slot() {
+                return slot;
+            }
         };
+    }
+
+    /**
+     * Calculate the slot for a given TxId.
+     *
+     * operations with a higher txId should have a higher priority, which is determined by
+     * the smallest comparable value.
+     *
+     * @see com.spotify.heroic.metric.filesystem.io.SegmentIterator#slot()
+     */
+    private long slotForTxId(final long txId) {
+        return Wal.LAST_TXID - txId;
     }
 
     private <T extends Comparable<T>, V> void flushSegments(
@@ -547,7 +569,7 @@ public class FilesystemBackend extends AbstractMetricBackend implements LifeCycl
                         iterators.add(segment.get().open());
                     }
 
-                    return SegmentIterator.mergeSorted(iterators);
+                    return SegmentIterator.mergeUnique(iterators);
                 });
             }
 
@@ -604,10 +626,11 @@ public class FilesystemBackend extends AbstractMetricBackend implements LifeCycl
             // use in-memory cache, if configured to do so
             if (useMemoryCache) {
                 iterators.add(
-                    segmentEntryIterator(inMemory.subMap(start, false, end, true), toSegmentEntry));
+                    segmentEntryIterator(inMemory.subMap(start, false, end, true), Wal.LAST_TXID,
+                        toSegmentEntry));
             }
 
-            try (final SegmentIterator<S> iterator = SegmentIterator.mergeSorted(iterators)) {
+            try (final SegmentIterator<S> iterator = SegmentIterator.mergeUnique(iterators)) {
                 while (iterator.hasNext()) {
                     result.add(converter.apply(iterator.next()));
                 }
@@ -728,7 +751,7 @@ public class FilesystemBackend extends AbstractMetricBackend implements LifeCycl
         final SegmentHeader header;
         final long headerSize;
 
-        try (final FileChannel channel = (FileChannel) files.newFileChannel(segmentPath,
+        try (final FileChannel channel = files.newFileChannel(segmentPath,
             EnumSet.of(StandardOpenOption.READ))) {
             header = segmentEncoding.readHeader(channel);
             headerSize = channel.position();
@@ -736,7 +759,12 @@ public class FilesystemBackend extends AbstractMetricBackend implements LifeCycl
             return Optional.empty();
         }
 
-        return Optional.of(new Segment<>(segmentEncoding, segmentPath, header, headerSize, reader));
+        final long slot = slotForTxId(header.getTxId());
+
+        return Optional.of(
+            new Segment<>(segmentEncoding, segmentPath, header, headerSize, (encoding, buffer) -> {
+                return reader.apply(encoding, buffer).withSlot(slot);
+            }));
     }
 
     private void ensureParentsExist(final Path target) throws Exception {
