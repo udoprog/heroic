@@ -69,7 +69,10 @@ import com.spotify.heroic.metric.filesystem.transaction.WritePoints;
 import com.spotify.heroic.metric.filesystem.transaction.WriteState;
 import com.spotify.heroic.metric.filesystem.transaction.WriteTransaction;
 import com.spotify.heroic.metric.filesystem.wal.Wal;
+import com.spotify.heroic.metric.filesystem.wal.WalBuilder;
 import com.spotify.heroic.metric.filesystem.wal.WalConfig;
+import com.spotify.heroic.metric.filesystem.wal.WalEntry;
+import com.spotify.heroic.metric.filesystem.wal.WalReceiver;
 import com.spotify.heroic.scheduler.Scheduler;
 import com.spotify.heroic.scheduler.UniqueTaskHandle;
 import eu.toolchain.async.AsyncFramework;
@@ -124,7 +127,8 @@ import org.apache.commons.lang3.tuple.Pair;
 @Slf4j
 @Data
 @ToString(of = {})
-public class FilesystemBackend extends AbstractMetricBackend implements LifeCycles {
+public class FilesystemBackend extends AbstractMetricBackend
+    implements WalReceiver<Transaction>, LifeCycles {
     public static final QueryTrace.Identifier FETCH =
         QueryTrace.identifier(FilesystemBackend.class, "fetch");
 
@@ -148,9 +152,8 @@ public class FilesystemBackend extends AbstractMetricBackend implements LifeCycl
     private final int transactionParallelismPerRequest;
     private final boolean useMemoryCache;
     private final Path lockPath;
-    private final Serializer<Transaction> transactionSerializer;
     private final Serializer<Long> txIdSerializer;
-    private final Wal wal;
+    private final Wal<Transaction> wal;
     private final SegmentEncoding segmentEncoding;
     private final UniqueTaskHandle flushTask;
 
@@ -166,7 +169,7 @@ public class FilesystemBackend extends AbstractMetricBackend implements LifeCycl
     /**
      * Transactions waiting to be applied by a flush.
      */
-    final ConcurrentLinkedQueue<QueuedTransaction> transactions;
+    final ConcurrentLinkedQueue<SegmentIterable<WalEntry<Transaction>>> transactions;
 
     /**
      * Pending in-memory transactions that should soon be flushed
@@ -216,7 +219,7 @@ public class FilesystemBackend extends AbstractMetricBackend implements LifeCycl
         @Named("transactionParallelismPerRequest") final int transactionParallelismPerRequest,
         @Named("useMemoryCache") final boolean useMemoryCache,
         @Named("writers") final ExecutorService writers, final Scheduler scheduler,
-        final Compression compression, final WalConfig writeAheadLog
+        final Compression compression, final WalBuilder<Transaction> walBuilder
     ) {
         super(async);
         this.async = async;
@@ -235,10 +238,10 @@ public class FilesystemBackend extends AbstractMetricBackend implements LifeCycl
         this.transactionParallelismPerRequest = transactionParallelismPerRequest;
         this.useMemoryCache = useMemoryCache;
         this.lockPath = storagePath.resolve("lock");
-        this.transactionSerializer = new Transaction_Serializer(serializer);
         this.txIdSerializer = serializer.fixedLong();
 
-        this.wal = writeAheadLog.newWriteAheadLog(this);
+        this.wal = walBuilder.build(this);
+
         this.segmentEncoding = compression.newSegmentIO(serializer);
 
         this.pointsSegments = buildSegmentCache(MetricType.POINT, SegmentEncoding::readPoints);
@@ -443,22 +446,29 @@ public class FilesystemBackend extends AbstractMetricBackend implements LifeCycl
             int flushed = 0;
 
             while (true) {
-                final QueuedTransaction queued = transactions.poll();
+                final SegmentIterable<WalEntry<Transaction>> iterable = transactions.poll();
 
-                if (queued == null) {
+                if (iterable == null) {
                     break;
                 }
 
-                flushed++;
-                txIds.add(queued.getTxId());
-                state.lastTxId = queued.getTxId();
+                try (final SegmentIterator<WalEntry<Transaction>> iterator = iterable.iterator()) {
+                    while (iterator.hasNext()) {
+                        final WalEntry<Transaction> entry = iterator.next();
 
-                final Transaction transaction = queued.getTransaction();
-                transaction.write(state, queued.getTxId());
+                        txIds.add(entry.getTxId());
+                        state.lastTxId = entry.getTxId();
 
-                if (useMemoryCache) {
-                    undoInMemory.add(transaction);
+                        final Transaction transaction = entry.getValue();
+                        transaction.write(state, entry.getTxId());
+
+                        if (useMemoryCache) {
+                            undoInMemory.add(transaction);
+                        }
+                    }
                 }
+
+                flushed++;
 
                 if (flushed >= maxTransactionsPerFlush) {
                     hasMore = true;
@@ -582,6 +592,13 @@ public class FilesystemBackend extends AbstractMetricBackend implements LifeCycl
         }
     }
 
+    @Override
+    public void receive(
+        final SegmentIterable<WalEntry<Transaction>> transactions
+    ) throws Exception {
+        this.transactions.add(transactions);
+    }
+
     private AsyncFuture<Void> commit(final Transaction transaction) throws Exception {
         if (useMemoryCache) {
             final InMemoryState state = new InMemoryState(new SegmentInMemory<>(pointsInMemory),
@@ -590,11 +607,7 @@ public class FilesystemBackend extends AbstractMetricBackend implements LifeCycl
             transaction.writeInMemory(state);
         }
 
-        return wal.write(transaction, transactionSerializer, txId -> {
-            // need to be called here to guarantee that transactions are applied in a
-            // predictable order from smallest txId to largest.
-            transactions.add(new QueuedTransaction(txId, transaction));
-        }).onResolved(ignore -> scheduleFlush());
+        return wal.write(transaction).onResolved(ignore -> scheduleFlush());
     }
 
     private <S extends Comparable<S>, T, U> List<U> doFetch(
@@ -682,7 +695,7 @@ public class FilesystemBackend extends AbstractMetricBackend implements LifeCycl
                     }
                 };
 
-            wal.recover(recovery, transactionSerializer);
+            wal.recover(recovery);
             return null;
         });
     }

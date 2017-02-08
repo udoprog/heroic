@@ -23,12 +23,24 @@ package com.spotify.heroic.metric.filesystem.wal;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.spotify.heroic.metric.filesystem.FilesystemBackend;
+import com.spotify.heroic.dagger.PrimaryComponent;
+import com.spotify.heroic.metric.filesystem.io.FilesFramework;
+import eu.toolchain.serializer.Serializer;
+import java.nio.file.Path;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes({
     @JsonSubTypes.Type(FileWalConfig.class), @JsonSubTypes.Type(DisabledWalConfig.class)
 })
 public interface WalConfig {
-    Wal newWriteAheadLog(final FilesystemBackend filesystemBackend);
+    <T> Wal<T> newWriteAheadLog(
+        WalReceiver<T> receiver, Serializer<T> valueSerializer, PrimaryComponent primary,
+        Dependencies dependencies
+    );
+
+    interface Dependencies {
+        Path storagePath();
+
+        FilesFramework files();
+    }
 }
