@@ -38,6 +38,7 @@ import com.spotify.heroic.metric.MetricModule;
 import com.spotify.heroic.metric.filesystem.io.FilesFramework;
 import com.spotify.heroic.metric.filesystem.io.RealFilesFramework;
 import com.spotify.heroic.metric.filesystem.wal.DisabledWalConfig;
+import com.spotify.heroic.metric.filesystem.wal.WalBuilder;
 import com.spotify.heroic.metric.filesystem.wal.WalConfig;
 import dagger.Module;
 import dagger.Provides;
@@ -223,6 +224,28 @@ public final class FilesystemMetricModule implements MetricModule, DynamicModule
     @Named("useMemoryCache")
     public boolean useMemoryCache() {
         return useMemoryCache;
+    }
+
+    @Provides
+    @Singleton
+    WalBuilder<Transaction> walBuilder(
+        final SerializerFramework serializer, final FilesFramework files,
+        final PrimaryComponent primary
+    ) {
+        final WalConfig.Dependencies dependencies = new WalConfig.Dependencies() {
+            @Override
+            public Path storagePath() {
+                return storagePath;
+            }
+
+            @Override
+            public FilesFramework files() {
+                return files;
+            }
+        };
+
+        return receiver -> walConfig.newWriteAheadLog(receiver,
+            new Transaction_Serializer(serializer), primary, dependencies);
     }
 
     @Override
