@@ -31,6 +31,18 @@ public interface SegmentIterator<T extends Comparable<T>> extends AutoCloseable 
     }
 
     /**
+     * Get the slot for this iterator.
+     *
+     * The slot determines which iterator wins when emitting equal values when used as a merged
+     * iterator.
+     *
+     * @see #mergeUnique(java.util.Collection)
+     */
+    default long slot() {
+        return hashCode();
+    }
+
+    /**
      * Register an additional closer.
      */
     default SegmentIterator<T> closing(ThrowingRunnable closer) {
@@ -66,10 +78,12 @@ public interface SegmentIterator<T extends Comparable<T>> extends AutoCloseable 
     }
 
     /**
-     * Merge a sorted collection of iterators.
+     * Merge a sorted collection of iterators and only emit unique values.
+     *
+     * If multiple iterators emit the same value, it uses {@link #slot()} to determine which wins.
      */
-    static <T extends Comparable<T>> SegmentIterator<T> mergeSorted(
-        Collection<? extends SegmentIterator<T>> iterators
+    static <T extends Comparable<T>> SegmentIterator<T> mergeUnique(
+        Collection<SegmentIterator<T>> iterators
     ) throws Exception {
         if (iterators.size() == 1) {
             return iterators.iterator().next();
@@ -90,5 +104,9 @@ public interface SegmentIterator<T extends Comparable<T>> extends AutoCloseable 
                 return iterator.next();
             }
         };
+    }
+
+    default SegmentIterator<T> withSlot(long slot) {
+        return new SlottedSegmentIterator<T>(this, slot);
     }
 }
