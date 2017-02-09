@@ -62,7 +62,7 @@ public final class FilesystemMetricModule implements MetricModule, DynamicModule
     public static final Path DEFAULT_DIRECTORY = Paths.get("./storage");
     public static final Duration DEFAULT_SEGMENT_WIDTH = Duration.of(1, TimeUnit.HOURS);
     public static final Duration DEFAULT_FLUSH_INTERVAL = Duration.of(5, TimeUnit.SECONDS);
-    public static final int DEFAULT_MAX_TRANSACTIONS_PER_FLUSH = 100;
+    public static final int DEFAULT_MAX_TRANSACTIONS_PER_FLUSH = 1000;
     public static final int DEFAULT_MAX_PENDING_TRANSACTIONS = 10000;
     public static final int DEFAULT_TRANSACTION_PARALLELISM_PER_REQUEST = 2;
     public static final long DEFAULT_SEGMENT_CACHE_SIZE = 100;

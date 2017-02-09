@@ -6,7 +6,7 @@ installation.
 
 ## TODO
 
-* Let the `Wal` decide how many transactions should be persisted, and offload memory usage by using
+* **DONE** Let the `Wal` decide how many transactions should be persisted, and offload memory usage by using
   a `SegmentIterator` over mmap:ed segments of the transaction logs instead of storing all of them
   on heap. This would also simplify rate limiting for how quickly things should be written to disk.
 * Garbage collection. This should also act as policies that can be applied for incoming requests,
