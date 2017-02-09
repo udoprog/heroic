@@ -58,7 +58,11 @@ public class FilesystemProfile extends HeroicProfileBase {
         // @formatter:off
         final FilesystemMetricModule.Builder module = FilesystemMetricModule.builder();
 
-        module.wal(new FileWalConfig());
+        final FileWalConfig fileWal = new FileWalConfig();
+
+        params.getBoolean("waitForNextSync").ifPresent(fileWal::waitForNextSync);
+
+        module.wal(fileWal);
 
         params.get("storagePath").map(Paths::get).ifPresent(module::storagePath);
 
@@ -99,7 +103,8 @@ public class FilesystemProfile extends HeroicProfileBase {
         // @formatter:off
         return ImmutableList.of(
             parameter("storagePath", "Path to use for storage"),
-            parameter("compression", "Compression method to use")
+            parameter("compression", "Compression method to use"),
+            parameter("waitForNextSync", "Always wait for next sync when writing")
         );
         // @formatter:on
     }

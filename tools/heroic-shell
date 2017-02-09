@@ -55,4 +55,5 @@ fi
 
 CLASSPATH="$(cat $classpath_file):$dist_jar"
 
+echo "Note: run \`touch $rebuild\` to cause a rebuild next run"
 exec java -cp "$CLASSPATH" $JVM_OPTS com.spotify.heroic.HeroicShell "$@"
