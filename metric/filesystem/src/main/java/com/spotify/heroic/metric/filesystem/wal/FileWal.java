@@ -10,6 +10,7 @@ import com.spotify.heroic.scheduler.Scheduler;
 import com.spotify.heroic.scheduler.UniqueTaskHandle;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
+import eu.toolchain.async.ResolvableFuture;
 import eu.toolchain.serializer.SerialReader;
 import eu.toolchain.serializer.SerialWriter;
 import eu.toolchain.serializer.Serializer;
@@ -75,6 +76,7 @@ public class FileWal<T> implements Wal<T> {
     private final Serializer<Integer> checksumSerializer;
 
     private final long flushDurationMillis;
+    private final boolean waitForNextSync;
     private final UniqueTaskHandle flushTask;
 
     /**
@@ -82,10 +84,13 @@ public class FileWal<T> implements Wal<T> {
      */
     private final AtomicLong currentId = new AtomicLong(Wal.DISABLED_TXID);
     private final AtomicLong walIdFileId = new AtomicLong(Wal.DISABLED_TXID);
+
+    private ResolvableFuture<Void> nextSync = null;
     /**
      * Current open transaction file.
      */
     private WalPathPointer writePointer = null;
+
     private final LinkedList<WalPathPointer> openLogs = new LinkedList<>();
     private final LinkedList<WalPathPointer> closedLogs = new LinkedList<>();
 
@@ -95,7 +100,8 @@ public class FileWal<T> implements Wal<T> {
     public FileWal(
         final WalReceiver<T> receiver, final Serializer<T> valueSerializer,
         final AsyncFramework async, final SerializerFramework serializer, final Scheduler scheduler,
-        final FilesFramework files, final Path rootPath, final Duration flushDuration
+        final FilesFramework files, final Path rootPath, final Duration flushDuration,
+        final boolean waitForNextSync
     ) {
         this.receiver = receiver;
         this.valueSerializer = valueSerializer;
@@ -115,6 +121,7 @@ public class FileWal<T> implements Wal<T> {
         this.checksumSerializer = serializer.fixedInteger();
 
         this.flushDurationMillis = flushDuration.toMilliseconds();
+        this.waitForNextSync = waitForNextSync;
         this.flushTask = scheduler.unique("wal-flush");
     }
 
@@ -134,7 +141,7 @@ public class FileWal<T> implements Wal<T> {
 
     @Override
     public AsyncFuture<Void> write(final T value) {
-        return async.call(() -> {
+        final AsyncFuture<AsyncFuture<Void>> writeFuture = async.call(() -> {
             final long txId = this.currentId.incrementAndGet();
 
             final ByteArrayOutputStream byteArray = new ByteArrayOutputStream();
@@ -148,8 +155,23 @@ public class FileWal<T> implements Wal<T> {
             final int checksum = calculcateChecksum(bytes);
 
             flushImmediate(new WalBytesEntry(txId, bytes, checksum));
+
+            if (waitForNextSync) {
+                if (nextSync == null) {
+                    nextSync = async.future();
+                }
+
+                return nextSync;
+            }
+
             return null;
         }, flushThread);
+
+        if (waitForNextSync) {
+            return writeFuture.lazyTransform(nextSync -> nextSync);
+        }
+
+        return writeFuture.directTransform(nextSync -> null);
     }
 
     @Override
@@ -238,6 +260,12 @@ public class FileWal<T> implements Wal<T> {
 
         if (writePointer != null) {
             writePointer.channel.force(true);
+
+            if (waitForNextSync && nextSync != null) {
+                nextSync.resolve(null);
+                nextSync = null;
+            }
+
             sendTransactions();
         }
     }
