@@ -1,11 +1,11 @@
 package com.spotify.heroic.metric.filesystem.wal;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.metric.filesystem.io.FilesFramework;
 import com.spotify.heroic.metric.filesystem.io.SegmentIterable;
+import com.spotify.heroic.metric.filesystem.io.SegmentIterator;
 import com.spotify.heroic.scheduler.Scheduler;
 import com.spotify.heroic.scheduler.UniqueTaskHandle;
 import eu.toolchain.async.AsyncFramework;
@@ -17,6 +17,7 @@ import eu.toolchain.serializer.SerializerFramework;
 import eu.toolchain.serializer.StreamSerialWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -25,6 +26,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -38,6 +40,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAccumulator;
 import java.util.function.Supplier;
 import java.util.zip.CRC32;
+import lombok.RequiredArgsConstructor;
+import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -81,7 +85,9 @@ public class FileWal<T> implements Wal<T> {
     /**
      * Current open transaction file.
      */
-    private volatile FileChannel writeFile = null;
+    private WalPathPointer writePointer = null;
+    private final LinkedList<WalPathPointer> openLogs = new LinkedList<>();
+    private final LinkedList<WalPathPointer> closedLogs = new LinkedList<>();
 
     private final ConcurrentSkipListSet<Long> pendingTransactions = new ConcurrentSkipListSet<>();
     private final LongAccumulator maxTxId = new LongAccumulator(Math::max, Wal.DISABLED_TXID);
@@ -117,9 +123,9 @@ public class FileWal<T> implements Wal<T> {
         return flushTask.stop().lazyTransform(ignore -> async.call(() -> {
             syncImmediate();
 
-            if (writeFile != null) {
-                writeFile.close();
-                writeFile = null;
+            for (final WalPathPointer pointer : openLogs) {
+                pointer.openForWriting = false;
+                pointer.channel.close();
             }
 
             return null;
@@ -142,9 +148,6 @@ public class FileWal<T> implements Wal<T> {
             final int checksum = calculcateChecksum(bytes);
 
             flushImmediate(new WalBytesEntry(txId, bytes, checksum));
-
-            receiver.receive(SegmentIterable.fromIterable(
-                ImmutableList.of(new WalEntry<>(txId, value, checksum))));
             return null;
         }, flushThread);
     }
@@ -161,44 +164,9 @@ public class FileWal<T> implements Wal<T> {
 
     private long getLatestCommittedId() {
         try {
-            return pendingTransactions.first();
-        } catch (NoSuchElementException e) {
+            return pendingTransactions.first() - 1;
+        } catch (final NoSuchElementException e) {
             return maxTxId.get();
-        }
-    }
-
-    private void removeLogsUntil(final long committedId) throws Exception {
-        // if current id is the same as committed wal logs can be safely removed
-        if (currentId.get() == committedId) {
-            removeAllLogs();
-            return;
-        }
-
-        final Iterator<WalPath> it = getLogPaths().iterator();
-
-        if (!it.hasNext()) {
-            return;
-        }
-
-        WalPath previous = it.next();
-
-        while (it.hasNext()) {
-            final WalPath current = it.next();
-
-            if (current.getTxId() > committedId) {
-                break;
-            }
-
-            log.trace("delete {}", previous);
-            files.delete(previous.getPath());
-            previous = current;
-        }
-    }
-
-    private void removeAllLogs() throws Exception {
-        for (final WalPath path : getLogPaths()) {
-            log.trace("delete {}", path);
-            files.delete(path.getPath());
         }
     }
 
@@ -209,18 +177,19 @@ public class FileWal<T> implements Wal<T> {
     }
 
     private void flushImmediate(final WalBytesEntry record) throws Exception {
-        final FileChannel writeFile = openWriteFile(record);
+        openWriteFile(record);
 
         final byte[] bytes = record.getBytes();
         final int checksum = record.getChecksum();
 
-        final SerialWriter buffer = serializer.writeByteChannel(writeFile);
+        final SerialWriter buffer = serializer.writeByteChannel(writePointer.channel);
 
         valueSizeSerializer.serialize(buffer, bytes.length);
         buffer.write(bytes);
         checksumSerializer.serialize(buffer, checksum);
 
         pendingTransactions.add(record.getTxId());
+        writePointer.lastTxId = record.getTxId();
 
         scheduleSync();
     }
@@ -231,53 +200,151 @@ public class FileWal<T> implements Wal<T> {
     }
 
     private AsyncFuture<Void> sync() {
-        return async.call(() -> {
+        return async.<Void>call(() -> {
             syncImmediate();
             return null;
-        }, flushThread);
+        }, flushThread).onFailed(throwable -> {
+            log.error("sync failed", throwable);
+        });
     }
 
     private void syncImmediate() throws Exception {
-        if (writeFile != null) {
-            writeFile.force(true);
-        }
-
         final long committedId = getLatestCommittedId();
 
+        // clear up log files that have been marked
         if (committedId > Wal.DISABLED_TXID && committedId != walIdFileId.get()) {
             writeWalId(committedId);
-            removeLogsUntil(committedId);
+
+            final Iterator<WalPathPointer> iterator = closedLogs.iterator();
+
+            while (iterator.hasNext()) {
+                final WalPathPointer pointer = iterator.next();
+
+                if (pointer.lastTxId <= committedId) {
+                    log.trace("deleting {}", pointer);
+                    files.delete(pointer.path);
+                    iterator.remove();
+                }
+            }
+
+            if (writePointer.lastTxId <= committedId) {
+                log.trace("deleting {}", writePointer);
+                files.delete(writePointer.path);
+                writePointer.channel.close();
+                writePointer = null;
+                openLogs.clear();
+            }
         }
+
+        if (writePointer != null) {
+            writePointer.channel.force(true);
+            sendTransactions();
+        }
+    }
+
+    private void sendTransactions() throws Exception {
+        final Iterator<WalPathPointer> iterator = openLogs.iterator();
+
+        if (!iterator.hasNext()) {
+            return;
+        }
+
+        final WalPathPointer pointer = iterator.next();
+
+        final long end;
+        final boolean closeFile;
+
+        if (pointer.openForWriting) {
+            end = pointer.channel.position();
+            closeFile = false;
+        } else {
+            end = pointer.channel.size();
+            closeFile = true;
+        }
+
+        final long start = pointer.read;
+
+        final long remaining = end - start;
+
+        // nothing to send
+        if (remaining <= 0) {
+            return;
+        }
+
+        // update state
+        if (closeFile) {
+            closedLogs.add(pointer);
+            iterator.remove();
+        } else {
+            pointer.read = end;
+        }
+
+        receiver.receive(toIterable(pointer, closeFile, start, remaining));
+    }
+
+    private SegmentIterable<WalEntry<T>> toIterable(
+        final WalPathPointer pointer, final boolean closeFile, final long start,
+        final long remaining
+    ) {
+        return () -> {
+            log.trace("mapping {}-{} for {}", start, start + remaining, pointer);
+
+            final MappedByteBuffer byteBuffer =
+                pointer.channel.map(FileChannel.MapMode.READ_ONLY, start, remaining);
+
+            final SerialReader buffer = serializer.readByteBuffer(byteBuffer);
+
+            return new SegmentIterator<WalEntry<T>>() {
+                @Override
+                public boolean hasNext() throws Exception {
+                    return buffer.position() < remaining;
+                }
+
+                @Override
+                public WalEntry<T> next() throws Exception {
+                    return deserializeEntry(buffer, remaining);
+                }
+
+                @Override
+                public void close() throws Exception {
+                    if (closeFile) {
+                        log.trace("closing {}", pointer);
+                        pointer.channel.close();
+                    }
+                }
+            };
+        };
     }
 
     /**
      * Open, or return a channel to the appropriate log file.
      */
-    private FileChannel openWriteFile(final WalBytesEntry record) throws Exception {
-        FileChannel file = this.writeFile;
-
-        if (file == null) {
-            file = rotateWriteFile(record.getTxId());
-            this.writeFile = file;
+    private void openWriteFile(final WalBytesEntry record) throws Exception {
+        if (writePointer == null) {
+            rotateWritePointer(record.getTxId());
         }
 
         // rotate if record doesn't fit
-        if (file.position() + record.getBytes().length > MAX_LOG_SIZE) {
-            file = rotateWriteFile(record.getTxId());
-            this.writeFile = file;
+        if (writePointer.channel.position() + record.getBytes().length > MAX_LOG_SIZE) {
+            rotateWritePointer(record.getTxId());
         }
-
-        return file;
     }
 
-    private FileChannel rotateWriteFile(final long txId) throws Exception {
-        if (writeFile != null) {
-            writeFile.close();
+    private void rotateWritePointer(final long txId) throws Exception {
+        if (writePointer != null) {
+            writePointer.openForWriting = false;
         }
 
         final Path path = rootPath.resolve(String.format("%s%016x", LOG_PREFIX, txId));
         log.trace("writing {}", path);
-        return files.newFileChannel(path, StandardOpenOption.WRITE, StandardOpenOption.CREATE_NEW);
+
+        final EnumSet<StandardOpenOption> options =
+            EnumSet.of(StandardOpenOption.WRITE, StandardOpenOption.READ,
+                StandardOpenOption.CREATE_NEW);
+
+        final FileChannel channel = files.newFileChannel(path, options);
+        this.writePointer = new WalPathPointer(channel, path, txId);
+        openLogs.add(writePointer);
     }
 
     @Override
@@ -351,7 +418,7 @@ public class FileWal<T> implements Wal<T> {
 
         maxTxId.accumulate(largestSeenTxId);
         writeWalId(largestSeenTxId);
-        currentId.set(largestSeenTxId + 1);
+        currentId.set(largestSeenTxId);
     }
 
     /**
@@ -476,5 +543,16 @@ public class FileWal<T> implements Wal<T> {
         }
 
         return result;
+    }
+
+    @RequiredArgsConstructor
+    @ToString
+    static class WalPathPointer {
+        private final FileChannel channel;
+        private final Path path;
+        private final long txId;
+        private long lastTxId = Wal.DISABLED_TXID;
+        private boolean openForWriting = true;
+        private long read = 0L;
     }
 }

@@ -70,7 +70,6 @@ import com.spotify.heroic.metric.filesystem.transaction.WriteState;
 import com.spotify.heroic.metric.filesystem.transaction.WriteTransaction;
 import com.spotify.heroic.metric.filesystem.wal.Wal;
 import com.spotify.heroic.metric.filesystem.wal.WalBuilder;
-import com.spotify.heroic.metric.filesystem.wal.WalConfig;
 import com.spotify.heroic.metric.filesystem.wal.WalEntry;
 import com.spotify.heroic.metric.filesystem.wal.WalReceiver;
 import com.spotify.heroic.scheduler.Scheduler;
@@ -118,7 +117,6 @@ import javax.inject.Singleton;
 import lombok.Data;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.Pair;
 
 /**
  * MetricBackend for Heroic cassandra datastore.
@@ -419,9 +417,8 @@ public class FilesystemBackend extends AbstractMetricBackend
     private AsyncFuture<Void> flush() {
         log.trace("flushing");
 
-        return flushImmediate().lazyTransform(p -> {
-            wal.mark(p.getLeft());
-            return p.getRight() ? flush() : async.resolved();
+        return flushImmediate().onFailed(throwable -> {
+            log.error("flush failed", throwable);
         });
     }
 
@@ -433,18 +430,8 @@ public class FilesystemBackend extends AbstractMetricBackend
         }
     }
 
-    private AsyncFuture<Pair<Set<Long>, Boolean>> flushImmediate() {
+    private AsyncFuture<Void> flushImmediate() {
         return async.call(() -> {
-            final Set<Long> txIds = new HashSet<>();
-
-            final WriteState state = new WriteState(new SegmentSnapshot<>(pointsSegments),
-                new SegmentSnapshot<>(eventsSegments));
-
-            final List<Transaction> undoInMemory = new ArrayList<>();
-
-            boolean hasMore = false;
-            int flushed = 0;
-
             while (true) {
                 final SegmentIterable<WalEntry<Transaction>> iterable = transactions.poll();
 
@@ -453,25 +440,42 @@ public class FilesystemBackend extends AbstractMetricBackend
                 }
 
                 try (final SegmentIterator<WalEntry<Transaction>> iterator = iterable.iterator()) {
-                    while (iterator.hasNext()) {
-                        final WalEntry<Transaction> entry = iterator.next();
+                    flushSegmentIterator(iterator);
+                }
+            }
 
-                        txIds.add(entry.getTxId());
-                        state.lastTxId = entry.getTxId();
+            return null;
+        }, writers);
+    }
 
-                        final Transaction transaction = entry.getValue();
-                        transaction.write(state, entry.getTxId());
+    private void flushSegmentIterator(final SegmentIterator<WalEntry<Transaction>> iterator)
+        throws Exception {
+        while (iterator.hasNext()) {
+            int flushed = 0;
 
-                        if (useMemoryCache) {
-                            undoInMemory.add(transaction);
-                        }
-                    }
+            final Set<Long> txIds = new HashSet<>();
+
+            final WriteState state = new WriteState(new SegmentSnapshot<>(pointsSegments),
+                new SegmentSnapshot<>(eventsSegments));
+
+            final List<Transaction> undoInMemory = new ArrayList<>();
+
+            while (iterator.hasNext()) {
+                final WalEntry<Transaction> entry = iterator.next();
+
+                txIds.add(entry.getTxId());
+                state.lastTxId = entry.getTxId();
+
+                final Transaction transaction = entry.getValue();
+                transaction.write(state, entry.getTxId());
+
+                if (useMemoryCache) {
+                    undoInMemory.add(transaction);
                 }
 
                 flushed++;
 
                 if (flushed >= maxTransactionsPerFlush) {
-                    hasMore = true;
                     break;
                 }
             }
@@ -487,8 +491,8 @@ public class FilesystemBackend extends AbstractMetricBackend
                 }
             }
 
-            return Pair.of(txIds, hasMore);
-        }, writers);
+            wal.mark(txIds);
+        }
     }
 
     private void flushWriteState(final WriteState state) throws Exception {
