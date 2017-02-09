@@ -127,6 +127,8 @@ import lombok.extern.slf4j.Slf4j;
 @ToString(of = {})
 public class FilesystemBackend extends AbstractMetricBackend
     implements WalReceiver<Transaction>, LifeCycles {
+    public static final int CREATE_DIRECTORY_CACHE_SIZE = 10000;
+
     public static final QueryTrace.Identifier FETCH =
         QueryTrace.identifier(FilesystemBackend.class, "fetch");
 
@@ -164,6 +166,8 @@ public class FilesystemBackend extends AbstractMetricBackend
 
     final LoadingCache<SegmentKey, Optional<Segment<SegmentPoint>>> pointsSegments;
     final LoadingCache<SegmentKey, Optional<Segment<SegmentEvent>>> eventsSegments;
+    final LoadingCache<Path, Boolean> parentDirectoryCheck;
+
     /**
      * Transactions waiting to be applied by a flush.
      */
@@ -244,6 +248,16 @@ public class FilesystemBackend extends AbstractMetricBackend
 
         this.pointsSegments = buildSegmentCache(MetricType.POINT, SegmentEncoding::readPoints);
         this.eventsSegments = buildSegmentCache(EVENT, SegmentEncoding::readEvents);
+
+        this.parentDirectoryCheck = CacheBuilder
+            .newBuilder()
+            .maximumSize(CREATE_DIRECTORY_CACHE_SIZE)
+            .build(new CacheLoader<Path, Boolean>() {
+                @Override
+                public Boolean load(final Path path) throws Exception {
+                    return ensureParentDirectories(path);
+                }
+            });
 
         this.transactions = new ConcurrentLinkedQueue<>();
 
@@ -538,7 +552,7 @@ public class FilesystemBackend extends AbstractMetricBackend
 
     /**
      * Calculate the slot for a given TxId.
-     *
+     * <p>
      * operations with a higher txId should have a higher priority, which is determined by
      * the smallest comparable value.
      *
@@ -562,7 +576,7 @@ public class FilesystemBackend extends AbstractMetricBackend
             final Path temporary = temporarySegmentPath(type, key);
             final Path target = segmentPath(type, key);
 
-            ensureParentsExist(target);
+            ensureParentDirectoriesCached(target.getParent());
 
             final Stopwatch w = Stopwatch.createStarted();
 
@@ -784,9 +798,15 @@ public class FilesystemBackend extends AbstractMetricBackend
             }));
     }
 
-    private void ensureParentsExist(final Path target) throws Exception {
+    private void ensureParentDirectoriesCached(final Path path) throws Exception {
+        parentDirectoryCheck.get(path);
+    }
+
+    private boolean ensureParentDirectories(final Path source) throws Exception {
+        log.trace("ensuring directory exists: {}", source);
+
         // ensure target directories exist
-        Path current = target.getParent();
+        Path current = source;
 
         final List<Path> create = new ArrayList<>();
 
@@ -795,26 +815,25 @@ public class FilesystemBackend extends AbstractMetricBackend
             current = current.getParent();
         }
 
+        boolean created = false;
+
         for (final Path path : Lists.reverse(create)) {
             log.trace("creating directory {}", path);
 
             try {
                 files.createDirectory(path);
+                created = true;
             } catch (final FileAlreadyExistsException e) {
                 break;
             }
         }
+
+        return created;
     }
 
     @Data
     private static class SegmentQuery {
         private final SegmentKey key;
         private final DateRange range;
-    }
-
-    @Data
-    private static class QueuedTransaction {
-        private final long txId;
-        private final Transaction transaction;
     }
 }
