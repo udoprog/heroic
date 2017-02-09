@@ -110,7 +110,7 @@ public final class FilesystemMetricModule implements MetricModule, DynamicModule
             maxPendingTransactions.orElse(DEFAULT_MAX_PENDING_TRANSACTIONS);
         this.transactionParallelismPerRequest =
             transactionParallelismPerRequest.orElse(DEFAULT_TRANSACTION_PARALLELISM_PER_REQUEST);
-        this.compression = compression.orElse(Compression.NONE);
+        this.compression = compression.orElse(Compression.GORILLA);
         this.walConfig = wal.orElseGet(DisabledWalConfig::new);
         this.files = files.orElseGet(RealFilesFramework::new);
         this.useMemoryCache = useMemoryCache.orElse(DEFAULT_MEMORY);
@@ -300,7 +300,7 @@ public final class FilesystemMetricModule implements MetricModule, DynamicModule
 
         /**
          * The maximum number of segments to cache in memory.
-         *
+         * <p>
          * Segments are evicted from the cache in LRU order.
          */
         public Builder segmentCacheSize(long segmentCacheSize) {
@@ -357,7 +357,7 @@ public final class FilesystemMetricModule implements MetricModule, DynamicModule
 
         /**
          * Configured if intermediate storage in-memory should be used or not.
-         *
+         * <p>
          * This allows metrics to become available faster than without it.
          */
         public Builder memory(boolean memory) {
