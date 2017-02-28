@@ -28,27 +28,24 @@ import com.google.common.collect.Iterables;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.common.Statistics;
-import com.spotify.heroic.metric.Payload;
 import com.spotify.heroic.metric.Event;
 import com.spotify.heroic.metric.Metric;
 import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.MetricGroup;
 import com.spotify.heroic.metric.MetricType;
+import com.spotify.heroic.metric.Payload;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
-import lombok.AccessLevel;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.LongAdder;
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 
 /**
  * A base aggregation that collects data in 'buckets', one for each sampled data point.
@@ -143,48 +140,18 @@ public abstract class BucketAggregationInstance<B extends Bucket> implements Agg
                     continue;
                 }
 
-                final Iterator<B> buckets = matching(m);
+                final int start = Math.max((int) ((m.getTimestamp() - offset - 1) / size), 0);
+                final int end = Math.min((int) ((m.getTimestamp() + extent - offset - 1) / size),
+                    buckets.size());
 
-                while (buckets.hasNext()) {
-                    consumer.apply(buckets.next(), m);
+                for (int i = start; i < end; i++) {
+                    consumer.apply(buckets.get(i), m);
                 }
 
                 sampleSize += 1;
             }
 
             this.sampleSize.add(sampleSize);
-        }
-
-        private Iterator<B> matching(final Metric m) {
-            final long ts = m.getTimestamp() - offset - 1;
-            final long te = ts + extent;
-
-            if (te < 0) {
-                return Collections.emptyIterator();
-            }
-
-            // iterator that iterates from the largest to the smallest matching bucket for _this_
-            // metric.
-            return new Iterator<B>() {
-                long current = te;
-
-                @Override
-                public boolean hasNext() {
-                    while ((current / size) >= buckets.size()) {
-                        current -= size;
-                    }
-
-                    final long m = current % size;
-                    return (current >= 0 && current > ts) && (m >= 0 && m < extent);
-                }
-
-                @Override
-                public B next() {
-                    final int index = (int) (current / size);
-                    current -= size;
-                    return buckets.get(index);
-                }
-            };
         }
 
         @Override
@@ -244,8 +211,8 @@ public abstract class BucketAggregationInstance<B extends Bucket> implements Agg
     }
 
     private List<B> buildBuckets(final DateRange range, long size) {
-        final long start = range.start();
-        final long count = (range.diff() + size) / size;
+        final long start = range.start() + size;
+        final long count = (range.diff() + size) / size - 1;
 
         if (count < 1 || count > MAX_BUCKET_COUNT) {
             throw new IllegalArgumentException(String.format("range %s, size %d", range, size));
