@@ -207,12 +207,12 @@ public class CoreQueryManager implements QueryManager {
             final MetricType source = q.getSource().orElse(MetricType.POINT);
 
             final Aggregation aggregation = q.getAggregation().orElse(Empty.INSTANCE);
-            final DateRange rawRange = buildRange(q);
+            final DateRange originalRange = buildRange(q);
 
             final Filter filter = q.getFilter().orElseGet(TrueFilter::get);
 
             final AggregationContext context =
-                AggregationContext.defaultInstance(cadenceFromRange(rawRange));
+                AggregationContext.defaultInstance(cadenceFromRange(originalRange));
             final AggregationInstance root = aggregation.apply(context);
 
             final AggregationInstance aggregationInstance;
@@ -228,13 +228,21 @@ public class CoreQueryManager implements QueryManager {
                 aggregationInstance = root;
             }
 
-            final DateRange range = features.withFeature(Feature.SHIFT_RANGE,
-                () -> buildShiftedRange(rawRange, aggregationInstance.cadence(), now),
-                () -> rawRange);
+            final Optional<Long> cadence =
+                Optional.of(aggregationInstance.cadence()).filter(c -> c > 0);
+
+            /* round the range if SHIFT_RANGE is specified to be even with the cadence */
+            final DateRange roundedRange =
+                cadence.map(originalRange::rounded).orElse(originalRange);
+
+            /* query differs from rounded since it might have to include data for the first point
+             * returned */
+            final DateRange queryRange = features.withFeature(Feature.SHIFT_RANGE,
+                () -> buildQueryRange(roundedRange, cadence, now), () -> originalRange);
 
             if (features.hasFeature(Feature.DETERMINISTIC_AGGREGATIONS) &&
-                aggregationInstance.estimate(range) < 0) {
-                return async.resolved(QueryResult.error(range,
+                aggregationInstance.estimate(queryRange) < 0) {
+                return async.resolved(QueryResult.error(queryRange,
                     "Aggregation can not be evaluated with deterministic resources",
                     shardWatch.end()));
             }
@@ -242,13 +250,13 @@ public class CoreQueryManager implements QueryManager {
             final AggregationCombiner combiner;
 
             if (isDistributed) {
-                combiner = new DistributedAggregationCombiner(root.reducer(), range);
+                combiner = new DistributedAggregationCombiner(root.reducer(), queryRange);
             } else {
                 combiner = AggregationCombiner.DEFAULT;
             }
 
             final FullQuery.Request request =
-                new FullQuery.Request(source, filter, range, aggregationInstance, options,
+                new FullQuery.Request(source, filter, queryRange, aggregationInstance, options,
                     queryContext);
 
             queryLogger.logOutgoingRequestToShards(queryContext, request);
@@ -272,7 +280,8 @@ public class CoreQueryManager implements QueryManager {
                 final OptionalLimit limit = options.getGroupLimit().orElse(groupLimit);
 
                 return async
-                    .collect(futures, QueryResult.collectParts(QUERY, range, combiner, limit))
+                    .collect(futures,
+                        QueryResult.collectParts(QUERY, roundedRange, combiner, limit))
                     .directTransform(result -> {
                         reportCompletedQuery(result, fullQueryWatch);
                         return result;
@@ -459,43 +468,34 @@ public class CoreQueryManager implements QueryManager {
      * Given a range and a cadence, return a range that might be shifted in case the end period is
      * too close or after 'now'. This is useful to avoid querying non-complete buckets.
      *
-     * @param rawRange Original range.
+     * @param rounded Rounded range to use as a basis.
      * @return A possibly shifted range.
      */
-    DateRange buildShiftedRange(DateRange rawRange, long cadence, long now) {
-        if (rawRange.getStart() > now) {
-            throw new IllegalArgumentException("start is greater than now");
-        }
-
-        final DateRange rounded = rawRange.rounded(cadence);
-
-        final long nowDelta = now - rounded.getEnd();
-
-        if (nowDelta > SHIFT_TOLERANCE) {
+    DateRange buildQueryRange(
+        final DateRange rounded, final Optional<Long> cadence, final long now
+    ) {
+        if (!cadence.isPresent()) {
             return rounded;
         }
 
-        final long diff = Math.abs(Math.min(nowDelta, 0)) + SHIFT_TOLERANCE;
+        final long c = cadence.get();
 
-        return rounded.shift(-toleranceShiftPeriod(diff, cadence));
-    }
-
-    /**
-     * Calculate a tolerance shift period that corresponds to the given difference that needs to be
-     * applied to the range to honor the tolerance shift period.
-     *
-     * @param diff The time difference to apply.
-     * @param cadence The cadence period.
-     * @return The number of milliseconds that the query should be shifted to get within 'now' and
-     * maintain the given cadence.
-     */
-    private long toleranceShiftPeriod(final long diff, final long cadence) {
-        // raw query, only shift so that we are within now.
-        if (cadence <= 0L) {
-            return diff;
+        if (rounded.getStart() > now) {
+            throw new IllegalArgumentException("start is greater than now");
         }
 
-        // Round up periods
-        return ((diff + cadence - 1) / cadence) * cadence;
+        if (!rounded.isRoundedTo(c)) {
+            throw new IllegalArgumentException("range is not rounded to cadence");
+        }
+
+        final long diff = (rounded.getEnd() + SHIFT_TOLERANCE) - now;
+
+        if (diff < 0) {
+            return rounded.shiftStart(-c);
+        }
+
+        // time to subtract to get the range within the given shift tolerance.
+        final long sub = ((diff + c - 1) / c) * c;
+        return rounded.shiftStart(-c).shift(-sub);
     }
 }

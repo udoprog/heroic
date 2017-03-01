@@ -16,6 +16,8 @@ import com.spotify.heroic.querylogging.QueryLogger;
 import com.spotify.heroic.querylogging.QueryLoggerFactory;
 import com.spotify.heroic.statistics.ApiReporter;
 import eu.toolchain.async.AsyncFramework;
+import java.util.Optional;
+import java.util.function.Function;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -56,45 +58,33 @@ public class CoreQueryManagerTest {
     }
 
     @Test
-    public void testEndRangeIsNow() {
-        final DateRange range = DateRange.create(50_000L, 150_000L);
+    public void testBuildQueryRange() {
+        final Optional<Long> cadence = Optional.of(10_000L);
+        final DateRange range = DateRange.create(40_000L, 50_000L);
 
-        final DateRange shiftedRange = manager.buildShiftedRange(range, 5_000, 150_000L);
+        final Function<Long, DateRange> runner =
+            (now) -> manager.buildQueryRange(range, cadence, now);
 
-        assertEquals(DateRange.create(40_000L, 140_000L), shiftedRange);
-    }
+        // end range _is_ now, and is shifted back to within tolerance
+        assertEquals(DateRange.create(20_000L, 40_000L), runner.apply(range.getEnd()));
+        assertEquals(DateRange.create(10_000L, 30_000L), runner.apply(range.getEnd() - 1));
 
-    @Test
-    public void testEndRangeIsTooCloseToNow() {
-        final DateRange range = DateRange.create(50_000L, 153_000L);
+        // multiple (2) shifts because end range is far into the future.
+        assertEquals(DateRange.create(10_000L, 30_000L),
+            runner.apply(range.getEnd() - CoreQueryManager.SHIFT_TOLERANCE));
 
-        final DateRange shiftedRange = manager.buildShiftedRange(range, 5_000, 154_000L);
+        // end is too close to now, and the entire range is shifted back
+        assertEquals(DateRange.create(20_000L, 40_000L),
+            runner.apply(range.getEnd() + CoreQueryManager.SHIFT_TOLERANCE - 1));
 
-        assertEquals(DateRange.create(40_000L, 140_000L), shiftedRange);
-    }
-
-    @Test
-    public void testEndRangeIsOk() {
-        final DateRange range = DateRange.create(50_000L, 153_000L);
-
-        final DateRange shiftedRange = manager.buildShiftedRange(range, 5_000, 184_000L);
-
-        assertEquals(DateRange.create(50_000L, 150_000L), shiftedRange);
-    }
-
-    @Test
-    public void testEndRangeIsInTheFuture() {
-        final DateRange range = DateRange.create(50_000L, 180_000L);
-
-        final DateRange shiftedRange = manager.buildShiftedRange(range, 5_000, 150_000L);
-
-        assertEquals(DateRange.create(10_000L, 140_000L), shiftedRange);
+        // end is within shift tolerance
+        assertEquals(DateRange.create(30_000L, 50_000L),
+            runner.apply(range.getEnd() + CoreQueryManager.SHIFT_TOLERANCE));
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void testStartRangeIsInTheFuture() {
-        final DateRange range = DateRange.create(50_000L, 153_000L);
-
-        manager.buildShiftedRange(range, 5_000, 40_000L);
+        final DateRange range = DateRange.create(50_000L, 50_001L);
+        manager.buildQueryRange(range, Optional.of(5_000L), range.getStart());
     }
 }
