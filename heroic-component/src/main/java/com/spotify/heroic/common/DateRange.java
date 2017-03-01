@@ -21,17 +21,16 @@
 
 package com.spotify.heroic.common;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import eu.toolchain.serializer.AutoSerialize;
+import java.sql.Date;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.apache.commons.lang3.time.FastDateFormat;
-
-import java.sql.Date;
-
-import static com.google.common.base.Preconditions.checkArgument;
 
 @AutoSerialize
 @Data
@@ -175,5 +174,19 @@ public class DateRange implements Comparable<DateRange> {
 
     public static DateRange now() {
         return now(System.currentTimeMillis());
+    }
+
+    public DateRange shiftStart(final long extent) {
+        return new DateRange(Math.max(this.start + extent, 0), end);
+    }
+
+    /**
+     * Check if the current range is rounded to the given cadence.
+     *
+     * @param cadence cadence to check against
+     * @return {@code true} if the current range is rounded to the given cadence
+     */
+    public boolean isRoundedTo(final long cadence) {
+        return start % cadence == 0 && end % cadence == 0;
     }
 }
