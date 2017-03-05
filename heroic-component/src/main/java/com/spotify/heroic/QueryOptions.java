@@ -75,6 +75,11 @@ public class QueryOptions {
      */
     private final Optional<Boolean> failOnLimits;
 
+    /**
+     * The number of ticks to aim for by default when automatically calculating the cadence.
+     */
+    private final Optional<Long> ticksGoal;
+
     public Tracing tracing() {
         return tracing.orElse(Tracing.DEFAULT);
     }
@@ -82,7 +87,7 @@ public class QueryOptions {
     public static QueryOptions defaults() {
         return new QueryOptions(Optional.empty(), Optional.empty(), Optional.empty(),
             OptionalLimit.empty(), OptionalLimit.empty(), OptionalLimit.empty(),
-            OptionalLimit.empty(), Optional.empty());
+            OptionalLimit.empty(), Optional.empty(), Optional.empty());
     }
 
     public static Builder builder() {
@@ -98,6 +103,7 @@ public class QueryOptions {
         private OptionalLimit groupLimit = OptionalLimit.empty();
         private OptionalLimit seriesLimit = OptionalLimit.empty();
         private Optional<Boolean> failOnLimits = Optional.empty();
+        private Optional<Long> ticksGoal = Optional.empty();
 
         public Builder bucketStrategy(BucketStrategy bucketStrategy) {
             this.bucketStrategy = Optional.of(bucketStrategy);
@@ -139,9 +145,14 @@ public class QueryOptions {
             return this;
         }
 
+        public Builder ticksGoal(long ticksGoal) {
+            this.ticksGoal = Optional.of(ticksGoal);
+            return this;
+        }
+
         public QueryOptions build() {
             return new QueryOptions(bucketStrategy, tracing, fetchSize, dataLimit, aggregationLimit,
-                groupLimit, seriesLimit, failOnLimits);
+                groupLimit, seriesLimit, failOnLimits, ticksGoal);
         }
     }
 }
