@@ -211,8 +211,8 @@ public class CoreQueryManager implements QueryManager {
 
             final Filter filter = q.getFilter().orElseGet(TrueFilter::get);
 
-            final AggregationContext context =
-                AggregationContext.defaultInstance(cadenceFromRange(originalRange));
+            final AggregationContext context = AggregationContext.defaultInstance(
+                cadenceFromRange(originalRange, options.getTicksGoal()));
             final AggregationInstance root = aggregation.apply(context);
 
             final AggregationInstance aggregationInstance;
@@ -449,11 +449,11 @@ public class CoreQueryManager implements QueryManager {
             TimeUnit.MILLISECONDS.convert(7, TimeUnit.DAYS),
             TimeUnit.MILLISECONDS.convert(14, TimeUnit.DAYS));
 
-    public static final long INTERVAL_GOAL = 240;
+    public static final long DEFAULT_TICKS_GOAL = 240;
 
-    private Duration cadenceFromRange(final DateRange range) {
+    private Duration cadenceFromRange(final DateRange range, final Optional<Long> ticksGoal) {
         final long diff = range.diff();
-        final long nominal = diff / INTERVAL_GOAL;
+        final long nominal = diff / ticksGoal.orElse(DEFAULT_TICKS_GOAL);
 
         final SortedSet<Long> results = INTERVAL_FACTORS.headSet(nominal);
 
