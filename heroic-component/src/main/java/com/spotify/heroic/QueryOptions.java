@@ -24,9 +24,7 @@ package com.spotify.heroic;
 import com.spotify.heroic.common.OptionalLimit;
 import com.spotify.heroic.metric.QueryTrace;
 import com.spotify.heroic.metric.Tracing;
-
 import java.util.Optional;
-
 import lombok.Data;
 
 @Data
@@ -71,13 +69,19 @@ public class QueryOptions {
      */
     private final Optional<Boolean> failOnLimits;
 
+    /**
+     * The number of ticks to aim for by default when automatically calculating the cadence.
+     */
+    private final Optional<Long> ticksGoal;
+
     public Tracing tracing() {
         return tracing.orElse(Tracing.DEFAULT);
     }
 
     public static QueryOptions defaults() {
         return new QueryOptions(Optional.empty(), Optional.empty(), OptionalLimit.empty(),
-            OptionalLimit.empty(), OptionalLimit.empty(), OptionalLimit.empty(), Optional.empty());
+            OptionalLimit.empty(), OptionalLimit.empty(), OptionalLimit.empty(), Optional.empty(),
+            Optional.empty());
     }
 
     public static Builder builder() {
@@ -92,6 +96,7 @@ public class QueryOptions {
         private OptionalLimit groupLimit = OptionalLimit.empty();
         private OptionalLimit seriesLimit = OptionalLimit.empty();
         private Optional<Boolean> failOnLimits = Optional.empty();
+        private Optional<Long> ticksGoal = Optional.empty();
 
         public Builder tracing(Tracing tracing) {
             this.tracing = Optional.of(tracing);
@@ -113,7 +118,6 @@ public class QueryOptions {
             return this;
         }
 
-
         public Builder groupLimit(long groupLimit) {
             this.groupLimit = OptionalLimit.of(groupLimit);
             return this;
@@ -129,9 +133,14 @@ public class QueryOptions {
             return this;
         }
 
+        public Builder ticksGoal(long ticksGoal) {
+            this.ticksGoal = Optional.of(ticksGoal);
+            return this;
+        }
+
         public QueryOptions build() {
             return new QueryOptions(tracing, fetchSize, dataLimit, aggregationLimit, groupLimit,
-                seriesLimit, failOnLimits);
+                seriesLimit, failOnLimits, ticksGoal);
         }
     }
 }
