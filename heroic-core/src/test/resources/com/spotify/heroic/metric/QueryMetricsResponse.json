@@ -4,6 +4,7 @@
     "start": 1484027520000,
     "end": 1484038320000
   },
+  "cadence": null,
   "trace": {
     "what": {
       "name": "test"

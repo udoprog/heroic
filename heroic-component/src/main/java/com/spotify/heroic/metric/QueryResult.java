@@ -30,6 +30,7 @@ import eu.toolchain.async.Collector;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import lombok.Data;
 
 @Data
@@ -38,6 +39,11 @@ public class QueryResult {
      * The range in which all result groups metric's should be contained in.
      */
     private final DateRange range;
+
+    /**
+     * Cadence of the result.
+     */
+    private final Optional<Long> cadence;
 
     /**
      * Groups of results.
@@ -67,8 +73,8 @@ public class QueryResult {
      * @return A complete QueryResult.
      */
     public static Collector<QueryResultPart, QueryResult> collectParts(
-        final QueryTrace.Identifier what, final DateRange range, final AggregationCombiner combiner,
-        final OptionalLimit groupLimit
+        final QueryTrace.Identifier what, final DateRange range, final Optional<Long> cadence,
+        final AggregationCombiner combiner, final OptionalLimit groupLimit
     ) {
         final QueryTrace.NamedWatch w = QueryTrace.watch(what);
 
@@ -99,13 +105,15 @@ public class QueryResult {
                 limits.add(ResultLimit.GROUP);
             }
 
-            return new QueryResult(range, groupLimit.limitList(groups), errors, trace,
+            return new QueryResult(range, cadence, groupLimit.limitList(groups), errors, trace,
                 new ResultLimits(limits.build()), preAggregationSampleSize);
         };
     }
 
-    public static QueryResult error(DateRange range, String errorMessage, QueryTrace trace) {
-        return new QueryResult(range, Collections.emptyList(),
+    public static QueryResult error(
+        DateRange range, Optional<Long> cadence, String errorMessage, QueryTrace trace
+    ) {
+        return new QueryResult(range, cadence, Collections.emptyList(),
             Collections.singletonList(QueryError.fromMessage(errorMessage)), trace,
             ResultLimits.of(), 0);
     }
