@@ -156,7 +156,8 @@ public class QueryResource {
                     final QueryResult r = e.getRight();
                     final QueryMetricsResponse qmr =
                         new QueryMetricsResponse(queryContext.getQueryId(), r.getRange(),
-                            r.getGroups(), r.getErrors(), r.getTrace(), r.getLimits());
+                            r.getCadence(), r.getGroups(), r.getErrors(), r.getTrace(),
+                            r.getLimits());
 
                     queryLogger.logFinalResponse(queryContext, qmr);
 
@@ -179,8 +180,8 @@ public class QueryResource {
 
         httpAsync.bind(response, callback, r -> {
             QueryMetricsResponse qmr =
-                new QueryMetricsResponse(queryContext.getQueryId(), r.getRange(), r.getGroups(),
-                    r.getErrors(), r.getTrace(), r.getLimits());
+                new QueryMetricsResponse(queryContext.getQueryId(), r.getRange(), r.getCadence(),
+                    r.getGroups(), r.getErrors(), r.getTrace(), r.getLimits());
             queryLogger.logFinalResponse(queryContext, qmr);
             return qmr;
         });

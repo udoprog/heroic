@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.Test;
@@ -66,6 +67,7 @@ public class BasicSerializationTest {
     public void testQueryMetricsResponse() throws Exception {
         final UUID queryId = UUID.fromString("d11d0ad7-cc27-4667-a617-67a481f61c30");
         final DateRange range = DateRange.create(1484027520000L, 1484038320000L);
+        final Optional<Long> cadence = Optional.empty();
 
         final Set<Series> series = ImmutableSet.of();
         final MetricCollection metrics = MetricCollection.points(new ArrayList<>());
@@ -77,7 +79,7 @@ public class BasicSerializationTest {
         final ResultLimits limits = ResultLimits.of();
 
         final QueryMetricsResponse toVerify =
-            new QueryMetricsResponse(queryId, range, result, errors, trace, limits);
+            new QueryMetricsResponse(queryId, range, cadence, result, errors, trace, limits);
 
         assertSerialization("QueryMetricsResponse.json", toVerify);
     }

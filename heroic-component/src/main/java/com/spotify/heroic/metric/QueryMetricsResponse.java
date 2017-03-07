@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.UUID;
@@ -47,6 +48,9 @@ public class QueryMetricsResponse {
 
     @NonNull
     private final DateRange range;
+
+    @NonNull
+    private final Optional<Long> cadence;
 
     @NonNull
     private final List<ShardedResultGroup> result;
@@ -75,6 +79,7 @@ public class QueryMetricsResponse {
 
             g.writeObjectField("queryId", response.getQueryId());
             g.writeObjectField("range", response.getRange());
+            g.writeObjectField("cadence", response.getCadence());
             g.writeObjectField("trace", response.getTrace());
             g.writeObjectField("limits", response.getLimits());
 
