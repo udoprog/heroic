@@ -242,7 +242,7 @@ public class CoreQueryManager implements QueryManager {
 
             if (features.hasFeature(Feature.DETERMINISTIC_AGGREGATIONS) &&
                 aggregationInstance.estimate(queryRange) < 0) {
-                return async.resolved(QueryResult.error(queryRange,
+                return async.resolved(QueryResult.error(queryRange, cadence,
                     "Aggregation can not be evaluated with deterministic resources",
                     shardWatch.end()));
             }
@@ -281,7 +281,7 @@ public class CoreQueryManager implements QueryManager {
 
                 return async
                     .collect(futures,
-                        QueryResult.collectParts(QUERY, roundedRange, combiner, limit))
+                        QueryResult.collectParts(QUERY, roundedRange, cadence, combiner, limit))
                     .directTransform(result -> {
                         reportCompletedQuery(result, fullQueryWatch);
                         return result;
