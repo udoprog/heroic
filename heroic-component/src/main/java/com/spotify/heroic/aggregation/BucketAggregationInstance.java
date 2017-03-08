@@ -190,8 +190,8 @@ public abstract class BucketAggregationInstance<B extends Bucket> implements Agg
             /* adjust the timestamp to the number of buckets */
             final long adjusted = timestamp - offset;
 
-            final int start = Math.max((int) ((adjusted - 1) / size), 0);
-            final int end = Math.min((int) ((adjusted + extent - 1) / size), buckets.size());
+            final int start = Math.max((int) ((adjusted + (size - extent)) / size), 0);
+            final int end = Math.min((int) ((adjusted + size) / size), buckets.size());
 
             return new StartEnd(start, end);
         }
@@ -229,8 +229,8 @@ public abstract class BucketAggregationInstance<B extends Bucket> implements Agg
     }
 
     private List<B> buildBuckets(final DateRange range, long size) {
-        final long start = range.start() + size;
-        final long count = (range.diff() + size) / size - 1;
+        final long start = range.start();
+        final long count = range.diff() / size;
 
         if (count < 1 || count > MAX_BUCKET_COUNT) {
             throw new IllegalArgumentException(String.format("range %s, size %d", range, size));

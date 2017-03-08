@@ -1,7 +1,5 @@
 package com.spotify.heroic.aggregation;
 
-import static org.junit.Assert.assertEquals;
-
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.spotify.heroic.common.DateRange;
@@ -15,6 +13,7 @@ import java.util.Map;
 import java.util.Set;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
 
@@ -86,18 +85,17 @@ public class BucketAggregationTest {
         final AggregationSession session = a.session(new DateRange(10, 30));
 
         session.updatePoints(group, series, build()
-            .add(10, 1000.0)
-            .add(11, 3.0)
-            .add(12, 4.0)
-            .add(20, 7.0)
-            .add(21, 3.0)
-            .add(22, 4.0)
-            .add(31, 1000.0)
+            .add(9, 1000.0)
+            .add(10, 1.0)
+            .add(19, 2.0)
+            .add(20, 3.0)
+            .add(29, 4.0)
+            .add(30, 1000.0)
             .result());
 
         final AggregationResult result = session.result();
 
-        assertEquals(build().add(20, 14.0).add(30, 7.0).result(),
+        Assert.assertEquals(build().add(10, 3.0).add(20, 7.0).result(),
             result.getResult().get(0).getMetrics().getData());
     }
 
@@ -107,52 +105,48 @@ public class BucketAggregationTest {
         final AggregationSession session = a.session(new DateRange(10, 30));
 
         session.updatePoints(group, series, build()
-            .add(0, 1000.0)
-            .add(1, 3.0)
-            .add(2, 4.0)
-            .add(11, 3.0)
-            .add(12, 4.0)
-            .add(31, 1000.0)
+            .add(9, 1000.0)
+            .add(10, 1.0)
+            .add(20, 2.0)
+            .add(29, 3.0)
+            .add(30, 4.0)
+            .add(39, 5.0)
+            .add(40, 1000.0)
             .result());
 
         final AggregationResult result = session.result();
 
-        assertEquals(build().add(20, 14.0).add(30, 7.0).result(),
+        Assert.assertEquals(build().add(10, 6.0).add(20, 14.0).result(),
             result.getResult().get(0).getMetrics().getData());
     }
 
     @Test
     public void testShorterExtent() {
         final BucketAggregationInstance<TestBucket> a = setup(10, 5);
-        final AggregationSession session = a.session(new DateRange(10, 30));
+        final AggregationSession session = a.session(new DateRange(10, 40));
 
         session.updatePoints(group, series, build()
+            .add(9, 1000.0)
+            .add(10, 1.0)
+            .add(14, 1.0)
             .add(15, 1000.0)
-            .add(16, 3.0)
-            .add(17, 4.0)
-            .add(21, 1000.0)
+            .add(19, 1000.0)
+            .add(20, 1.0)
+            .add(21, 1.0)
+            .add(24, 1.0)
             .add(25, 1000.0)
-            .add(26, 3.0)
-            .add(27, 4.0)
-            .add(31, 1000.0)
+            .add(29, 1000.0)
+            .add(30, 1.0)
+            .add(31, 1.0)
+            .add(32, 1.0)
+            .add(34, 1.0)
+            .add(35, 1000.0)
             .result());
 
         final AggregationResult result = session.result();
 
-        assertEquals(build().add(20, 7.0).add(30, 7.0).result(),
+        Assert.assertEquals(build().add(10, 2.0).add(20, 3.0).add(30, 4.0).result(),
             result.getResult().get(0).getMetrics().getData());
-    }
-
-    private void checkBucketAggregation(
-        List<Point> input, List<Point> expected, final long extent
-    ) {
-        final BucketAggregationInstance<TestBucket> a = setup(1000, extent);
-        final AggregationSession session = a.session(new DateRange(1000, 3000));
-        session.updatePoints(group, series, input);
-
-        final AggregationResult result = session.result();
-
-        assertEquals(expected, result.getResult().get(0).getMetrics().getData());
     }
 
     @Test
@@ -161,18 +155,19 @@ public class BucketAggregationTest {
         final AggregationSession session = a.session(new DateRange(10, 40));
 
         session.updatePoints(group, series, build()
-            .add(5, 1000.0)
-            .add(6, 3.0)
-            .add(7, 4.0)
-            .add(16, 3.0)
-            .add(17, 4.0)
-            .add(40, 1.0)
-            .add(41, 1000.0)
+            .add(9, 1000.0)
+            .add(10, 1.0)
+            .add(20, 2.0)
+            .add(24, 3.0)
+            .add(30, 4.0)
+            .add(34, 5.0)
+            .add(44, 6.0)
+            .add(45, 1000.0)
             .result());
 
         final AggregationResult result = session.result();
 
-        assertEquals(build().add(20, 14.0).add(30, 7.0).add(40, 1.0).result(),
+        Assert.assertEquals(build().add(10, 6.0).add(20, 14.0).add(30, 15.0).result(),
             result.getResult().get(0).getMetrics().getData());
     }
 
@@ -185,27 +180,27 @@ public class BucketAggregationTest {
         final Map<Long, BucketAggregationInstance.StartEnd> fromTo = new HashMap<>();
 
         // underflow
-        for (long ts = 0L; ts <= 10L; ts++) {
+        for (long ts = 0L; ts < 10L; ts++) {
             fromTo.put(ts, new BucketAggregationInstance.StartEnd(0, 0));
         }
 
         // first bucket
-        for (long ts = 11L; ts <= 20L; ts++) {
+        for (long ts = 10L; ts < 20L; ts++) {
             fromTo.put(ts, new BucketAggregationInstance.StartEnd(0, 1));
         }
 
         // second bucket
-        for (long ts = 21L; ts <= 30L; ts++) {
+        for (long ts = 20L; ts < 30L; ts++) {
             fromTo.put(ts, new BucketAggregationInstance.StartEnd(1, 2));
         }
 
         // overflow
-        for (long ts = 31L; ts <= 40L; ts++) {
+        for (long ts = 30L; ts < 40L; ts++) {
             fromTo.put(ts, new BucketAggregationInstance.StartEnd(2, 2));
         }
 
         for (final Map.Entry<Long, BucketAggregationInstance.StartEnd> e : fromTo.entrySet()) {
-            assertEquals("Expected same mapping for timestamp " + e.getKey(), e.getValue(),
+            Assert.assertEquals("Expected same mapping for timestamp " + e.getKey(), e.getValue(),
                 session.mapTimestamp(e.getKey()));
         }
     }
