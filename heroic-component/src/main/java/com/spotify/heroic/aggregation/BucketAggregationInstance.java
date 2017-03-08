@@ -140,9 +140,9 @@ public abstract class BucketAggregationInstance<B extends Bucket> implements Agg
                     continue;
                 }
 
-                final int start = Math.max((int) ((m.getTimestamp() - extent - offset + size) / size), 0);
-                final int end =
-                    Math.min((int) ((m.getTimestamp() - offset + size) / size), buckets.size());
+                int start =
+                    (int) Math.max(((m.getTimestamp() - offset + (size - extent)) / size), 0);
+                int end = (int) Math.min((m.getTimestamp() - offset + size) / size, buckets.size());
 
                 for (int i = start; i < end; i++) {
                     consumer.apply(buckets.get(i), m);
