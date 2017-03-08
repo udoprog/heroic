@@ -106,11 +106,11 @@ public class BucketAggregationTest {
 
         session.updatePoints(group, series, build()
             .add(0, 1000.0)
-            .add(1, 3.0)
-            .add(2, 4.0)
-            .add(11, 3.0)
-            .add(12, 4.0)
-            .add(31, 1000.0)
+            .add(10, 1.0)
+            .add(19, 2.0)
+            .add(20, 3.0)
+            .add(39, 4.0)
+            .add(40, 1000.0)
             .result());
 
         final AggregationResult result = session.result();
@@ -122,22 +122,29 @@ public class BucketAggregationTest {
     @Test
     public void testShorterExtent() {
         final BucketAggregationInstance<TestBucket> a = setup(10, 5);
-        final AggregationSession session = a.session(new DateRange(10, 30));
+        final AggregationSession session = a.session(new DateRange(10, 40));
 
         session.updatePoints(group, series, build()
+            .add(9, 1000.0)
+            .add(10, 1.0)
+            .add(14, 1.0)
             .add(15, 1000.0)
-            .add(16, 3.0)
-            .add(17, 4.0)
-            .add(21, 1000.0)
-            .add(25, 1000.0)
-            .add(26, 3.0)
-            .add(27, 4.0)
-            .add(31, 1000.0)
+            .add(19, 1000.0)
+            .add(20, 1.0)
+            .add(21, 1.0)
+            .add(24, 1.0)
+            .add(25, 2000.0)
+            .add(29, 2000.0)
+            .add(30, 1.0)
+            .add(31, 1.0)
+            .add(32, 1.0)
+            .add(34, 1.0)
+            .add(35, 3000.0)
             .result());
 
         final AggregationResult result = session.result();
 
-        Assert.assertEquals(build().add(20, 7.0).add(30, 7.0).result(),
+        Assert.assertEquals(build().add(10, 2.0).add(20, 3.0).add(30, 4.0).result(),
             result.getResult().get(0).getMetrics().getData());
     }
 
