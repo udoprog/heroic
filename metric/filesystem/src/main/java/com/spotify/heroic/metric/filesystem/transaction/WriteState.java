@@ -11,4 +11,9 @@ public class WriteState {
     public final SegmentSnapshot<SegmentPoint, Double> points;
     public final SegmentSnapshot<SegmentEvent, Map<String, String>> events;
     public long lastTxId = Wal.DISABLED_TXID;
+
+    public void reset() {
+        points.reset();
+        events.reset();
+    }
 }
