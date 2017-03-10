@@ -25,4 +25,14 @@ public class SegmentSnapshot<T extends Comparable<T>, V> {
      * Indicated that this write has changed.
      */
     public boolean changed = false;
+
+    /**
+     * Reset the snapshot, clearing all memory used.
+     */
+    public void reset() {
+        if (changed) {
+            snapshot.clear();
+            this.changed = false;
+        }
+    }
 }

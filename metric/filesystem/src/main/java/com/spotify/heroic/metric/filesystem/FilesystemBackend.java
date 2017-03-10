@@ -109,6 +109,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.inject.Inject;
@@ -342,10 +343,21 @@ public class FilesystemBackend extends AbstractMetricBackend
     }
 
     @Override
+    public AsyncFuture<FetchData.Result> fetch(
+        final FetchData.Request request, final FetchQuotaWatcher watcher,
+        final Consumer<MetricCollection> metricsConsumer
+    ) {
+        return fetch(request, watcher).directTransform(result -> {
+            result.getGroups().forEach(metricsConsumer);
+            return result.getResult();
+        });
+    }
+
+    @Override
     public AsyncFuture<FetchData> fetch(
         final FetchData.Request request, final FetchQuotaWatcher watcher
     ) {
-        final Tracing tracing = request.getOptions().getTracing();
+        final Tracing tracing = request.getOptions().getTracing().orElse(Tracing.DEFAULT);
 
         final QueryTrace.NamedWatch watch = tracing.watch(FETCH);
 
@@ -618,14 +630,20 @@ public class FilesystemBackend extends AbstractMetricBackend
     }
 
     private AsyncFuture<Void> commit(final Transaction transaction) throws Exception {
-        if (useMemoryCache) {
-            final InMemoryState state = new InMemoryState(new SegmentInMemory<>(pointsInMemory),
-                new SegmentInMemory<>(eventsInMemory));
+        AsyncFuture<Void> walWrite = wal.write(transaction);
 
-            transaction.writeInMemory(state);
+        // write immediately to in-memory state if accepted by wal
+        if (useMemoryCache) {
+            walWrite = walWrite.directTransform(ignore -> {
+                final InMemoryState state = new InMemoryState(new SegmentInMemory<>(pointsInMemory),
+                    new SegmentInMemory<>(eventsInMemory));
+
+                transaction.writeInMemory(state);
+                return null;
+            });
         }
 
-        return wal.write(transaction).onResolved(ignore -> scheduleFlush());
+        return walWrite.onResolved(ignore -> scheduleFlush());
     }
 
     private <S extends Comparable<S>, T, U> List<U> doFetch(
@@ -697,7 +715,7 @@ public class FilesystemBackend extends AbstractMetricBackend
 
             final Supplier<Wal.Recovery<Transaction>> recovery =
                 () -> new Wal.Recovery<Transaction>() {
-                    final WriteState state = new WriteState(new SegmentSnapshot<>(pointsSegments),
+                    WriteState state = new WriteState(new SegmentSnapshot<>(pointsSegments),
                         new SegmentSnapshot<>(eventsSegments));
 
                     @Override
@@ -709,7 +727,11 @@ public class FilesystemBackend extends AbstractMetricBackend
 
                     @Override
                     public void flush() throws Exception {
+                        log.info("flushing write state");
                         flushWriteState(state);
+                        log.info("resetting state");
+                        // free memory used by write state
+                        state.reset();
                     }
                 };
 
