@@ -22,17 +22,19 @@
 package com.spotify.heroic.shell.task;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.spotify.heroic.QueryOptions;
 import com.spotify.heroic.common.DateRange;
+import com.spotify.heroic.common.Duration;
+import com.spotify.heroic.common.Histogram;
 import com.spotify.heroic.common.Series;
 import com.spotify.heroic.dagger.CoreComponent;
-import com.spotify.heroic.metric.FetchData;
-import com.spotify.heroic.metric.FetchQuotaWatcher;
+import com.spotify.heroic.generator.Generator;
+import com.spotify.heroic.generator.GeneratorManager;
 import com.spotify.heroic.metric.MetricBackend;
-import com.spotify.heroic.metric.MetricBackendGroup;
+import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.MetricManager;
-import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.WriteMetric;
 import com.spotify.heroic.shell.AbstractShellTaskParams;
 import com.spotify.heroic.shell.ShellIO;
@@ -48,7 +50,6 @@ import eu.toolchain.async.StreamCollector;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -58,20 +59,27 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.inject.Inject;
 import lombok.Data;
 import lombok.ToString;
+import org.apache.commons.lang3.tuple.Pair;
 import org.kohsuke.args4j.Option;
 
 @TaskUsage("Perform performance testing")
 @TaskName("write-performance")
 public class WritePerformance implements ShellTask {
+    public static final TimeUnit UNIT = TimeUnit.MICROSECONDS;
+
     private final Clock clock;
     private final MetricManager metrics;
     private final AsyncFramework async;
+    private final GeneratorManager generator;
 
     @Inject
-    public WritePerformance(Clock clock, MetricManager metrics, AsyncFramework async) {
+    public WritePerformance(
+        Clock clock, MetricManager metrics, AsyncFramework async, GeneratorManager generator
+    ) {
         this.clock = clock;
         this.metrics = metrics;
         this.async = async;
+        this.generator = generator;
     }
 
     @Override
@@ -85,95 +93,94 @@ public class WritePerformance implements ShellTask {
     public AsyncFuture<Void> run(final ShellIO io, TaskParameters base) throws Exception {
         final Parameters params = (Parameters) base;
 
+        final Generator generator =
+            this.generator.findGenerator(params.generator).orElseThrow(() -> {
+                return new IllegalArgumentException("No such generator: " + params.generator);
+            });
+
         final Date now = new Date();
 
         final List<Series> series = generateSeries(params.series);
 
-        final long startRange =
-            now.getTime() - TimeUnit.MILLISECONDS.convert(params.history, TimeUnit.SECONDS);
+        final long startRange = now.getTime() - params.history.toMilliseconds();
         final long endRange = now.getTime();
         final DateRange range = new DateRange(startRange, endRange);
 
-        final MetricBackendGroup readGroup = metrics.useGroup(params.from);
         final List<MetricBackend> targets = resolveTargets(params.targets);
 
-        final List<AsyncFuture<FetchData.Result>> reads = new ArrayList<>();
-        final List<WriteMetric.Request> writeRequests =
-            Collections.synchronizedList(new ArrayList<>());
+        final List<WriteMetric.Request> input = new ArrayList<>();
 
         for (final Series s : series) {
-            reads.add(readGroup.fetch(
-                new FetchData.Request(MetricType.POINT, s, range, QueryOptions.defaults()),
-                FetchQuotaWatcher.NO_QUOTA,
-                mc -> writeRequests.add(new WriteMetric.Request(s, mc))));
+            final MetricCollection collection = generator.generate(s, range);
+            input.add(new WriteMetric.Request(s, collection));
         }
 
-        return async.collect(reads).lazyTransform(input -> {
-            final long warmupStart = clock.currentTimeMillis();
+        final List<CollectedTimes> warmup = new ArrayList<>();
 
-            final List<CollectedTimes> warmup = new ArrayList<>();
+        for (int i = 0; i < params.warmup; i++) {
+            final Stopwatch stopwatch = Stopwatch.createStarted();
 
-            for (int i = 0; i < params.warmup; i++) {
-                io.out().println(String.format("Warmup step %d/%d", (i + 1), params.warmup));
+            io.out().println(String.format("Warmup step %d/%d", (i + 1), params.warmup));
 
-                final List<Callable<AsyncFuture<Times>>> writes =
-                    buildWrites(targets, writeRequests, params, warmupStart);
+            final List<Callable<AsyncFuture<Times>>> writes =
+                buildWrites(targets, input, params, stopwatch);
 
-                warmup.add(collectWrites(io.out(), writes, params.parallelism).get());
-                // try to trick the JVM not to optimize out any steps
-                warmup.clear();
-            }
+            warmup.add(collectWrites(io.out(), writes, params.parallelism).get());
+            // try to trick the JVM not to optimize out any steps
+            warmup.clear();
+        }
 
-            int totalWrites = 0;
+        int totalWrites = 0;
 
-            for (final WriteMetric.Request w : writeRequests) {
-                totalWrites += (w.getData().size() * params.writes);
-            }
+        for (final WriteMetric.Request w : input) {
+            totalWrites += (w.getData().size() * params.writes);
+        }
 
-            final List<CollectedTimes> all = new ArrayList<>();
-            final List<Double> writesPerSecond = new ArrayList<>();
-            final List<Double> runtimes = new ArrayList<>();
+        final List<CollectedTimes> all = new ArrayList<>();
+        final List<Double> writesPerSecond = new ArrayList<>();
+        final List<Double> runtimes = new ArrayList<>();
 
-            for (int i = 0; i < params.loop; i++) {
-                io.out().println(String.format("Running step %d/%d", (i + 1), params.loop));
+        for (int i = 0; i < params.loop; i++) {
+            io.out().println(String.format("Running step %d/%d", (i + 1), params.loop));
 
-                final long start = clock.currentTimeMillis();
+            final Stopwatch stopwatch = Stopwatch.createStarted();
 
-                final List<Callable<AsyncFuture<Times>>> writes =
-                    buildWrites(targets, writeRequests, params, start);
-                all.add(collectWrites(io.out(), writes, params.parallelism).get());
+            final List<Callable<AsyncFuture<Times>>> writes =
+                buildWrites(targets, input, params, stopwatch);
+            all.add(collectWrites(io.out(), writes, params.parallelism).get());
 
-                final double totalRuntime = (clock.currentTimeMillis() - start) / 1000.0;
+            final long totalRuntime = stopwatch.elapsed(UNIT);
 
-                writesPerSecond.add(totalWrites / totalRuntime);
-                runtimes.add(totalRuntime);
-            }
+            final double totalRuntimeSeconds =
+                totalRuntime / (double) UNIT.convert(1, TimeUnit.SECONDS);
 
-            final CollectedTimes times = merge(all);
+            writesPerSecond.add(totalWrites / totalRuntimeSeconds);
+            runtimes.add(totalRuntimeSeconds);
+        }
 
-            io.out().println(String.format("Failed: %d write(s)", times.errors));
-            io.out().println(String.format("Times: " + convertList(runtimes)));
-            io.out().println(String.format("Write/s: " + convertList(writesPerSecond)));
-            io.out().println();
+        final CollectedTimes times = merge(all);
 
-            printHistogram("Batch Times", io.out(), times.runTimes, TimeUnit.MILLISECONDS);
-            io.out().println();
+        io.out().println(String.format("Failed: %d write(s)", times.errors));
+        io.out().println(String.format("Times: %s", convertList(runtimes)));
+        io.out().println(String.format("Write/s: %s", convertList(writesPerSecond)));
+        io.out().println();
 
-            printHistogram("Individual Times", io.out(), times.executionTimes,
-                TimeUnit.NANOSECONDS);
-            io.out().flush();
+        printHistogram("Batch Times", io.out(), times.runTimes.build());
+        io.out().println();
 
-            return async.resolved();
-        });
+        printHistogram("Individual Times", io.out(), times.executionTimes.build());
+        io.out().flush();
+
+        return async.resolved();
     }
 
     private String convertList(final List<Double> values) {
-        return joiner.join(values.stream().map(v -> String.format("%.2f", v)).iterator());
+        return joiner.join(values.stream().map(v -> String.format("%.2f s", v)).iterator());
     }
 
     private CollectedTimes merge(List<CollectedTimes> all) {
-        final List<Long> runTimes = new ArrayList<>();
-        final List<Long> executionTimes = new ArrayList<>();
+        final Histogram.Builder runTimes = Histogram.builder();
+        final Histogram.Builder executionTimes = Histogram.builder();
         int errors = 0;
 
         for (final CollectedTimes time : all) {
@@ -200,35 +207,53 @@ public class WritePerformance implements ShellTask {
     }
 
     private void printHistogram(
-        String title, final PrintWriter out, final List<Long> times, TimeUnit unit
+        String title, final PrintWriter out, final Histogram timings
     ) {
-        if (times.isEmpty()) {
-            out.println(String.format("%s: (no samples)", title));
-            return;
+        out.println(String.format("%s:", title));
+        out.println(String.format(" total: %d write(s)", timings.getCount()));
+
+        timings.getMean().ifPresent(mean -> {
+            out.println(String.format("    mean: %s", formatTime(mean, UNIT)));
+        });
+
+        timings.getMedian().ifPresent(value -> {
+            out.println(String.format("  median: %s", formatTime(value, UNIT)));
+        });
+
+        timings.getP75().ifPresent(value -> {
+            out.println(String.format("    75th: %s", formatTime(value, UNIT)));
+        });
+
+        timings.getP99().ifPresent(value -> {
+            out.println(String.format("    99th: %s", formatTime(value, UNIT)));
+        });
+    }
+
+    private static final List<Pair<TimeUnit, String>> FORMAT_UNITS =
+        ImmutableList.of(Pair.of(TimeUnit.MINUTES, "m"), Pair.of(TimeUnit.SECONDS, "s"),
+            Pair.of(TimeUnit.MILLISECONDS, "ms"), Pair.of(TimeUnit.MICROSECONDS, "us"),
+            Pair.of(TimeUnit.NANOSECONDS, "ns"));
+
+    private String formatTime(final long input, final TimeUnit unit) {
+        final double time = (double) input;
+        return formatTime(time, unit);
+    }
+
+    private String formatTime(final double time, final TimeUnit unit) {
+        for (final Pair<TimeUnit, String> formatUnit : FORMAT_UNITS) {
+            final double factor = (double) unit.convert(1, formatUnit.getLeft());
+
+            if (time / factor > 1.0d) {
+                return String.format("%.3f %s", time / factor, formatUnit.getRight());
+            }
         }
 
-        Collections.sort(times);
-
-        final long avg = average(times);
-        final long q10 = times.get((int) (0.1 * times.size()));
-        final long q50 = times.get((int) (0.5 * times.size()));
-        final long q75 = times.get((int) (0.75 * times.size()));
-        final long q90 = times.get((int) (0.90 * times.size()));
-        final long q99 = times.get((int) (0.99 * times.size()));
-
-        out.println(String.format("%s:", title));
-        out.println(String.format(" total: %d write(s)", times.size()));
-        out.println(String.format("   avg: %d ms", TimeUnit.MILLISECONDS.convert(avg, unit)));
-        out.println(String.format("  10th: %d ms", TimeUnit.MILLISECONDS.convert(q10, unit)));
-        out.println(String.format("  50th: %d ms", TimeUnit.MILLISECONDS.convert(q50, unit)));
-        out.println(String.format("  75th: %d ms", TimeUnit.MILLISECONDS.convert(q75, unit)));
-        out.println(String.format("  90th: %d ms", TimeUnit.MILLISECONDS.convert(q90, unit)));
-        out.println(String.format("  99th: %d ms", TimeUnit.MILLISECONDS.convert(q99, unit)));
+        throw new IllegalArgumentException("input");
     }
 
     private List<Callable<AsyncFuture<Times>>> buildWrites(
         List<MetricBackend> targets, List<WriteMetric.Request> input, final Parameters params,
-        final long start
+        final Stopwatch stopwatch
     ) {
         final List<Callable<AsyncFuture<Times>>> writes = new ArrayList<>();
 
@@ -239,8 +264,7 @@ public class WritePerformance implements ShellTask {
                 final MetricBackend target = targets.get(request++ % targets.size());
 
                 writes.add(() -> target.write(w).directTransform(result -> {
-                    final long runtime = clock.currentTimeMillis() - start;
-                    return new Times(result.getTimes(), runtime);
+                    return new Times(result.getTimes(), stopwatch.elapsed(UNIT));
                 }));
             }
         }
@@ -259,12 +283,12 @@ public class WritePerformance implements ShellTask {
 
         final AsyncFuture<CollectedTimes> results =
             async.eventuallyCollect(writes, new StreamCollector<Times, CollectedTimes>() {
-                final ConcurrentLinkedQueue<Long> runtimes = new ConcurrentLinkedQueue<>();
+                final ConcurrentLinkedQueue<Long> runTimes = new ConcurrentLinkedQueue<>();
                 final ConcurrentLinkedQueue<Long> executionTimes = new ConcurrentLinkedQueue<>();
 
                 @Override
                 public void resolved(Times result) throws Exception {
-                    runtimes.add(result.getRuntime());
+                    runTimes.add(result.getRuntime());
                     executionTimes.addAll(result.getExecutionTimes());
                     check();
                 }
@@ -303,9 +327,9 @@ public class WritePerformance implements ShellTask {
                     out.println();
                     out.flush();
 
-                    final List<Long> runtimes = new ArrayList<Long>(this.runtimes);
-                    final List<Long> executionTimes = new ArrayList<>(this.executionTimes);
-                    return new CollectedTimes(runtimes, executionTimes, errors.get());
+                    final Histogram.Builder runTimes = Histogram.builder(this.runTimes);
+                    final Histogram.Builder executionTimes = Histogram.builder(this.executionTimes);
+                    return new CollectedTimes(runTimes, executionTimes, errors.get());
                 }
             }, parallelism);
 
@@ -339,20 +363,19 @@ public class WritePerformance implements ShellTask {
             usage = "Maximum number of datapoints to fetch (default: 1000000)", metaVar = "<int>")
         private int limit = 1000000;
 
-        @Option(name = "--series", required = true, usage = "Number of different series to write",
+        @Option(name = "--series", usage = "Number of different series to write",
             metaVar = "<number>")
         private int series = 10;
 
-        @Option(name = "--from", required = true, usage = "Group to read data from",
-            metaVar = "<group>")
-        private String from;
+        @Option(name = "--generator", usage = "Generator to use", metaVar = "<generator>")
+        private String generator = "random";
 
         @Option(name = "--target", usage = "Group to write data to", metaVar = "<backend>")
         private List<String> targets = new ArrayList<>();
 
         @Option(name = "--history", usage = "Seconds of data to copy (default: 3600)",
             metaVar = "<number>")
-        private long history = 3600;
+        private Duration history = Duration.of(3600, TimeUnit.SECONDS);
 
         @Option(name = "--writes", usage = "How many writes to perform (default: 1000)",
             metaVar = "<number>")
@@ -373,8 +396,8 @@ public class WritePerformance implements ShellTask {
 
     @Data
     private static final class CollectedTimes {
-        private final List<Long> runTimes;
-        private final List<Long> executionTimes;
+        private final Histogram.Builder runTimes;
+        private final Histogram.Builder executionTimes;
         private final int errors;
     }
 
