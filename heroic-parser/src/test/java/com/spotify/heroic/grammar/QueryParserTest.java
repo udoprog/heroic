@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import static com.spotify.heroic.grammar.Expression.empty;
+import static com.spotify.heroic.grammar.Expression.any;
 import static com.spotify.heroic.grammar.Expression.duration;
 import static com.spotify.heroic.grammar.Expression.function;
 import static com.spotify.heroic.grammar.Expression.integer;
@@ -53,13 +53,13 @@ public class QueryParserTest {
         final QueryExpression query = statements.get(1).cast(QueryExpression.class);
 
         assertEquals(reference(cols(4, 5), "a"), let.getReference());
-        assertEquals(empty(col(9)), let.getExpression().cast(QueryExpression.class).getSelect());
-        assertEquals(empty(col(12)), query.getSelect());
+        assertEquals(any(col(9)), let.getExpression().cast(QueryExpression.class).getSelect());
+        assertEquals(any(col(12)), query.getSelect());
     }
 
     @Test
     public void testLetStatement() {
-        final QueryExpression query = QueryExpression.newBuilder(col(9), empty(col(9))).build();
+        final QueryExpression query = QueryExpression.newBuilder(col(9), any(col(9))).build();
         final Expression expected = let(cols(0, 9), reference(cols(4, 5), "a"), query);
 
         assertEquals(ImmutableList.of(expected), parser.parse("let $a = *"));
@@ -68,20 +68,20 @@ public class QueryParserTest {
     @Test
     public void testQuery() {
         final QueryExpression query = parser.parseQuery("*");
-        assertEquals(empty(col(0)), query.getSelect());
+        assertEquals(any(col(0)), query.getSelect());
     }
 
     @Test
     public void testQueryWith() {
         final QueryExpression query = parser.parseQuery("* with foo = bar");
-        assertEquals(empty(col(0)), query.getSelect());
+        assertEquals(any(col(0)), query.getSelect());
         assertEquals(ImmutableMap.of("foo", string(cols(13, 15), "bar")), query.getWith());
     }
 
     @Test
     public void testQueryAs() {
         final QueryExpression query = parser.parseQuery("* as foo = bar");
-        assertEquals(empty(col(0)), query.getSelect());
+        assertEquals(any(col(0)), query.getSelect());
         assertEquals(ImmutableMap.of("foo", string(cols(11, 13), "bar")), query.getAs());
     }
 
@@ -224,7 +224,7 @@ public class QueryParserTest {
     @Test
     public void testByAll() {
         final FunctionExpression reference =
-            function(cols(0, 11), "group", empty(cols(11, 11)), function(cols(0, 6), "average"));
+            function(cols(0, 11), "group", any(cols(11, 11)), function(cols(0, 6), "average"));
         assertEquals(reference, expr("average by *"));
     }
 

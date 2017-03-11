@@ -31,8 +31,8 @@ import lombok.Data;
  * Type that represents the any '*' expression.
  */
 @Data
-@JsonTypeName("empty")
-public class EmptyExpression implements Expression {
+@JsonTypeName("any")
+public class AnyExpression implements Expression {
     public static final String EMPTY = "empty";
 
     private final Context context;
@@ -44,7 +44,7 @@ public class EmptyExpression implements Expression {
 
     @Override
     public <T extends Expression> T cast(Class<T> to) {
-        if (to.equals(Expression.class) || to.equals(EmptyExpression.class)) {
+        if (to.equals(Expression.class) || to.equals(AnyExpression.class)) {
             return (T) this;
         }
 

@@ -42,7 +42,7 @@ import com.spotify.heroic.common.Features;
 import com.spotify.heroic.common.OptionalLimit;
 import com.spotify.heroic.filter.Filter;
 import com.spotify.heroic.filter.TrueFilter;
-import com.spotify.heroic.grammar.EmptyExpression;
+import com.spotify.heroic.grammar.AnyExpression;
 import com.spotify.heroic.grammar.DefaultScope;
 import com.spotify.heroic.grammar.Expression;
 import com.spotify.heroic.grammar.FunctionExpression;
@@ -179,7 +179,7 @@ public class CoreQueryManager implements QueryManager {
                         }
 
                         @Override
-                        public Aggregation visitEmpty(final EmptyExpression e) {
+                        public Aggregation visitEmpty(final AnyExpression e) {
                             return visitFunction(e.cast(FunctionExpression.class));
                         }
                     });

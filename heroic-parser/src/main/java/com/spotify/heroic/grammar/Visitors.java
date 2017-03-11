@@ -326,7 +326,7 @@ public class Visitors {
 
         @Override
         public Expression visitExpressionAny(final HeroicQueryParser.ExpressionAnyContext ctx) {
-            return new EmptyExpression(context(ctx));
+            return new AnyExpression(context(ctx));
         }
 
         private TimeUnit extractUnit(Context ctx, String text) {
