@@ -34,6 +34,9 @@ import com.spotify.heroic.elasticsearch.AbstractElasticsearchMetadataBackend;
 import com.spotify.heroic.elasticsearch.BackendType;
 import com.spotify.heroic.elasticsearch.Connection;
 import com.spotify.heroic.elasticsearch.RateLimitedCache;
+import com.spotify.heroic.elasticsearch.filter.BoolDocumentFilter;
+import com.spotify.heroic.elasticsearch.filter.DocumentFilter;
+import com.spotify.heroic.elasticsearch.filter.MatchAllDocumentFilter;
 import com.spotify.heroic.elasticsearch.index.NoIndexSelectedException;
 import com.spotify.heroic.filter.AndFilter;
 import com.spotify.heroic.filter.FalseFilter;
@@ -63,27 +66,6 @@ import eu.toolchain.async.AsyncFuture;
 import eu.toolchain.async.Managed;
 import eu.toolchain.async.ManagedAction;
 import eu.toolchain.async.Transform;
-import lombok.ToString;
-import org.apache.commons.lang3.tuple.Pair;
-import org.elasticsearch.action.count.CountRequestBuilder;
-import org.elasticsearch.action.deletebyquery.DeleteByQueryRequestBuilder;
-import org.elasticsearch.action.index.IndexRequest.OpType;
-import org.elasticsearch.action.index.IndexRequestBuilder;
-import org.elasticsearch.action.search.SearchRequestBuilder;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.SearchType;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentFactory;
-import org.elasticsearch.index.query.FilterBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.aggregations.AggregationBuilder;
-import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.bucket.terms.Terms;
-
-import javax.inject.Inject;
-import javax.inject.Named;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -95,13 +77,10 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-
-import static org.elasticsearch.index.query.FilterBuilders.andFilter;
-import static org.elasticsearch.index.query.FilterBuilders.matchAllFilter;
-import static org.elasticsearch.index.query.FilterBuilders.notFilter;
-import static org.elasticsearch.index.query.FilterBuilders.orFilter;
-import static org.elasticsearch.index.query.FilterBuilders.prefixFilter;
-import static org.elasticsearch.index.query.FilterBuilders.termFilter;
+import javax.inject.Inject;
+import javax.inject.Named;
+import lombok.ToString;
+import org.apache.commons.lang3.tuple.Pair;
 
 @ElasticsearchScope
 @ToString(of = {"connection"})
@@ -271,8 +250,7 @@ public class MetadataBackendKV extends AbstractElasticsearchMetadataBackend
         return doto(c -> {
             final FilterBuilder f = filter(request.getFilter());
 
-            final DeleteByQueryRequestBuilder builder =
-                c.deleteByQuery(TYPE_METADATA);
+            final DeleteByQueryRequestBuilder builder = c.deleteByQuery(TYPE_METADATA);
 
             builder.setQuery(QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(), f));
 
@@ -285,8 +263,7 @@ public class MetadataBackendKV extends AbstractElasticsearchMetadataBackend
         return doto(c -> {
             final FilterBuilder f = filter(request.getFilter());
 
-            final SearchRequestBuilder builder =
-                c.search(TYPE_METADATA).setSearchType("count");
+            final SearchRequestBuilder builder = c.search(TYPE_METADATA).setSearchType("count");
 
             builder.setQuery(QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(), f));
 
@@ -337,10 +314,8 @@ public class MetadataBackendKV extends AbstractElasticsearchMetadataBackend
         final FilterBuilder f = filter(filter);
 
         return doto(c -> {
-            final SearchRequestBuilder builder = c
-                .search(TYPE_METADATA)
-                .setScroll(SCROLL_TIME)
-                .setSearchType(SearchType.SCAN);
+            final SearchRequestBuilder builder =
+                c.search(TYPE_METADATA).setScroll(SCROLL_TIME).setSearchType(SearchType.SCAN);
 
             builder.setSize(limit.asMaxInteger(SCROLL_SIZE));
             builder.setQuery(QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(), f));
@@ -359,10 +334,8 @@ public class MetadataBackendKV extends AbstractElasticsearchMetadataBackend
         final FilterBuilder filter = filter(f);
 
         return observer -> connection.doto(c -> {
-            final SearchRequestBuilder builder = c
-                .search(TYPE_METADATA)
-                .setScroll(SCROLL_TIME)
-                .setSearchType(SearchType.SCAN);
+            final SearchRequestBuilder builder =
+                c.search(TYPE_METADATA).setScroll(SCROLL_TIME).setSearchType(SearchType.SCAN);
 
             builder.setSize(limit.asMaxInteger(SCROLL_SIZE));
             builder.setQuery(QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(), filter));
@@ -441,70 +414,57 @@ public class MetadataBackendKV extends AbstractElasticsearchMetadataBackend
         b.endArray();
     }
 
-    private static final Filter.Visitor<FilterBuilder> FILTER_CONVERTER =
-        new Filter.Visitor<FilterBuilder>() {
-            @Override
-            public FilterBuilder visitTrue(final TrueFilter t) {
-                return matchAllFilter();
-            }
+    private static final Filter.Visitor<Filter> FILTER_CONVERTER = new Filter.Visitor<DocumentFilter>() {
+        @Override
+        public DocumentFilter visitTrue(final TrueFilter t) {
+            return new MatchAllDocumentFilter();
+        }
 
-            @Override
-            public FilterBuilder visitFalse(final FalseFilter f) {
-                return notFilter(matchAllFilter());
-            }
+        @Override
+        public DocumentFilter visitFalse(final FalseFilter f) {
+            return new BoolDocumentFilter(new MatchAllDocumentFilter());
+        }
 
-            @Override
-            public FilterBuilder visitAnd(final AndFilter and) {
-                return andFilter(convertTerms(and.terms()));
-            }
+        @Override
+        public DocumentFilter visitAnd(final AndFilter and) {
+            return andFilter(convertTerms(and.terms()));
+        }
 
-            @Override
-            public FilterBuilder visitOr(final OrFilter or) {
-                return orFilter(convertTerms(or.terms()));
-            }
+        @Override
+        public DocumentFilter visitOr(final OrFilter or) {
+            return orFilter(convertTerms(or.terms()));
+        }
 
-            @Override
-            public FilterBuilder visitNot(final NotFilter not) {
-                return notFilter(not.getFilter().visit(this));
-            }
+        @Override
+        public DocumentFilter visitNot(final NotFilter not) {
+            return notFilter(not.getFilter().visit(this));
+        }
 
-            @Override
-            public FilterBuilder visitMatchTag(final MatchTagFilter matchTag) {
-                return termFilter(TAGS, matchTag.getTag() + TAG_DELIMITER + matchTag.getValue());
-            }
+        @Override
+        public DocumentFilter visitMatchTag(final MatchTagFilter matchTag) {
+            return termFilter(TAGS, matchTag.getTag() + TAG_DELIMITER + matchTag.getValue());
+        }
 
-            @Override
-            public FilterBuilder visitStartsWith(final StartsWithFilter startsWith) {
-                return prefixFilter(TAGS,
-                    startsWith.getTag() + TAG_DELIMITER + startsWith.getValue());
-            }
+        @Override
+        public DocumentFilter visitStartsWith(final StartsWithFilter startsWith) {
+            return prefixFilter(TAGS, startsWith.getTag() + TAG_DELIMITER + startsWith.getValue());
+        }
 
-            @Override
-            public FilterBuilder visitHasTag(final HasTagFilter hasTag) {
-                return termFilter(TAG_KEYS, hasTag.getTag());
-            }
+        @Override
+        public DocumentFilter visitHasTag(final HasTagFilter hasTag) {
+            return termFilter(TAG_KEYS, hasTag.getTag());
+        }
 
-            @Override
-            public FilterBuilder visitMatchKey(final MatchKeyFilter matchKey) {
-                return termFilter(KEY, matchKey.getValue());
-            }
+        @Override
+        public DocumentFilter visitMatchKey(final MatchKeyFilter matchKey) {
+            return termFilter(KEY, matchKey.getValue());
+        }
 
-            @Override
-            public FilterBuilder defaultAction(final Filter filter) {
-                throw new IllegalArgumentException("Unsupported filter statement: " + filter);
-            }
-
-            private FilterBuilder[] convertTerms(final List<Filter> terms) {
-                final FilterBuilder[] filters = new FilterBuilder[terms.size()];
-                int i = 0;
-
-                for (final Filter stmt : terms) {
-                    filters[i++] = stmt.visit(this);
-                }
-
-                return filters;
-            }
-        };
+        @Override
+        public DocumentFilter defaultAction(final Filter filter) {
+            throw new IllegalArgumentException("Unsupported filter statement: " + filter);
+        }
+    };
 
     @Override
     protected FilterBuilder filter(final Filter filter) {

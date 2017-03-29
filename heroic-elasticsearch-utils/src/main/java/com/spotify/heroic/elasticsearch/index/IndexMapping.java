@@ -23,15 +23,12 @@ package com.spotify.heroic.elasticsearch.index;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import org.elasticsearch.action.count.CountRequestBuilder;
-import org.elasticsearch.action.deletebyquery.DeleteByQueryRequestBuilder;
-import org.elasticsearch.action.search.SearchRequestBuilder;
-import org.elasticsearch.client.Client;
+import com.spotify.heroic.elasticsearch.client.Client;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes({
-    @JsonSubTypes.Type(value = RotatingIndexMapping.class,
-        name = "rotating"), @JsonSubTypes.Type(value = SingleIndexMapping.class, name = "single")
+    @JsonSubTypes.Type(value = RotatingIndexMapping.class, name = "rotating"),
+    @JsonSubTypes.Type(value = SingleIndexMapping.class, name = "single")
 })
 public interface IndexMapping {
     String template();
@@ -40,12 +37,7 @@ public interface IndexMapping {
 
     String[] writeIndices() throws NoIndexSelectedException;
 
-    SearchRequestBuilder search(Client client, String type)
-        throws NoIndexSelectedException;
+    SearchRequestBuilder search(Client client, String type) throws NoIndexSelectedException;
 
-    DeleteByQueryRequestBuilder deleteByQuery(Client client, String type)
-        throws NoIndexSelectedException;
-
-    CountRequestBuilder count(Client client, String type)
-        throws NoIndexSelectedException;
+    CountRequestBuilder count(Client client, String type) throws NoIndexSelectedException;
 }

@@ -23,18 +23,14 @@ package com.spotify.heroic.elasticsearch;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.common.base.Optional;
-import org.elasticsearch.common.settings.ImmutableSettings;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.node.NodeBuilder;
-
+import com.spotify.heroic.elasticsearch.client.Client;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Optional;
 
 public class StandaloneClientSetup implements ClientSetup {
     public static final String DEFAULT_CLUSTER_NAME = "heroic-standalone";
@@ -46,9 +42,9 @@ public class StandaloneClientSetup implements ClientSetup {
     public StandaloneClientSetup(
         @JsonProperty("clusterName") String clusterName, @JsonProperty("root") String root
     ) {
-        this.clusterName = Optional.fromNullable(clusterName).or(DEFAULT_CLUSTER_NAME);
+        this.clusterName = Optional.ofNullable(clusterName).orElse(DEFAULT_CLUSTER_NAME);
         this.root = checkDataDirectory(
-            Paths.get(Optional.fromNullable(root).or(temporaryDirectory())).toAbsolutePath());
+            Paths.get(Optional.ofNullable(root).orElse(temporaryDirectory())).toAbsolutePath());
     }
 
     private Path checkDataDirectory(Path path) {

@@ -23,13 +23,12 @@ package com.spotify.heroic.elasticsearch;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import org.elasticsearch.client.Client;
+import com.spotify.heroic.elasticsearch.client.Client;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes({
-    @JsonSubTypes.Type(value = StandaloneClientSetup.class,
-        name = "standalone"), @JsonSubTypes.Type(value = NodeClientSetup.class,
-    name = "node"), @JsonSubTypes.Type(value = TransportClientSetup.class, name = "transport")
+    @JsonSubTypes.Type(value = StandaloneClientSetup.class, name = "standalone"),
+    @JsonSubTypes.Type(value = TransportClientSetup.class, name = "transport")
 })
 public interface ClientSetup {
     Client setup() throws Exception;

@@ -132,16 +132,6 @@ public class RotatingIndexMapping implements IndexMapping {
     }
 
     @Override
-    public DeleteByQueryRequestBuilder deleteByQuery(
-        final Client client, final String type
-    ) throws NoIndexSelectedException {
-        return client
-            .prepareDeleteByQuery(readIndices())
-            .setIndicesOptions(options())
-            .setTypes(type);
-    }
-
-    @Override
     public SearchRequestBuilder search(
         final Client client, final String type
     ) throws NoIndexSelectedException {

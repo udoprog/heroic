@@ -36,17 +36,6 @@ import eu.toolchain.async.Borrowed;
 import eu.toolchain.async.FutureDone;
 import eu.toolchain.async.LazyTransform;
 import eu.toolchain.async.Managed;
-import lombok.Data;
-import lombok.RequiredArgsConstructor;
-import org.elasticsearch.action.search.SearchRequestBuilder;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.SearchType;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.index.query.FilterBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.SearchHit;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -54,11 +43,12 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
+import org.elasticsearch.client.Response;
 
 public abstract class AbstractElasticsearchMetadataBackend extends AbstractElasticsearchBackend
     implements MetadataBackend {
-    public static final TimeValue SCROLL_TIME = TimeValue.timeValueSeconds(5);
-
     private final String type;
 
     public AbstractElasticsearchMetadataBackend(final AsyncFramework async, final String type) {
@@ -86,17 +76,17 @@ public abstract class AbstractElasticsearchMetadataBackend extends AbstractElast
             final Supplier<AsyncFuture<SearchResponse>> scroller =
                 () -> bind(c.prepareSearchScroll(scrollId).setScroll(SCROLL_TIME).execute());
 
-            return scroller.get().lazyTransform(
-                new ScrollTransform<>(async, limit, scroller, converter)
-            );
+            return scroller
+                .get()
+                .lazyTransform(new ScrollTransform<>(async, limit, scroller, converter));
         });
     }
 
     @RequiredArgsConstructor
-    public static class ScrollTransform<T> implements LazyTransform<SearchResponse, LimitedSet<T>> {
+    public static class ScrollTransform<T> implements LazyTransform<Response, LimitedSet<T>> {
         private final AsyncFramework async;
         private final OptionalLimit limit;
-        private final Supplier<AsyncFuture<SearchResponse>> scroller;
+        private final Supplier<AsyncFuture<Response>> scroller;
 
         int size = 0;
         int duplicates = 0;
@@ -104,8 +94,10 @@ public abstract class AbstractElasticsearchMetadataBackend extends AbstractElast
         final Function<SearchHit, T> converter;
 
         @Override
-        public AsyncFuture<LimitedSet<T>> transform(final SearchResponse response)
+        public AsyncFuture<LimitedSet<T>> transform(final Response response)
             throws Exception {
+            response.getEntity().getContent();
+
             final SearchHit[] hits = response.getHits().getHits();
 
             for (final SearchHit hit : hits) {
@@ -132,16 +124,16 @@ public abstract class AbstractElasticsearchMetadataBackend extends AbstractElast
     }
 
     @RequiredArgsConstructor
-    public class ScrollTransformStream<T> implements LazyTransform<SearchResponse, Void> {
+    public class ScrollTransformStream<T> implements LazyTransform<Response, Void> {
         private final OptionalLimit limit;
-        private final Supplier<AsyncFuture<SearchResponse>> scroller;
+        private final Supplier<AsyncFuture<Response>> scroller;
         private final Function<Set<T>, AsyncFuture<Void>> seriesFunction;
         private final Function<SearchHit, T> converter;
 
         int size = 0;
 
         @Override
-        public AsyncFuture<Void> transform(final SearchResponse response) throws Exception {
+        public AsyncFuture<Void> transform(final Response response) throws Exception {
             final SearchHit[] hits = response.getHits().getHits();
 
             final Set<T> batch = new HashSet<>();
@@ -166,7 +158,6 @@ public abstract class AbstractElasticsearchMetadataBackend extends AbstractElast
     }
 
     private static final int ENTRIES_SCAN_SIZE = 1000;
-    private static final TimeValue ENTRIES_TIMEOUT = TimeValue.timeValueSeconds(5);
 
     @Override
     public AsyncObservable<Entries> entries(final Entries.Request request) {

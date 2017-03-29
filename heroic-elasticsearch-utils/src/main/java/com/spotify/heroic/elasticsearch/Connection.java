@@ -21,30 +21,23 @@
 
 package com.spotify.heroic.elasticsearch;
 
+import com.spotify.heroic.elasticsearch.client.Client;
+import com.spotify.heroic.elasticsearch.client.PutTemplate;
 import com.spotify.heroic.elasticsearch.index.IndexMapping;
 import com.spotify.heroic.elasticsearch.index.NoIndexSelectedException;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
-import eu.toolchain.async.ResolvableFuture;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Callable;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.ListenableActionFuture;
-import org.elasticsearch.action.admin.indices.template.put.PutIndexTemplateRequestBuilder;
-import org.elasticsearch.action.admin.indices.template.put.PutIndexTemplateResponse;
 import org.elasticsearch.action.count.CountRequestBuilder;
 import org.elasticsearch.action.deletebyquery.DeleteByQueryRequestBuilder;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchScrollRequestBuilder;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.client.IndicesAdminClient;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Callable;
 
 /**
  * Common connection abstraction between Node and TransportClient.
@@ -72,42 +65,12 @@ public class Connection {
     }
 
     public AsyncFuture<Void> configure() {
-        final IndicesAdminClient indices = client.admin().indices();
-
         log.info("[{}] updating template for {}", templateName, index.template());
 
-        final PutIndexTemplateRequestBuilder put = indices.preparePutTemplate(templateName);
+        final PutTemplate request =
+            new PutTemplate(index.template(), type.getSettings(), type.getMappings());
 
-        put.setSettings(type.getSettings());
-        put.setTemplate(index.template());
-
-        for (final Map.Entry<String, Map<String, Object>> mapping : type.getMappings().entrySet()) {
-            put.addMapping(mapping.getKey(), mapping.getValue());
-        }
-
-        final ResolvableFuture<Void> future = async.future();
-
-        final ListenableActionFuture<PutIndexTemplateResponse> target = put.execute();
-
-        target.addListener(new ActionListener<PutIndexTemplateResponse>() {
-            @Override
-            public void onResponse(final PutIndexTemplateResponse response) {
-                if (!response.isAcknowledged()) {
-                    future.fail(new Exception("request not acknowledged"));
-                    return;
-                }
-
-                future.resolve(null);
-            }
-
-            @Override
-            public void onFailure(Throwable e) {
-                future.fail(e);
-            }
-        });
-
-        future.onCancelled(() -> target.cancel(false));
-        return future;
+        return client.putTemplate(request);
     }
 
     public String[] readIndices() throws NoIndexSelectedException {
@@ -118,18 +81,12 @@ public class Connection {
         return index.writeIndices();
     }
 
-    public SearchRequestBuilder search(String type)
-        throws NoIndexSelectedException {
+    public SearchRequestBuilder search(String type) throws NoIndexSelectedException {
         return index.search(client, type);
     }
 
     public CountRequestBuilder count(String type) throws NoIndexSelectedException {
         return index.count(client, type);
-    }
-
-    public DeleteByQueryRequestBuilder deleteByQuery(String type)
-        throws NoIndexSelectedException {
-        return index.deleteByQuery(client, type);
     }
 
     public IndexRequestBuilder index(String index, String type) {
