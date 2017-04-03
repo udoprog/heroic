@@ -21,10 +21,16 @@
 
 package com.spotify.heroic.http;
 
-import com.google.common.collect.ImmutableList;
 import com.spotify.heroic.HeroicConfigurationContext;
 import com.spotify.heroic.HeroicModule;
 import com.spotify.heroic.dagger.LoadingComponent;
+import com.spotify.heroic.http.cluster.ClusterResource_Binding;
+import com.spotify.heroic.http.metadata.MetadataResource_Binding;
+import com.spotify.heroic.http.parser.ParserResource_Binding;
+import com.spotify.heroic.http.query.QueryResource_Binding;
+import com.spotify.heroic.http.render.RenderResource_Binding;
+import com.spotify.heroic.http.status.StatusResource_Binding;
+import com.spotify.heroic.http.write.WriteResource_Binding;
 
 public class Module implements HeroicModule {
     @Override
@@ -33,22 +39,19 @@ public class Module implements HeroicModule {
 
         return () -> {
             config.resources(core -> {
-                final HttpResourcesComponent w =
-                    DaggerHttpResourcesComponent.builder().coreComponent(core).build();
+                final ResourcesComponent w =
+                    DaggerResourcesComponent.builder().coreComponent(core).build();
 
-                // @formatter:off
-                return ImmutableList.of(
-                    w.heroicResource(),
-                    w.writeResource(),
-                    w.utilsResource(),
-                    w.statusResource(),
-                    w.renderResource(),
-                    w.queryResource(),
-                    w.metadataResource(),
-                    w.clusterResource(),
-                    w.parserResource()
-                );
-                // @formatter:on
+                return configurator -> {
+                    configurator.addRoutes(new HeroicResource_Binding(w.heroicResource()));
+                    configurator.addRoutes(new WriteResource_Binding(w.writeResource()));
+                    configurator.addRoutes(new StatusResource_Binding(w.statusResource()));
+                    configurator.addRoutes(new RenderResource_Binding(w.renderResource()));
+                    configurator.addRoutes(new QueryResource_Binding(w.queryResource()));
+                    configurator.addRoutes(new MetadataResource_Binding(w.metadataResource()));
+                    configurator.addRoutes(new ClusterResource_Binding(w.clusterResource()));
+                    configurator.addRoutes(new ParserResource_Binding(w.parserResource()));
+                };
             });
         };
     }

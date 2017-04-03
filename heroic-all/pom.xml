@@ -105,6 +105,16 @@
       <artifactId>heroic-rpc-jvm</artifactId>
     </dependency>
 
+    <!-- server implementations -->
+    <dependency>
+      <groupId>com.spotify.heroic.server</groupId>
+      <artifactId>heroic-server-jvm</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.spotify.heroic.server</groupId>
+      <artifactId>heroic-server-netty</artifactId>
+    </dependency>
+
     <!-- statistics -->
     <dependency>
       <groupId>com.spotify.heroic.statistics</groupId>

@@ -82,7 +82,7 @@ public class HeroicService {
             return;
         }
 
-        final HeroicCore.Builder builder = HeroicCore.builder();
+        final HeroicCore.Builder builder = HeroicModules.newCoreBuilder();
 
         configureBuilder(builder, params);
 
@@ -184,7 +184,6 @@ public class HeroicService {
         }
 
         builder.parameters(ExtraParameters.ofList(params.parameters));
-        builder.modules(HeroicModules.ALL_MODULES);
     }
 
     private static HeroicProfile setupProfile(final String profile) {

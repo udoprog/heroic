@@ -13,6 +13,11 @@ public abstract class AbstractSingleNodeIT {
     protected final ExecutorService executor = Executors.newSingleThreadExecutor();
     protected final TinyAsync async = TinyAsync.builder().executor(executor).build();
 
+    /**
+     * Override to configure a service.
+     */
+    protected boolean setupService = false;
+
     protected HeroicCoreInstance instance;
 
     protected AsyncFuture<Void> prepareEnvironment() {
@@ -23,8 +28,15 @@ public abstract class AbstractSingleNodeIT {
         return HeroicConfig.builder();
     }
 
+    /**
+     * Override to setup configuration options before core is being setup.
+     */
+    protected void beforeCore() {
+    }
+
     @Before
     public final void abstractSetup() throws Exception {
+        beforeCore();
         instance = setupCore();
         instance.start().lazyTransform(ignore -> prepareEnvironment()).get(10, TimeUnit.SECONDS);
     }
@@ -46,7 +58,7 @@ public abstract class AbstractSingleNodeIT {
         return HeroicCore
             .builder()
             .setupShellServer(false)
-            .setupService(false)
+            .setupService(setupService)
             .oneshot(true)
             .executor(executor)
             .configFragment(setupConfig())

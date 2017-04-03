@@ -27,24 +27,24 @@ import com.spotify.heroic.metadata.MetadataBackend;
 import com.spotify.heroic.metadata.MetadataManager;
 import com.spotify.heroic.metric.MetricBackend;
 import com.spotify.heroic.metric.MetricManager;
+import com.spotify.heroic.server.Response;
 import com.spotify.heroic.suggest.SuggestBackend;
 import com.spotify.heroic.suggest.SuggestManager;
-
+import eu.toolchain.async.AsyncFramework;
+import eu.toolchain.async.AsyncFuture;
+import java.util.ArrayList;
+import java.util.List;
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
-import java.util.ArrayList;
-import java.util.List;
 
-@Path("/")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class HeroicResource {
+    private final AsyncFramework async;
     private final MetricManager metrics;
     private final MetadataManager metadata;
     private final SuggestManager suggest;
@@ -52,9 +52,10 @@ public class HeroicResource {
 
     @Inject
     public HeroicResource(
-        final MetricManager metrics, final MetadataManager metadata, final SuggestManager suggest,
-        final ServiceInfo service
+        final AsyncFramework async, final MetricManager metrics, final MetadataManager metadata,
+        final SuggestManager suggest, final ServiceInfo service
     ) {
+        this.async = async;
         this.metrics = metrics;
         this.metadata = metadata;
         this.suggest = suggest;
@@ -62,13 +63,13 @@ public class HeroicResource {
     }
 
     @GET
-    public Response get() {
-        return Response.status(Status.OK).entity(service).build();
+    public AsyncFuture<Response> get() {
+        return async.resolved(Response.ok(service));
     }
 
     @GET
-    @Path("/backends")
-    public Response getBackends() {
+    @Path("backends")
+    public AsyncFuture<Response> getBackends() {
         final List<String> results = new ArrayList<>();
 
         for (final GroupMember<MetricBackend> b : metrics.groupSet().inspectAll()) {
@@ -83,6 +84,6 @@ public class HeroicResource {
             results.add(b.toString());
         }
 
-        return Response.status(Response.Status.OK).entity(new DataResponse<>(results)).build();
+        return async.resolved(Response.ok(new DataResponse<>(results)));
     }
 }

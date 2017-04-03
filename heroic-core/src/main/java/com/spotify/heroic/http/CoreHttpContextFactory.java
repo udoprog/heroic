@@ -22,21 +22,17 @@
 package com.spotify.heroic.http;
 
 import com.spotify.heroic.querylogging.HttpContext;
+import com.spotify.heroic.server.RequestContext;
 import java.util.Optional;
-import javax.servlet.http.HttpServletRequest;
 
 public class CoreHttpContextFactory {
-    public static HttpContext create(final HttpServletRequest servletRequest) {
-        final Optional<String> xForwardedFor =
-            Optional.ofNullable(servletRequest.getHeader("X-Forwarded-For"));
-        final String remoteAddress = servletRequest.getRemoteAddr();
+    public static HttpContext create(final RequestContext requestContext) {
+        final Optional<String> xForwardedFor = requestContext.getHeader("X-Forwarded-For");
+        final String remoteAddress = requestContext.getRemoteAddress();
         final String clientAddress = xForwardedFor.orElse(remoteAddress);
-        final Optional<String> userAgent =
-            Optional.ofNullable(servletRequest.getHeader("User-Agent"));
-        final Optional<String> clientId =
-            Optional.ofNullable(servletRequest.getHeader("X-Client-Id"));
-
-        return new HttpContext(remoteAddress, servletRequest.getRemoteHost(), clientAddress,
+        final Optional<String> userAgent = requestContext.getHeader("User-Agent");
+        final Optional<String> clientId = requestContext.getHeader("X-Client-Id");
+        return new HttpContext(remoteAddress, requestContext.getRemoteHost(), clientAddress,
             userAgent, clientId);
     }
 }

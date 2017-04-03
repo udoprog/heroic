@@ -21,9 +21,8 @@
 
 package com.spotify.heroic.common;
 
-import lombok.Data;
-
 import java.util.Optional;
+import lombok.Data;
 
 public interface Validation {
     /**
@@ -41,13 +40,6 @@ public interface Validation {
         }
 
         return object.get();
-    }
-
-    @Data
-    class MissingBody extends RuntimeException {
-        public MissingBody(final String message) {
-            super(message);
-        }
     }
 
     @Data
