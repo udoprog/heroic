@@ -25,9 +25,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.NamedType;
 import com.google.common.collect.ImmutableList;
 import com.spotify.heroic.dagger.CoreComponent;
-
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -35,8 +35,8 @@ import javax.inject.Named;
 public class CoreHeroicConfigurationContext implements HeroicConfigurationContext {
     private final ObjectMapper mapper;
 
-    private final ConcurrentLinkedQueue<Function<CoreComponent, List<Object>>> resources =
-        new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<Function<CoreComponent, Consumer<ResourceConfigurator>>>
+        resources = new ConcurrentLinkedQueue<>();
 
     private final Object lock = new Object();
 
@@ -55,12 +55,12 @@ public class CoreHeroicConfigurationContext implements HeroicConfigurationContex
     }
 
     @Override
-    public void resources(Function<CoreComponent, List<Object>> type) {
+    public void resources(Function<CoreComponent, Consumer<ResourceConfigurator>> type) {
         resources.add(type);
     }
 
     @Override
-    public List<Function<CoreComponent, List<Object>>> getResources() {
+    public List<Function<CoreComponent, Consumer<ResourceConfigurator>>> getResources() {
         return ImmutableList.copyOf(resources);
     }
 }

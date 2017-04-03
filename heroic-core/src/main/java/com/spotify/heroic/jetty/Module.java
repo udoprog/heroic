@@ -31,10 +31,10 @@ public class Module implements HeroicModule {
         final HeroicConfigurationContext config = loading.heroicConfigurationContext();
 
         return () -> {
-            config.registerType("http", HttpJettyConnectionFactory.Builder.class);
-            config.registerType("h2c", Http2CJettyConnectionFactory.Builder.class);
-            config.registerType("h2", Http2JettyConnectionFactory.Builder.class);
-            config.registerType("tls", TLSJettyConnectionFactory.Builder.class);
+            config.registerType("http", HttpConnection.Builder.class);
+            config.registerType("h2c", Http2CConnection.Builder.class);
+            config.registerType("h2", Http2Connection.Builder.class);
+            config.registerType("tls", TLSConnection.Builder.class);
         };
     }
 }

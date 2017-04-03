@@ -26,6 +26,11 @@ import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.ShardedResultGroup;
 import com.spotify.heroic.metric.Spread;
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.DateAxis;
 import org.jfree.chart.axis.NumberAxis;
@@ -41,12 +46,6 @@ import org.jfree.data.xy.XYSeriesCollection;
 import org.jfree.data.xy.YIntervalSeries;
 import org.jfree.data.xy.YIntervalSeriesCollection;
 
-import java.awt.BasicStroke;
-import java.awt.Color;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
 public final class RenderUtils {
     private static final List<Color> COLORS = new ArrayList<>();
 
@@ -55,8 +54,8 @@ public final class RenderUtils {
     }
 
     public static JFreeChart createChart(
-        final List<ShardedResultGroup> groups, final String title, Map<String, String> highlight,
-        Double threshold, int height
+        final List<ShardedResultGroup> groups, final String title, final Optional<Double> threshold,
+        int height
     ) {
         final XYLineAndShapeRenderer lineAndShapeRenderer = new XYLineAndShapeRenderer(true, true);
         final DeviationRenderer intervalRenderer = new DeviationRenderer();
@@ -117,11 +116,11 @@ public final class RenderUtils {
         plot.setDomainGridlinePaint(Color.BLACK);
         plot.setRangeGridlinePaint(Color.BLACK);
 
-        if (threshold != null) {
-            final ValueMarker marker = new ValueMarker(threshold, Color.RED,
+        threshold.ifPresent(t -> {
+            final ValueMarker marker = new ValueMarker(t, Color.RED,
                 new BasicStroke(Math.max(Math.min(height / 20, 6), 1)), Color.RED, null, 0.5f);
             plot.addRangeMarker(marker);
-        }
+        });
 
         plot.setRenderer(lineAndShapeRenderer);
 

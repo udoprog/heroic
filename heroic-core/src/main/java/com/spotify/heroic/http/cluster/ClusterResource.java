@@ -25,10 +25,12 @@ import com.google.common.collect.ImmutableList;
 import com.spotify.heroic.cluster.ClusterManager;
 import com.spotify.heroic.cluster.ClusterNode;
 import com.spotify.heroic.cluster.NodeMetadata;
-import com.spotify.heroic.common.JavaxRestFramework;
-import com.spotify.heroic.common.JavaxRestFramework.Resume;
 import com.spotify.heroic.http.DataResponse;
-
+import eu.toolchain.async.AsyncFramework;
+import eu.toolchain.async.AsyncFuture;
+import java.net.URI;
+import java.util.List;
+import java.util.Set;
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -36,23 +38,19 @@ import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
-import javax.ws.rs.container.AsyncResponse;
-import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import java.net.URI;
-import java.util.List;
 
-@Path("/cluster")
+@Path("cluster")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 public class ClusterResource {
-    private final JavaxRestFramework httpAsync;
+    private final AsyncFramework async;
     private final ClusterManager cluster;
 
     @Inject
-    public ClusterResource(final JavaxRestFramework httpAsync, final ClusterManager cluster) {
-        this.httpAsync = httpAsync;
+    public ClusterResource(final AsyncFramework async, final ClusterManager cluster) {
+        this.async = async;
         this.cluster = cluster;
     }
 
@@ -61,10 +59,10 @@ public class ClusterResource {
      */
     @GET
     @Path("status")
-    public Response status() {
+    public AsyncFuture<Response> status() {
         final List<ClusterNodeStatus> nodes = convert(cluster.getNodes());
         final ClusterStatus status = new ClusterStatus(nodes, cluster.getStatistics());
-        return Response.status(Response.Status.OK).entity(status).build();
+        return async.resolved(Response.status(Response.Status.OK).entity(status).build());
     }
 
     private List<ClusterNodeStatus> convert(List<ClusterNode> nodes) {
@@ -77,30 +75,27 @@ public class ClusterResource {
         return new ClusterNodeStatus(node.toString(), m.getId(), m.getVersion(), m.getTags());
     }
 
-    private static final Resume<Void, DataResponse<Boolean>> OK =
-        (Void value) -> new DataResponse<>(true);
-
     @GET
     @Path("nodes")
-    public void getNodes(@Suspended AsyncResponse response, URI uri) {
-        httpAsync.bind(response, cluster.getStaticNodes());
+    public AsyncFuture<Set<URI>> getNodes(URI uri) {
+        return cluster.getStaticNodes();
     }
 
     @DELETE
     @Path("nodes")
-    public void removeNode(@Suspended AsyncResponse response, URI uri) {
-        httpAsync.bind(response, cluster.removeStaticNode(uri), OK);
+    public AsyncFuture<DataResponse<Boolean>> removeNode(URI uri) {
+        return cluster.removeStaticNode(uri).directTransform(ignore -> new DataResponse<>(true));
     }
 
     @POST
     @Path("nodes")
-    public void addNode(@Suspended AsyncResponse response, URI uri) {
-        httpAsync.bind(response, cluster.addStaticNode(uri), OK);
+    public AsyncFuture<DataResponse<Boolean>> addNode(URI uri) {
+        return cluster.addStaticNode(uri).directTransform(ignore -> new DataResponse<>(true));
     }
 
     @POST
     @Path("refresh")
-    public void refresh(@Suspended AsyncResponse response) {
-        httpAsync.bind(response, cluster.refresh());
+    public AsyncFuture<Void> refresh() {
+        return cluster.refresh();
     }
 }

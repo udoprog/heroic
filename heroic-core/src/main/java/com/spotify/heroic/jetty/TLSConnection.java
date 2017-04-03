@@ -23,18 +23,12 @@ package com.spotify.heroic.jetty;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Optional;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
-import org.eclipse.jetty.http.HttpVersion;
-import org.eclipse.jetty.server.ConnectionFactory;
-import org.eclipse.jetty.server.HttpConfiguration;
-import org.eclipse.jetty.server.SslConnectionFactory;
-import org.eclipse.jetty.util.ssl.SslContextFactory;
-
-import java.util.Optional;
 
 @RequiredArgsConstructor
-public class TLSJettyConnectionFactory implements JettyConnectionFactory {
+public class TLSConnection implements Connection {
     private final Optional<String> keyStorePath;
     private final Optional<String> keyStorePassword;
     private final Optional<String> keyManagerPassword;
@@ -42,22 +36,12 @@ public class TLSJettyConnectionFactory implements JettyConnectionFactory {
 
     private final String nextProtocol;
 
-    @Override
-    public ConnectionFactory setup(final HttpConfiguration config) {
-        final SslContextFactory context = new SslContextFactory();
-        keyStorePath.ifPresent(context::setKeyStorePath);
-        keyStorePassword.ifPresent(context::setKeyStorePassword);
-        keyManagerPassword.ifPresent(context::setKeyManagerPassword);
-        trustAll.ifPresent(context::setTrustAll);
-        return new SslConnectionFactory(context, nextProtocol);
-    }
-
     public static Builder builder() {
         return new Builder();
     }
 
     @NoArgsConstructor
-    public static class Builder implements JettyConnectionFactory.Builder {
+    public static class Builder implements Connection.Builder {
         private Optional<String> keyStorePath = Optional.empty();
         private Optional<String> keyStorePassword = Optional.empty();
         private Optional<String> keyManagerPassword = Optional.empty();
@@ -96,10 +80,10 @@ public class TLSJettyConnectionFactory implements JettyConnectionFactory {
         }
 
         @Override
-        public JettyConnectionFactory build() {
-            final String nextProtocol = this.nextProtocol.orElse(HttpVersion.HTTP_1_1.toString());
-            return new TLSJettyConnectionFactory(keyStorePath, keyStorePassword, keyManagerPassword,
-                trustAll, nextProtocol);
+        public Connection build() {
+            final String nextProtocol = this.nextProtocol.orElse("http/1.1");
+            return new TLSConnection(keyStorePath, keyStorePassword, keyManagerPassword, trustAll,
+                nextProtocol);
         }
     }
 }

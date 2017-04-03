@@ -22,8 +22,8 @@
 package com.spotify.heroic;
 
 import com.spotify.heroic.dagger.CoreComponent;
-
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 public interface HeroicConfigurationContext {
@@ -32,7 +32,7 @@ public interface HeroicConfigurationContext {
      */
     void registerType(String name, Class<?> type);
 
-    void resources(Function<CoreComponent, List<Object>> resource);
+    void resources(Function<CoreComponent, Consumer<ResourceConfigurator>> resource);
 
-    List<Function<CoreComponent, List<Object>>> getResources();
+    List<Function<CoreComponent, Consumer<ResourceConfigurator>>> getResources();
 }

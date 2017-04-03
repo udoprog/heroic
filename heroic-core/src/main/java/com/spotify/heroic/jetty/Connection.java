@@ -21,31 +21,8 @@
 
 package com.spotify.heroic.jetty;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import lombok.RequiredArgsConstructor;
-import org.eclipse.jetty.http2.server.HTTP2ServerConnectionFactory;
-import org.eclipse.jetty.server.ConnectionFactory;
-import org.eclipse.jetty.server.HttpConfiguration;
-
-@RequiredArgsConstructor
-public class Http2JettyConnectionFactory implements JettyConnectionFactory {
-    @Override
-    public ConnectionFactory setup(final HttpConfiguration config) {
-        return new HTTP2ServerConnectionFactory(config);
-    }
-
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    public static class Builder implements JettyConnectionFactory.Builder {
-        @JsonCreator
-        public Builder() {
-        }
-
-        @Override
-        public JettyConnectionFactory build() {
-            return new Http2JettyConnectionFactory();
-        }
+public interface Connection {
+    interface Builder {
+        Connection build();
     }
 }

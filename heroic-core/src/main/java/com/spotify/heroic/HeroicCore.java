@@ -60,7 +60,7 @@ import com.spotify.heroic.http.HttpServer;
 import com.spotify.heroic.http.HttpServerComponent;
 import com.spotify.heroic.http.HttpServerModule;
 import com.spotify.heroic.ingestion.IngestionComponent;
-import com.spotify.heroic.jetty.JettyConnectionFactory;
+import com.spotify.heroic.jetty.Connection;
 import com.spotify.heroic.lifecycle.CoreLifeCycleRegistry;
 import com.spotify.heroic.lifecycle.LifeCycle;
 import com.spotify.heroic.lifecycle.LifeCycleHook;
@@ -380,7 +380,7 @@ public class HeroicCore implements HeroicConfiguration {
                 .builder()
                 .primaryComponent(primary)
                 .httpServerModule(new HttpServerModule(bindAddress, config.isEnableCors(),
-                    config.getCorsAllowOrigin(), config.getConnectors()))
+                    config.getCorsAllowOrigin(), config.getConnectors(), config.getServers()))
                 .build();
 
             // Trigger life cycle registration
@@ -525,7 +525,7 @@ public class HeroicCore implements HeroicConfiguration {
         final String host =
             Optionals.pickOptional(config.getHost(), this.host).orElse(DEFAULT_HOST);
         final int port = Optionals.pickOptional(config.getPort(), this.port).orElse(DEFAULT_PORT);
-        return new InetSocketAddress(host, port);
+        return InetSocketAddress.createUnresolved(host, port);
     }
 
     static void startLifeCycles(
@@ -615,7 +615,7 @@ public class HeroicCore implements HeroicConfiguration {
         final ObjectMapper mapper = loading.configMapper().copy();
 
         // TODO: figure out where to put this
-        mapper.addMixIn(JettyConnectionFactory.Builder.class, TypeNameMixin.class);
+        mapper.addMixIn(Connection.Builder.class, TypeNameMixin.class);
 
         if (configPath.isPresent()) {
             builder = HeroicConfig

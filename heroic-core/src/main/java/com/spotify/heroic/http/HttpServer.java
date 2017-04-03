@@ -22,43 +22,53 @@
 package com.spotify.heroic.http;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.spotify.heroic.HeroicConfigurationContext;
 import com.spotify.heroic.HeroicCoreInstance;
+import com.spotify.heroic.ResourceConfigurator;
 import com.spotify.heroic.dagger.CoreComponent;
-import com.spotify.heroic.jetty.JettyJSONErrorHandler;
-import com.spotify.heroic.jetty.JettyServerConnector;
+import com.spotify.heroic.jetty.ServerConnector;
 import com.spotify.heroic.lifecycle.LifeCycleRegistry;
 import com.spotify.heroic.lifecycle.LifeCycles;
-import com.spotify.heroic.servlet.ShutdownFilter;
+import com.spotify.heroic.server.Headers;
+import com.spotify.heroic.server.Observer;
+import com.spotify.heroic.server.OnceObservable;
+import com.spotify.heroic.server.ServerHandle;
+import com.spotify.heroic.server.ServerInstance;
+import com.spotify.heroic.server.ServerResponse;
+import com.spotify.heroic.server.ServerSetup;
 import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
-import lombok.ToString;
-import lombok.extern.slf4j.Slf4j;
-import org.eclipse.jetty.rewrite.handler.RewriteHandler;
-import org.eclipse.jetty.rewrite.handler.RewritePatternRule;
-import org.eclipse.jetty.server.Connector;
-import org.eclipse.jetty.server.Handler;
-import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.server.ServerConnector;
-import org.eclipse.jetty.server.Slf4jRequestLog;
-import org.eclipse.jetty.server.handler.HandlerCollection;
-import org.eclipse.jetty.server.handler.RequestLogHandler;
-import org.eclipse.jetty.servlet.FilterHolder;
-import org.eclipse.jetty.servlet.ServletContextHandler;
-import org.eclipse.jetty.servlet.ServletHolder;
-import org.glassfish.jersey.server.ResourceConfig;
-import org.glassfish.jersey.servlet.ServletContainer;
-
-import javax.inject.Inject;
-import javax.inject.Named;
-import javax.ws.rs.core.MediaType;
+import eu.toolchain.async.FutureDone;
+import eu.toolchain.rs.BuiltinRsParameter;
+import eu.toolchain.rs.RsFunction;
+import eu.toolchain.rs.RsMapping;
+import eu.toolchain.rs.RsParameter;
+import eu.toolchain.rs.RsRequestContext;
+import eu.toolchain.rs.RsRoutesProvider;
+import io.norberg.rut.Router;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.Callable;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.ws.rs.container.ContainerResponseFilter;
+import javax.ws.rs.core.MediaType;
+import lombok.RequiredArgsConstructor;
+import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.NotImplementedException;
 
 @HttpServerScope
 @Slf4j
@@ -66,6 +76,7 @@ import java.util.function.Supplier;
 public class HttpServer implements LifeCycles {
     public static final String DEFAULT_CORS_ALLOW_ORIGIN = "*";
 
+    private final List<ServerSetup> servers;
     private final InetSocketAddress address;
     private final HeroicCoreInstance instance;
     private final HeroicConfigurationContext config;
@@ -73,22 +84,22 @@ public class HttpServer implements LifeCycles {
     private final AsyncFramework async;
     private final boolean enableCors;
     private final Optional<String> corsAllowOrigin;
-    private final List<JettyServerConnector> connectors;
+    private final List<ServerConnector> connectors;
     private final Supplier<Boolean> stopping;
 
-    private volatile Server server = null;
+    private volatile List<ServerHandle> handles = null;
     private final Object lock = new Object();
 
     @Inject
     public HttpServer(
-        @Named("bind") final InetSocketAddress address, final HeroicCoreInstance instance,
-        final HeroicConfigurationContext config,
+        List<ServerSetup> servers, @Named("bind") final InetSocketAddress address,
+        final HeroicCoreInstance instance, final HeroicConfigurationContext config,
         @Named(MediaType.APPLICATION_JSON) final ObjectMapper mapper, final AsyncFramework async,
         @Named("enableCors") final boolean enableCors,
         @Named("corsAllowOrigin") final Optional<String> corsAllowOrigin,
-        final List<JettyServerConnector> connectors,
-        @Named("stopping") final Supplier<Boolean> stopping
+        final List<ServerConnector> connectors, @Named("stopping") final Supplier<Boolean> stopping
     ) {
+        this.servers = servers;
         this.address = address;
         this.instance = instance;
         this.config = config;
@@ -107,167 +118,275 @@ public class HttpServer implements LifeCycles {
     }
 
     public int getPort() {
-        if (server == null) {
-            throw new IllegalStateException("Server is not running");
-        }
-
-        return findServerConnector(server).getLocalPort();
-    }
-
-    private List<Connector> setupConnectors(final Server server) {
-        return ImmutableList.copyOf(
-            connectors.stream().map(c -> c.setup(server, address)).iterator());
-    }
-
-    private ServerConnector findServerConnector(Server server) {
-        final Connector[] connectors = server.getConnectors();
-
-        if (connectors.length == 0) {
-            throw new IllegalStateException("server has no connectors");
-        }
-
-        for (final Connector c : connectors) {
-            if (!(c instanceof ServerConnector)) {
-                continue;
-            }
-
-            return (ServerConnector) c;
-        }
-
-        throw new IllegalStateException("Server has no associated ServerConnector");
+        throw new IllegalStateException("Server is not running");
     }
 
     private AsyncFuture<Void> start() {
-        final Server newServer = new Server();
-        setupConnectors(newServer).forEach(newServer::addConnector);
+        final ServerHandlerBuilder builder = new ServerHandlerBuilder();
 
-        try {
-            newServer.setHandler(setupHandler());
-        } catch (final Exception e) {
-            return async.failed(e);
-        }
+        setupResources(builder);
+        setupRewrites(builder);
+        /* TODO: request logger */
 
-        return async.call(() -> {
+        final ServerHandler serverHandler = builder.build();
+
+        final List<AsyncFuture<ServerHandle>> handlers = servers
+            .stream()
+            .map(server -> server.bind(address, serverHandler))
+            .collect(Collectors.toList());
+
+        return async.collect(handlers).directTransform(handles -> {
             synchronized (lock) {
-                if (server != null) {
-                    throw new RuntimeException("Server already started");
+                if (this.handles != null) {
+                    throw new IllegalStateException("server already started");
                 }
 
-                newServer.start();
-                server = newServer;
+                this.handles = ImmutableList.copyOf(handles);
+                return null;
             }
-
-            log.info("Started HTTP Server on {}", address);
-            return null;
         });
     }
 
     private AsyncFuture<Void> stop() {
-        return async.call((Callable<Void>) () -> {
-            final Server s;
+        final List<ServerHandle> handles;
 
-            synchronized (lock) {
-                if (server == null) {
-                    throw new IllegalStateException("Server has not been started");
-                }
-
-                s = server;
-                server = null;
+        synchronized (lock) {
+            if (this.handles == null) {
+                throw new IllegalStateException("Server has not been started");
             }
 
-            log.info("Stopping http server");
-            s.stop();
-            s.join();
-            return null;
-        });
+            handles = this.handles;
+            this.handles = null;
+        }
+
+        return async.collectAndDiscard(
+            handles.stream().map(ServerHandle::stop).collect(Collectors.toList()));
     }
 
-    private HandlerCollection setupHandler() throws Exception {
-        final ResourceConfig resourceConfig = setupResourceConfig();
-        final ServletContainer servlet = new ServletContainer(resourceConfig);
-
-        final ServletHolder jerseyServlet = new ServletHolder(servlet);
-        // Initialize and register Jersey ServletContainer
-
-        jerseyServlet.setInitOrder(1);
-
-        // statically provide injector to jersey application.
-        final ServletContextHandler context =
-            new ServletContextHandler(ServletContextHandler.NO_SESSIONS);
-        context.setContextPath("/");
-
-        context.addServlet(jerseyServlet, "/*");
-        context.addFilter(new FilterHolder(new ShutdownFilter(stopping, mapper)), "/*", null);
-        context.setErrorHandler(new JettyJSONErrorHandler(mapper));
-
-        final RequestLogHandler requestLogHandler = new RequestLogHandler();
-
-        requestLogHandler.setRequestLog(new Slf4jRequestLog());
-
-        final RewriteHandler rewrite = new RewriteHandler();
-        makeRewriteRules(rewrite);
-
-        final HandlerCollection handlers = new HandlerCollection();
-        handlers.setHandlers(new Handler[]{rewrite, context, requestLogHandler});
-
-        return handlers;
+    private void setupRewrites(ResourceConfigurator configurator) {
+        configurator.addSimpleRewrite("/metrics", "/query/metrics");
+        configurator.addSimpleRewrite("/metrics-stream/*", "/query/metrics-stream");
+        configurator.addSimpleRewrite("/tags", "/metadata/tags");
+        configurator.addSimpleRewrite("/keys", "/metadata/keys");
     }
 
-    private void makeRewriteRules(RewriteHandler rewrite) {
-        {
-            final RewritePatternRule rule = new RewritePatternRule();
-            rule.setPattern("/metrics");
-            rule.setReplacement("/query/metrics");
-            rewrite.addRule(rule);
-        }
-
-        {
-            final RewritePatternRule rule = new RewritePatternRule();
-            rule.setPattern("/metrics-stream/*");
-            rule.setReplacement("/query/metrics-stream");
-            rewrite.addRule(rule);
-        }
-
-        {
-            final RewritePatternRule rule = new RewritePatternRule();
-            rule.setPattern("/tags");
-            rule.setReplacement("/metadata/tags");
-            rewrite.addRule(rule);
-        }
-
-        {
-            final RewritePatternRule rule = new RewritePatternRule();
-            rule.setPattern("/keys");
-            rule.setReplacement("/metadata/keys");
-            rewrite.addRule(rule);
-        }
-    }
-
-    private ResourceConfig setupResourceConfig() throws Exception {
-        final ResourceConfig c = new ResourceConfig();
-
-        int count = 0;
-
-        for (final Function<CoreComponent, List<Object>> resource : config.getResources()) {
+    private void setupResources(ResourceConfigurator configurator) {
+        for (final Function<CoreComponent, Consumer<ResourceConfigurator>> resource : config
+            .getResources()) {
             if (log.isTraceEnabled()) {
                 log.trace("Loading resource: {}", resource);
             }
 
-            final List<Object> resources = instance.inject(resource::apply);
-
-            for (final Object r : resources) {
-                c.register(r);
-            }
-
-            count += resources.size();
+            instance.inject(resource).accept(configurator);
         }
 
         // Resources.
         if (enableCors) {
-            c.register(new CorsResponseFilter(corsAllowOrigin.orElse(DEFAULT_CORS_ALLOW_ORIGIN)));
+            configurator.addResponseFilter(
+                new CorsResponseFilter(corsAllowOrigin.orElse(DEFAULT_CORS_ALLOW_ORIGIN)));
+        }
+    }
+
+    @RequiredArgsConstructor
+    class ServerHandler implements ServerInstance {
+        private final Router<RsMapping<AsyncFuture<?>>> router;
+
+        public void start() {
         }
 
-        log.info("Loaded {} resource(s)", count);
-        return c;
+        public void stop() {
+        }
+
+        @Override
+        public OnceObservable<Observer<ByteBuffer>> call(
+            final String method, final String path, final Headers headers,
+            final Consumer<OnceObservable<ServerResponse>> response
+        ) {
+            final Router.Result<RsMapping<AsyncFuture<?>>> result = router.result();
+            router.route(method, path, result);
+
+            if (!result.isSuccess()) {
+                response.accept(observer -> {
+                    observer.observe(ServerResponse.notFound());
+                });
+
+                /* The stateful aspect of the request handling is unfortunate. */
+                return requestBody -> {
+                    /* do nothing?, this should prevent resources associated with the request body
+                     * to never be allocated */
+                };
+            }
+
+            final Map<String, String> pathParams = new HashMap<>();
+
+            for (int i = 0; i < result.params(); i++) {
+                pathParams.put(result.paramName(i), result.paramValueDecoded(i).toString());
+            }
+
+            RsMapping<AsyncFuture<?>> target = result.target();
+
+            final RsFunction<RsRequestContext, AsyncFuture<?>> handle = target.handle();
+
+            /**
+             * Request body is received in chunks, modelled through an observer here.
+             */
+            return requestBody -> {
+                requestBody.observe(new Observer<ByteBuffer>() {
+                    private final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+
+                    @Override
+                    public void observe(final ByteBuffer bytes) {
+                        outputStream.write(bytes.array(), bytes.arrayOffset(), bytes.remaining());
+                    }
+
+                    @Override
+                    public void abort(final Throwable reason) {
+                        try {
+                            outputStream.close();
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+
+                    @Override
+                    public void end() {
+                        response.accept(observer -> {
+                            final AsyncFuture<?> data;
+
+                            try {
+                                data = handle.apply(new RequestContext(result, pathParams));
+                            } catch (Exception e) {
+                                observer.fail(e);
+                                return;
+                            }
+
+                            data
+                                .directTransform(mapper::writeValueAsBytes)
+                                .onDone(new FutureDone<byte[]>() {
+                                    @Override
+                                    public void resolved(final byte[] bytes) throws Exception {
+                                        observer.observe(ServerResponse.ok(ByteBuffer.wrap(bytes)));
+                                    }
+
+                                    @Override
+                                    public void failed(final Throwable cause) throws Exception {
+                                        observer.fail(cause);
+                                    }
+
+                                    @Override
+                                    public void cancelled() throws Exception {
+                                        observer.fail(new RuntimeException("cancelled"));
+                                    }
+                                });
+                        });
+                    }
+                });
+            };
+        }
+    }
+
+    private static final Joiner PATH_JOINER = Joiner.on('/');
+
+    @RequiredArgsConstructor
+    class RequestContext implements RsRequestContext {
+        private final Router.Result<RsMapping<AsyncFuture<?>>> result;
+        private final Map<String, String> pathParams;
+
+        @Override
+        public Optional<RsParameter> getPathParameter(final String key) {
+            return Optional.ofNullable(pathParams.get(key)).map(StringParameter::new);
+        }
+
+        @Override
+        public Stream<RsParameter> getAllQueryParameters(final String key) {
+            throw new NotImplementedException("not implemented");
+        }
+
+        @Override
+        public Optional<RsParameter> getQueryParameter(final String key) {
+            throw new NotImplementedException("not implemented");
+        }
+
+        @Override
+        public Stream<RsParameter> getAllHeaderParameters(final String key) {
+            throw new NotImplementedException("not implemented");
+        }
+
+        @Override
+        public Optional<RsParameter> getHeaderParameter(final String key) {
+            throw new NotImplementedException("not implemented");
+        }
+
+        @Override
+        public Optional<RsParameter> getPayload() {
+            throw new NotImplementedException("not implemented");
+        }
+
+        @Override
+        public <T> T getContext(final Class<T> type) {
+            throw new NotImplementedException("not implemented");
+        }
+
+        @Override
+        public Supplier<RsParameter> provideDefault(final String defaultValue) {
+            throw new NotImplementedException("not implemented");
+        }
+    }
+
+    class ServerHandlerBuilder implements ResourceConfigurator {
+        final ImmutableList.Builder<RsMapping<AsyncFuture<?>>> mappings = ImmutableList.builder();
+
+        @Override
+        public void addResponseFilter(final ContainerResponseFilter responseFilter) {
+            /* TODO: setup response filter, possibly a simpler implementation? */
+        }
+
+        @Override
+        public void addSimpleRewrite(final String fromPrefix, final String toPrefix) {
+            /* TODO: setup simple rewrite */
+        }
+
+        @Override
+        public void addRoutes(
+            final RsRoutesProvider<? extends RsMapping<? extends AsyncFuture<?>>> provider
+        ) {
+            provider.routes().forEach(mapping -> {
+                mappings.add((RsMapping<AsyncFuture<?>>) mapping);
+            });
+        }
+
+        public ServerHandler build() {
+            final Router.Builder<RsMapping<AsyncFuture<?>>> router = Router.builder();
+
+            final ImmutableList<RsMapping<AsyncFuture<?>>> mappingsList = mappings.build();
+
+            for (final RsMapping<AsyncFuture<?>> mapping : mappingsList) {
+                router.route(mapping.method(), PATH_JOINER.join(mapping.path()), mapping);
+            }
+
+            return new ServerHandler(router.build());
+        }
+    }
+
+    @RequiredArgsConstructor
+    private static class StringParameter extends BuiltinRsParameter {
+        private final String source;
+
+        @Override
+        public RuntimeException conversionError(
+            final String reason, final Object source, final Throwable cause
+        ) {
+            return new RuntimeException(reason, cause);
+        }
+
+        @Override
+        public String asString() {
+            return source;
+        }
+
+        @Override
+        public <T> T asType(final Class<T> type) {
+            throw new RuntimeException("Cannot convert to type: " + type);
+        }
     }
 }

@@ -21,16 +21,19 @@
 
 package com.spotify.heroic.http;
 
-import com.spotify.heroic.jetty.JettyServerConnector;
+import com.spotify.heroic.dagger.PrimaryComponent;
+import com.spotify.heroic.jetty.ServerConnector;
 import com.spotify.heroic.lifecycle.LifeCycle;
 import com.spotify.heroic.lifecycle.LifeCycleManager;
+import com.spotify.heroic.server.ServerModule;
+import com.spotify.heroic.server.ServerSetup;
 import dagger.Provides;
-import lombok.RequiredArgsConstructor;
-
-import javax.inject.Named;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import javax.inject.Named;
+import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 @dagger.Module
@@ -38,7 +41,8 @@ public class HttpServerModule {
     private final InetSocketAddress bind;
     private final boolean enableCors;
     private final Optional<String> corsAllowOrigin;
-    private final List<JettyServerConnector> connectors;
+    private final List<ServerConnector> connectors;
+    private final List<ServerModule> servers;
 
     @Provides
     @Named("bind")
@@ -63,7 +67,7 @@ public class HttpServerModule {
 
     @Provides
     @HttpServerScope
-    List<JettyServerConnector> connectors() {
+    List<ServerConnector> connectors() {
         return connectors;
     }
 
@@ -72,5 +76,11 @@ public class HttpServerModule {
     @Named("heroicServer")
     LifeCycle life(LifeCycleManager manager, HttpServer server) {
         return manager.build(server);
+    }
+
+    @Provides
+    @HttpServerScope
+    List<ServerSetup> servers(final PrimaryComponent primary) {
+        return servers.stream().map(server -> server.module(primary)).collect(Collectors.toList());
     }
 }

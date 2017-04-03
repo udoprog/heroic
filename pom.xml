@@ -39,6 +39,8 @@
     <module>rpc/jvm</module>
     <module>heroic-dist</module>
     <module>statistics/semantic</module>
+    <module>server/netty</module>
+    <module>server/jvm</module>
   </modules>
 
   <licenses>
@@ -52,10 +54,8 @@
     <threadCount>1</threadCount>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <jersey.version>2.13</jersey.version>
     <jackson.version>2.7.4</jackson.version>
     <hk2.version>2.3.0</hk2.version>
-    <jetty.version>9.3.7.v20160115</jetty.version>
     <lucene.version>4.10.4</lucene.version>
     <datastax.version>3.0.2</datastax.version>
     <semantic-metrics.version>0.2.3</semantic-metrics.version>
@@ -72,6 +72,7 @@
     <slf4j.version>1.7.21</slf4j.version>
     <junit.version>4.12</junit.version>
     <hamcrest.version>2.0.0.0</hamcrest.version>
+    <rs.version>0.3.0</rs.version>
   </properties>
 
   <profiles>
@@ -414,6 +415,16 @@
         <version>${project.version}</version>
       </dependency>
       <dependency>
+        <groupId>com.spotify.heroic.server</groupId>
+        <artifactId>heroic-server-jvm</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.spotify.heroic.server</groupId>
+        <artifactId>heroic-server-netty</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
         <groupId>com.spotify.heroic</groupId>
         <artifactId>heroic-dist</artifactId>
         <version>${project.version}</version>
@@ -523,86 +534,6 @@
         <artifactId>mail</artifactId>
         <version>1.4.7</version>
       </dependency>
-      <!-- jersey -->
-      <dependency>
-        <groupId>org.glassfish.jersey.containers</groupId>
-        <artifactId>jersey-container-servlet-core</artifactId>
-        <version>${jersey.version}</version>
-
-        <exclusions>
-          <exclusion>
-            <groupId>org.glassfish.hk2.external</groupId>
-            <artifactId>javax.inject</artifactId>
-          </exclusion>
-        </exclusions>
-      </dependency>
-      <dependency>
-        <groupId>org.glassfish.jersey.containers</groupId>
-        <artifactId>jersey-container-servlet</artifactId>
-        <version>${jersey.version}</version>
-
-        <exclusions>
-          <exclusion>
-            <groupId>org.glassfish.hk2.external</groupId>
-            <artifactId>javax.inject</artifactId>
-          </exclusion>
-        </exclusions>
-      </dependency>
-      <dependency>
-        <groupId>org.glassfish.jersey.containers</groupId>
-        <artifactId>jersey-container-jetty-http</artifactId>
-        <version>${jersey.version}</version>
-
-        <exclusions>
-          <exclusion>
-            <groupId>org.glassfish.hk2.external</groupId>
-            <artifactId>javax.inject</artifactId>
-          </exclusion>
-        </exclusions>
-      </dependency>
-      <dependency>
-        <groupId>org.glassfish.jersey.core</groupId>
-        <artifactId>jersey-server</artifactId>
-        <version>${jersey.version}</version>
-
-        <exclusions>
-          <exclusion>
-            <groupId>org.glassfish.hk2.external</groupId>
-            <artifactId>javax.inject</artifactId>
-          </exclusion>
-        </exclusions>
-      </dependency>
-      <dependency>
-        <groupId>org.glassfish.jersey.core</groupId>
-        <artifactId>jersey-client</artifactId>
-        <version>${jersey.version}</version>
-      </dependency>
-      <!-- jetty -->
-      <dependency>
-        <groupId>org.eclipse.jetty</groupId>
-        <artifactId>jetty-webapp</artifactId>
-        <version>${jetty.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.eclipse.jetty</groupId>
-        <artifactId>jetty-server</artifactId>
-        <version>${jetty.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.eclipse.jetty</groupId>
-        <artifactId>jetty-rewrite</artifactId>
-        <version>${jetty.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>javax.servlet</groupId>
-        <artifactId>javax.servlet-api</artifactId>
-        <version>3.1.0</version>
-      </dependency>
-      <dependency>
-        <groupId>org.eclipse.jetty.http2</groupId>
-        <artifactId>http2-server</artifactId>
-        <version>${jetty.version}</version>
-      </dependency>
       <dependency>
         <groupId>javax.ws.rs</groupId>
         <artifactId>javax.ws.rs-api</artifactId>
@@ -625,7 +556,6 @@
         <version>${netty.version}</version>
       </dependency>
 
-      <!-- JSON implementation for Jersey -->
       <dependency>
         <groupId>com.fasterxml.jackson.core</groupId>
         <artifactId>jackson-annotations</artifactId>
@@ -645,12 +575,6 @@
         <groupId>com.fasterxml.jackson.datatype</groupId>
         <artifactId>jackson-datatype-jdk8</artifactId>
         <version>${jackson.version}</version>
-      </dependency>
-      <!-- Jersey auto-initializes this for some reason. -->
-      <dependency>
-        <groupId>org.apache.onami</groupId>
-        <artifactId>org.apache.onami.scheduler</artifactId>
-        <version>1.4.0</version>
       </dependency>
       <!-- used by: com.spotify.heroic.consumer.kafka -->
       <dependency>
@@ -782,6 +706,19 @@
         <artifactId>jmock</artifactId>
         <version>2.8.2</version>
         <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>eu.toolchain.rs</groupId>
+        <artifactId>tiny-rs-api</artifactId>
+        <version>${rs.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>eu.toolchain.rs</groupId>
+        <artifactId>tiny-rs-processor</artifactId>
+        <version>${rs.version}</version>
+        <optional>true</optional>
       </dependency>
     </dependencies>
   </dependencyManagement>

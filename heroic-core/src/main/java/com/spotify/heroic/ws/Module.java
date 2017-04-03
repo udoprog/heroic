@@ -21,7 +21,6 @@
 
 package com.spotify.heroic.ws;
 
-import com.google.common.collect.ImmutableList;
 import com.spotify.heroic.HeroicConfigurationContext;
 import com.spotify.heroic.HeroicModule;
 import com.spotify.heroic.dagger.LoadingComponent;
@@ -36,19 +35,17 @@ public class Module implements HeroicModule {
                 final RestfulComponent errorMapper =
                     DaggerRestfulComponent.builder().coreComponent(core).build();
 
-                // @formatter:off
-                return ImmutableList.of(
-                    errorMapper.throwableExceptionMapper(),
-                    errorMapper.errorMapper(),
-                    errorMapper.parseExceptionMapper(),
-                    errorMapper.jsonMappingExceptionMapper(),
-                    errorMapper.jsonParseExceptionMapper(),
-                    errorMapper.webApplicationExceptionMapper(),
-                    errorMapper.validationBodyErrorMapper(),
-                    errorMapper.jacksonMessageBodyReader(),
-                    errorMapper.jacksonMessageBodyWriter()
-                );
-                // @formatter:on
+                return configurator -> {
+                    errorMapper.throwableExceptionMapper();
+                    errorMapper.errorMapper();
+                    errorMapper.parseExceptionMapper();
+                    errorMapper.jsonMappingExceptionMapper();
+                    errorMapper.jsonParseExceptionMapper();
+                    errorMapper.webApplicationExceptionMapper();
+                    errorMapper.validationBodyErrorMapper();
+                    errorMapper.jacksonMessageBodyReader();
+                    errorMapper.jacksonMessageBodyWriter();
+                };
             });
         };
     }

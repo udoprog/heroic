@@ -21,13 +21,23 @@
 
 package com.spotify.heroic.jetty;
 
-import org.eclipse.jetty.server.ConnectionFactory;
-import org.eclipse.jetty.server.HttpConfiguration;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import lombok.RequiredArgsConstructor;
 
-public interface JettyConnectionFactory {
-    ConnectionFactory setup(HttpConfiguration config);
+@RequiredArgsConstructor
+public class HttpConnection implements Connection {
+    public static Builder builder() {
+        return new Builder();
+    }
 
-    interface Builder {
-        JettyConnectionFactory build();
+    public static class Builder implements Connection.Builder {
+        @JsonCreator
+        public Builder() {
+        }
+
+        @Override
+        public Connection build() {
+            return new HttpConnection();
+        }
     }
 }

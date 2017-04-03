@@ -72,6 +72,12 @@
       <artifactId>heroic-test-it</artifactId>
       <scope>test</scope>
     </dependency>
+
+    <dependency>
+      <groupId>com.spotify.heroic.server</groupId>
+      <artifactId>heroic-server-jvm</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <profiles>

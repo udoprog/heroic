@@ -259,7 +259,7 @@ public class CoreQueryManager implements QueryManager {
             final AggregationCombiner combiner;
 
             if (isDistributed) {
-                combiner = DistributedAggregationCombiner.create(root, range, bucketStrategy);
+                combiner = DistributedAggregationCombiner.create(root, queryRange, bucketStrategy);
             } else {
                 combiner = AggregationCombiner.DEFAULT;
             }

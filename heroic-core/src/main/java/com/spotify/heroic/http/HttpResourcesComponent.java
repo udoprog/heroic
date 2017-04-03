@@ -28,7 +28,6 @@ import com.spotify.heroic.http.parser.ParserResource;
 import com.spotify.heroic.http.query.QueryResource;
 import com.spotify.heroic.http.render.RenderResource;
 import com.spotify.heroic.http.status.StatusResource;
-import com.spotify.heroic.http.utils.UtilsResource;
 import com.spotify.heroic.http.write.WriteResource;
 import dagger.Component;
 
@@ -40,8 +39,6 @@ public interface HttpResourcesComponent {
     HeroicResource heroicResource();
 
     WriteResource writeResource();
-
-    UtilsResource utilsResource();
 
     StatusResource statusResource();
 

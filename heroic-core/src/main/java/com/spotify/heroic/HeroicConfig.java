@@ -44,11 +44,12 @@ import com.spotify.heroic.common.FeatureSet;
 import com.spotify.heroic.consumer.ConsumerModule;
 import com.spotify.heroic.generator.CoreGeneratorModule;
 import com.spotify.heroic.ingestion.IngestionModule;
-import com.spotify.heroic.jetty.JettyServerConnector;
+import com.spotify.heroic.jetty.ServerConnector;
 import com.spotify.heroic.metadata.MetadataManagerModule;
 import com.spotify.heroic.metric.MetricManagerModule;
 import com.spotify.heroic.querylogging.QueryLoggingModule;
 import com.spotify.heroic.querylogging.noop.NoopQueryLoggingModule;
+import com.spotify.heroic.server.ServerModule;
 import com.spotify.heroic.shell.ShellServerModule;
 import com.spotify.heroic.statistics.StatisticsModule;
 import com.spotify.heroic.statistics.noop.NoopStatisticsModule;
@@ -97,7 +98,7 @@ public class HeroicConfig {
     private final Duration stopTimeout;
     private final Optional<String> host;
     private final Optional<Integer> port;
-    private final List<JettyServerConnector> connectors;
+    private final List<ServerConnector> connectors;
     private final Optional<Boolean> disableMetrics;
     private final boolean enableCors;
     private final Optional<String> corsAllowOrigin;
@@ -114,6 +115,7 @@ public class HeroicConfig {
     private final CoreGeneratorModule generator;
     private final StatisticsModule statistics;
     private final QueryLoggingModule queryLogging;
+    private final List<ServerModule> servers;
 
     private final String version;
     private final String service;
@@ -165,8 +167,8 @@ public class HeroicConfig {
         return Optional.of(parser.readValueAs(HeroicConfig.Builder.class));
     }
 
-    static List<JettyServerConnector.Builder> defaultConnectors() {
-        return ImmutableList.of(JettyServerConnector.builder());
+    static List<ServerConnector.Builder> defaultConnectors() {
+        return ImmutableList.of(ServerConnector.builder());
     }
 
     @NoArgsConstructor
@@ -177,7 +179,7 @@ public class HeroicConfig {
         private Optional<Duration> stopTimeout = empty();
         private Optional<String> host = empty();
         private Optional<Integer> port = empty();
-        private Optional<List<JettyServerConnector.Builder>> connectors = empty();
+        private Optional<List<ServerConnector.Builder>> connectors = empty();
         private Optional<Boolean> disableMetrics = empty();
         private Optional<Boolean> enableCors = empty();
         private Optional<String> corsAllowOrigin = empty();
@@ -194,6 +196,7 @@ public class HeroicConfig {
         private Optional<CoreGeneratorModule.Builder> generator = empty();
         private Optional<StatisticsModule> statistics = empty();
         private Optional<QueryLoggingModule> queryLogging = empty();
+        private Optional<List<ServerModule>> servers = empty();
 
         private Optional<String> version = empty();
         private Optional<String> service = empty();
@@ -289,6 +292,11 @@ public class HeroicConfig {
             return this;
         }
 
+        public Builder servers(List<ServerModule> servers) {
+            this.servers = of(servers);
+            return this;
+        }
+
         public Builder merge(Builder o) {
             // @formatter:off
             return new Builder(
@@ -314,6 +322,7 @@ public class HeroicConfig {
                 mergeOptional(generator, o.generator, CoreGeneratorModule.Builder::merge),
                 pickOptional(statistics, o.statistics),
                 pickOptional(queryLogging, o.queryLogging),
+                mergeOptionalList(servers, o.servers),
                 pickOptional(service, o.service),
                 pickOptional(version, o.version)
             );
@@ -321,10 +330,10 @@ public class HeroicConfig {
         }
 
         public HeroicConfig build() {
-            final List<JettyServerConnector> connectors = ImmutableList.copyOf(this.connectors
+            final List<ServerConnector> connectors = ImmutableList.copyOf(this.connectors
                 .orElseGet(HeroicConfig::defaultConnectors)
                 .stream()
-                .map(JettyServerConnector.Builder::build)
+                .map(ServerConnector.Builder::build)
                 .iterator());
 
             final String defaultVersion = loadDefaultVersion().orElse(DEFAULT_VERSION);
@@ -354,6 +363,7 @@ public class HeroicConfig {
                 generator.orElseGet(CoreGeneratorModule::builder).build(),
                 statistics.orElseGet(NoopStatisticsModule::new),
                 queryLogging.orElseGet(NoopQueryLoggingModule::new),
+                servers.orElseGet(ImmutableList::of),
                 version.orElse(defaultVersion),
                 service.orElse(DEFAULT_SERVICE)
             );

@@ -22,18 +22,15 @@
 package com.spotify.heroic.dagger;
 
 import com.spotify.heroic.HeroicConfig;
-import com.spotify.heroic.common.CoreJavaxRestFramework;
-import com.spotify.heroic.common.JavaxRestFramework;
 import com.spotify.heroic.common.ServiceInfo;
 import com.spotify.heroic.lifecycle.CoreLifeCycleRegistry;
 import com.spotify.heroic.lifecycle.LifeCycleRegistry;
 import dagger.Module;
 import dagger.Provides;
-import lombok.RequiredArgsConstructor;
-
-import javax.inject.Named;
 import java.util.Optional;
 import java.util.function.Supplier;
+import javax.inject.Named;
+import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 @Module
@@ -73,11 +70,5 @@ public class EarlyModule {
     @EarlyScope
     LifeCycleRegistry lifeCycleRegistry() {
         return new CoreLifeCycleRegistry();
-    }
-
-    @Provides
-    @EarlyScope
-    JavaxRestFramework javaxRestFramework() {
-        return new CoreJavaxRestFramework();
     }
 }

@@ -19,14 +19,10 @@
  * under the License.
  */
 
-package com.spotify.heroic.http.utils;
+package com.spotify.heroic.server;
 
-import javax.inject.Inject;
-import javax.ws.rs.Path;
+import com.spotify.heroic.dagger.PrimaryComponent;
 
-@Path("utils")
-public class UtilsResource {
-    @Inject
-    public UtilsResource() {
-    }
+public interface ServerModule {
+    ServerSetup module(PrimaryComponent primary);
 }
