@@ -36,7 +36,7 @@ import com.spotify.heroic.profile.MemoryCacheProfile;
 import com.spotify.heroic.profile.MemoryProfile;
 import com.spotify.heroic.profile.QueryLoggingProfile;
 import com.spotify.heroic.profile.WebProfile;
-
+import com.spotify.heroic.server.netty.NettyServerConfig;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.io.PrintWriter;
@@ -72,7 +72,9 @@ public class HeroicModules {
 
         new com.spotify.heroic.statistics.semantic.Module(),
 
-        new com.spotify.heroic.querylogging.Module()
+        new com.spotify.heroic.querylogging.Module(),
+
+        new com.spotify.heroic.server.netty.Module()
     );
 
     public static final Map<String, HeroicProfile> PROFILES = ImmutableMap.<String,
@@ -135,5 +137,22 @@ public class HeroicModules {
         } finally {
             o.flush();
         }
+    }
+
+    /**
+     * Build a default configuration.
+     */
+    public static HeroicConfig.Builder defaultConfig() {
+        return HeroicConfig.builder().servers(ImmutableList.of(NettyServerConfig.builder()));
+    }
+
+    /**
+     * Create a new core builder prepared with all modules and default configuration.
+     */
+    public static HeroicCore.Builder newCoreBuilder() {
+        return HeroicCore
+            .builder()
+            .modules(HeroicModules.ALL_MODULES)
+            .configFragment(HeroicModules.defaultConfig());
     }
 }

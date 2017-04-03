@@ -21,17 +21,15 @@
 
 package com.spotify.heroic.http.write;
 
-import com.spotify.heroic.common.JavaxRestFramework;
+import com.spotify.heroic.ingestion.Ingestion;
 import com.spotify.heroic.ingestion.IngestionManager;
-
+import eu.toolchain.async.AsyncFuture;
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
-import javax.ws.rs.container.AsyncResponse;
-import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.MediaType;
 
 @Path("write")
@@ -39,20 +37,16 @@ import javax.ws.rs.core.MediaType;
 @Consumes(MediaType.APPLICATION_JSON)
 public class WriteResource {
     private final IngestionManager ingestion;
-    private final JavaxRestFramework httpAsync;
 
     @Inject
-    public WriteResource(final IngestionManager ingestion, final JavaxRestFramework httpAsync) {
+    public WriteResource(final IngestionManager ingestion) {
         this.ingestion = ingestion;
-        this.httpAsync = httpAsync;
     }
 
     @POST
-    public void metrics(
-        @Suspended final AsyncResponse response, @QueryParam("group") String group,
-        WriteMetricRequest write
-    ) throws Exception {
-        httpAsync.bind(response, ingestion.useGroup(group).write(write.toIngestionRequest()),
-            r -> r);
+    public AsyncFuture<Ingestion> metrics(
+        @QueryParam("group") String group, WriteMetricRequest write
+    ) {
+        return ingestion.useGroup(group).write(write.toIngestionRequest());
     }
 }

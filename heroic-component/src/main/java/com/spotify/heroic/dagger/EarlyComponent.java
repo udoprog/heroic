@@ -21,12 +21,10 @@
 
 package com.spotify.heroic.dagger;
 
-import com.spotify.heroic.common.JavaxRestFramework;
 import com.spotify.heroic.common.ServiceInfo;
 import com.spotify.heroic.lifecycle.LifeCycleRegistry;
-
-import javax.inject.Named;
 import java.util.function.Supplier;
+import javax.inject.Named;
 
 public interface EarlyComponent extends LoadingComponent {
     ServiceInfo service();
@@ -38,6 +36,4 @@ public interface EarlyComponent extends LoadingComponent {
     Runnable stopSignal();
 
     LifeCycleRegistry lifeCycleRegistry();
-
-    JavaxRestFramework javaxRestFramework();
 }

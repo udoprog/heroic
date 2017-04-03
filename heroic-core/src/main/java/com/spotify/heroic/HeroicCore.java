@@ -35,7 +35,6 @@ import com.spotify.heroic.cluster.CoreClusterComponent;
 import com.spotify.heroic.cluster.DaggerCoreClusterComponent;
 import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.common.Optionals;
-import com.spotify.heroic.common.TypeNameMixin;
 import com.spotify.heroic.consumer.ConsumersComponent;
 import com.spotify.heroic.consumer.CoreConsumersModule;
 import com.spotify.heroic.consumer.DaggerCoreConsumersComponent;
@@ -55,12 +54,7 @@ import com.spotify.heroic.dagger.PrimaryModule;
 import com.spotify.heroic.dagger.StartupPingerComponent;
 import com.spotify.heroic.dagger.StartupPingerModule;
 import com.spotify.heroic.generator.GeneratorComponent;
-import com.spotify.heroic.http.DaggerHttpServerComponent;
-import com.spotify.heroic.http.HttpServer;
-import com.spotify.heroic.http.HttpServerComponent;
-import com.spotify.heroic.http.HttpServerModule;
 import com.spotify.heroic.ingestion.IngestionComponent;
-import com.spotify.heroic.jetty.JettyConnectionFactory;
 import com.spotify.heroic.lifecycle.CoreLifeCycleRegistry;
 import com.spotify.heroic.lifecycle.LifeCycle;
 import com.spotify.heroic.lifecycle.LifeCycleHook;
@@ -70,6 +64,10 @@ import com.spotify.heroic.metadata.DaggerCoreMetadataComponent;
 import com.spotify.heroic.metric.CoreMetricComponent;
 import com.spotify.heroic.metric.DaggerCoreMetricComponent;
 import com.spotify.heroic.querylogging.QueryLoggingComponent;
+import com.spotify.heroic.server.DaggerServerManagerComponent;
+import com.spotify.heroic.server.ServerManager;
+import com.spotify.heroic.server.ServerManagerComponent;
+import com.spotify.heroic.server.ServerManagerModule;
 import com.spotify.heroic.shell.DaggerShellServerComponent;
 import com.spotify.heroic.shell.ShellServerComponent;
 import com.spotify.heroic.shell.ShellServerModule;
@@ -82,7 +80,6 @@ import eu.toolchain.async.AsyncFuture;
 import eu.toolchain.async.ResolvableFuture;
 import java.io.InputStream;
 import java.lang.Thread.UncaughtExceptionHandler;
-import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -144,8 +141,6 @@ public class HeroicCore implements HeroicConfiguration {
     private static final HeroicModule[] BUILTIN_MODULES = new HeroicModule[] {
         new com.spotify.heroic.aggregation.Module(),
         new com.spotify.heroic.http.Module(),
-        new com.spotify.heroic.jetty.Module(),
-        new com.spotify.heroic.ws.Module(),
         new com.spotify.heroic.cache.Module(),
         new com.spotify.heroic.generator.Module()
     };
@@ -372,7 +367,7 @@ public class HeroicCore implements HeroicConfiguration {
 
         final QueryLoggingComponent queryLogging = config.getQueryLogging().component(primary);
 
-        final Optional<HttpServer> server = setupServer(config, life, primary);
+        final Optional<ServerManager> server = setupServer(config, life, primary);
 
         final CacheComponent cache = config.getCache().module(primary);
         life.add(cache.cacheLife());
@@ -488,26 +483,32 @@ public class HeroicCore implements HeroicConfiguration {
             .build();
     }
 
-    private Optional<HttpServer> setupServer(
+    private Optional<ServerManager> setupServer(
         final HeroicConfig config, final List<LifeCycle> life, final CorePrimaryComponent primary
     ) {
         if (!setupService) {
             return Optional.empty();
         }
 
-        final InetSocketAddress bindAddress = setupBindAddress(config);
+        final String defaultHost =
+            Optionals.pickOptional(config.getHost(), this.host).orElse(DEFAULT_HOST);
+        final int defaultPort =
+            Optionals.pickOptional(config.getPort(), this.port).orElse(DEFAULT_PORT);
 
-        final HttpServerComponent serverComponent = DaggerHttpServerComponent
+        final ServerManagerModule serverManagerModule =
+            new ServerManagerModule(defaultHost, defaultPort, config.isEnableCors(),
+                config.getCorsAllowOrigin(), config.getServers());
+
+        final ServerManagerComponent serverManagerComponent = DaggerServerManagerComponent
             .builder()
             .primaryComponent(primary)
-            .httpServerModule(new HttpServerModule(bindAddress, config.isEnableCors(),
-                config.getCorsAllowOrigin(), config.getConnectors()))
+            .serverManagerModule(serverManagerModule)
             .build();
 
         // Trigger life cycle registration
-        life.add(serverComponent.life());
+        life.add(serverManagerComponent.life());
 
-        return Optional.of(serverComponent.server());
+        return Optional.of(serverManagerComponent.server());
     }
 
     private Optional<ShellServerModule> buildShellServer(final HeroicConfig config) {
@@ -524,13 +525,6 @@ public class HeroicCore implements HeroicConfiguration {
         }
 
         return empty();
-    }
-
-    private InetSocketAddress setupBindAddress(HeroicConfig config) {
-        final String host =
-            Optionals.pickOptional(config.getHost(), this.host).orElse(DEFAULT_HOST);
-        final int port = Optionals.pickOptional(config.getPort(), this.port).orElse(DEFAULT_PORT);
-        return new InetSocketAddress(host, port);
     }
 
     static void startLifeCycles(
@@ -618,9 +612,6 @@ public class HeroicCore implements HeroicConfiguration {
         }
 
         final ObjectMapper mapper = loading.configMapper().copy();
-
-        // TODO: figure out where to put this
-        mapper.addMixIn(JettyConnectionFactory.Builder.class, TypeNameMixin.class);
 
         if (configPath.isPresent()) {
             builder = HeroicConfig

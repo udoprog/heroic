@@ -22,7 +22,7 @@
 package com.spotify.heroic.dagger;
 
 import com.spotify.heroic.HeroicStartupPinger;
-import com.spotify.heroic.http.HttpServer;
+import com.spotify.heroic.server.ServerManager;
 import com.spotify.heroic.lifecycle.LifeCycle;
 import com.spotify.heroic.lifecycle.LifeCycleManager;
 import dagger.Module;
@@ -38,11 +38,11 @@ import java.util.Optional;
 public class StartupPingerModule {
     private final URI ping;
     private final String id;
-    private final Optional<HttpServer> server;
+    private final Optional<ServerManager> server;
 
     @Provides
     @StartupPingerScope
-    Optional<HttpServer> server() {
+    Optional<ServerManager> server() {
         return server;
     }
 

@@ -26,24 +26,27 @@ import com.spotify.heroic.common.GroupMember;
 import com.spotify.heroic.common.ServiceInfo;
 import com.spotify.heroic.common.Statistics;
 import com.spotify.heroic.consumer.Consumer;
+import com.spotify.heroic.lib.httpcore.Status;
 import com.spotify.heroic.metadata.MetadataBackend;
 import com.spotify.heroic.metadata.MetadataManager;
 import com.spotify.heroic.metric.MetricBackend;
 import com.spotify.heroic.metric.MetricManager;
-
+import com.spotify.heroic.server.Response;
+import eu.toolchain.async.AsyncFramework;
+import eu.toolchain.async.AsyncFuture;
+import java.util.Set;
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import java.util.Set;
 
 @Path("/status")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class StatusResource {
+    private final AsyncFramework async;
     private final Set<Consumer> consumers;
     private final MetricManager metric;
     private final MetadataManager metadata;
@@ -52,9 +55,10 @@ public class StatusResource {
 
     @Inject
     public StatusResource(
-        final Set<Consumer> consumers, final MetricManager metric, final MetadataManager metadata,
-        final ClusterManager cluster, final ServiceInfo service
+        final AsyncFramework async, final Set<Consumer> consumers, final MetricManager metric,
+        final MetadataManager metadata, final ClusterManager cluster, final ServiceInfo service
     ) {
+        this.async = async;
         this.consumers = consumers;
         this.metric = metric;
         this.metadata = metadata;
@@ -63,7 +67,7 @@ public class StatusResource {
     }
 
     @GET
-    public Response get() {
+    public AsyncFuture<Response> get() {
         final StatusResponse.Consumer consumers = buildConsumerStatus();
         final StatusResponse.Backend backends = buildBackendStatus();
         final StatusResponse.MetadataBackend metadataBackends = buildMetadataBackendStatus();
@@ -77,10 +81,10 @@ public class StatusResource {
             new StatusResponse(service, allOk, consumers, backends, metadataBackends, cluster);
 
         if (!response.isOk()) {
-            return Response.status(Response.Status.SERVICE_UNAVAILABLE).entity(response).build();
+            return async.resolved(Response.status(Status.SERVICE_UNAVAILABLE, response));
         }
 
-        return Response.status(Response.Status.OK).entity(response).build();
+        return async.resolved(Response.ok(response));
     }
 
     private StatusResponse.Cluster buildClusterStatus() {

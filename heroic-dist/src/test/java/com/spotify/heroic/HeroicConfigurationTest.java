@@ -24,11 +24,11 @@ public class HeroicConfigurationTest {
             "com.spotify.heroic.analytics.bigtable.BigtableMetricAnalytics",
             "com.spotify.heroic.cluster.CoreClusterManager",
             "com.spotify.heroic.consumer.kafka.KafkaConsumer",
-            "com.spotify.heroic.http.HttpServer",
             "com.spotify.heroic.metadata.elasticsearch.MetadataBackendKV",
             "com.spotify.heroic.metric.bigtable.BigtableBackend",
             "com.spotify.heroic.metric.datastax.DatastaxBackend",
             "com.spotify.heroic.rpc.grpc.GrpcRpcProtocolServer",
+            "com.spotify.heroic.server.ServerManager",
             "com.spotify.heroic.shell.ShellServer",
             "com.spotify.heroic.suggest.elasticsearch.SuggestBackendKV"
         );
@@ -39,11 +39,11 @@ public class HeroicConfigurationTest {
             "com.spotify.heroic.analytics.bigtable.BigtableMetricAnalytics",
             "com.spotify.heroic.cluster.CoreClusterManager",
             "com.spotify.heroic.consumer.kafka.KafkaConsumer",
-            "com.spotify.heroic.http.HttpServer",
             "com.spotify.heroic.metadata.elasticsearch.MetadataBackendKV",
             "com.spotify.heroic.metric.bigtable.BigtableBackend",
             "com.spotify.heroic.metric.datastax.DatastaxBackend",
             "com.spotify.heroic.rpc.grpc.GrpcRpcProtocolServer",
+            "com.spotify.heroic.server.ServerManager",
             "com.spotify.heroic.shell.ShellServer",
             "com.spotify.heroic.suggest.elasticsearch.SuggestBackendKV"
         );

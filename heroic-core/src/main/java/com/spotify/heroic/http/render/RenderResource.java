@@ -23,22 +23,21 @@ package com.spotify.heroic.http.render;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spotify.heroic.Query;
-import com.spotify.heroic.querylogging.QueryContext;
 import com.spotify.heroic.QueryManager;
-import com.spotify.heroic.metric.QueryResult;
+import com.spotify.heroic.querylogging.QueryContext;
+import com.spotify.heroic.server.Response;
+import eu.toolchain.async.AsyncFuture;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
-import java.util.Map;
+import java.util.Optional;
 import javax.imageio.ImageIO;
 import javax.inject.Inject;
 import javax.inject.Named;
-import javax.ws.rs.BadRequestException;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
 import org.jfree.chart.JFreeChart;
 
 @Path("render")
@@ -61,45 +60,31 @@ public class RenderResource {
     @GET
     @Path("image")
     @Produces("image/png")
-    public Response render(
-        @QueryParam("q") String queryString, @QueryParam("backend") String backendGroup,
-        @QueryParam("title") String title, @QueryParam("width") Integer width,
-        @QueryParam("height") Integer height, @QueryParam("highlight") String highlightRaw,
-        @QueryParam("threshold") Double threshold
-    ) throws Exception {
-        if (query == null) {
-            throw new BadRequestException("'query' must be defined");
-        }
-
-        if (width == null) {
-            width = DEFAULT_WIDTH;
-        }
-
-        if (height == null) {
-            height = DEFAULT_HEIGHT;
-        }
-
-        final Map<String, String> highlight;
-
-        if (highlightRaw != null) {
-            highlight = mapper.readValue(highlightRaw, Map.class);
-        } else {
-            highlight = null;
-        }
+    public AsyncFuture<Response> render(
+        @QueryParam("q") String queryString, @QueryParam("backend") Optional<String> backendGroup,
+        @QueryParam("title") String title, @QueryParam("width") Optional<Integer> width,
+        @QueryParam("height") final Optional<Integer> height,
+        @QueryParam("threshold") Optional<Double> threshold
+    ) {
+        final int w = width.orElse(DEFAULT_WIDTH);
+        final int h = width.orElse(DEFAULT_HEIGHT);
 
         final QueryContext queryContext = QueryContext.empty();
         final Query q = query.newQueryFromString(queryString).build();
 
-        final QueryResult result = this.query.useGroup(backendGroup).query(q, queryContext).get();
+        return this.query
+            .useOptionalGroup(backendGroup)
+            .query(q, queryContext)
+            .directTransform(result -> {
+                final JFreeChart chart =
+                    RenderUtils.createChart(result.getGroups(), title, threshold, h);
 
-        final JFreeChart chart =
-            RenderUtils.createChart(result.getGroups(), title, highlight, threshold, height);
+                final BufferedImage image = chart.createBufferedImage(w, h);
 
-        final BufferedImage image = chart.createBufferedImage(width, height);
+                final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+                ImageIO.write(image, "png", buffer);
 
-        final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-        ImageIO.write(image, "png", buffer);
-
-        return Response.ok(buffer.toByteArray()).build();
+                return Response.ok(buffer.toByteArray());
+            });
     }
 }

@@ -23,7 +23,9 @@ package com.spotify.heroic.http.parser;
 
 import com.spotify.heroic.QueryManager;
 import com.spotify.heroic.grammar.QueryParser;
-
+import com.spotify.heroic.server.Response;
+import eu.toolchain.async.AsyncFramework;
+import eu.toolchain.async.AsyncFuture;
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
@@ -32,15 +34,16 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
 
 @Path("/parser")
 public class ParserResource {
+    private final AsyncFramework async;
     private final QueryParser parser;
     private final QueryManager query;
 
     @Inject
-    public ParserResource(QueryParser parser, QueryManager query) {
+    public ParserResource(AsyncFramework async, QueryParser parser, QueryManager query) {
+        this.async = async;
         this.parser = parser;
         this.query = query;
     }
@@ -49,23 +52,23 @@ public class ParserResource {
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.APPLICATION_JSON)
     @Path("parse-filter")
-    public Response parseFilterGet(@QueryParam("filter") String filter) {
-        return Response.ok(parser.parseFilter(filter)).build();
+    public AsyncFuture<Response> parseFilterGet(@QueryParam("filter") String filter) {
+        return async.resolved(Response.ok(parser.parseFilter(filter)));
     }
 
     @POST
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.APPLICATION_JSON)
     @Path("parse-query")
-    public Response parseQuery(String queryString) {
-        return Response.ok(query.newQueryFromString(queryString).build()).build();
+    public AsyncFuture<Response> parseQuery(String queryString) {
+        return async.resolved(Response.ok(query.newQueryFromString(queryString).build()));
     }
 
     @POST
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.APPLICATION_JSON)
     @Path("parse-filter")
-    public Response parseFilter(String filter) {
-        return Response.ok(parser.parseFilter(filter)).build();
+    public AsyncFuture<Response> parseFilter(String filter) {
+        return async.resolved(Response.ok(parser.parseFilter(filter)));
     }
 }

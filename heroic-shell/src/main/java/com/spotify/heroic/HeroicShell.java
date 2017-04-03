@@ -37,14 +37,6 @@ import eu.toolchain.async.AsyncFramework;
 import eu.toolchain.async.AsyncFuture;
 import eu.toolchain.async.TinyAsync;
 import eu.toolchain.serializer.SerializerFramework;
-import lombok.RequiredArgsConstructor;
-import lombok.ToString;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
-import org.kohsuke.args4j.CmdLineException;
-import org.kohsuke.args4j.CmdLineParser;
-import org.kohsuke.args4j.Option;
-
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -60,6 +52,13 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Executors;
+import lombok.RequiredArgsConstructor;
+import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
+import org.kohsuke.args4j.Option;
 
 @Slf4j
 public class HeroicShell {
@@ -335,11 +334,9 @@ public class HeroicShell {
     }
 
     static HeroicCore.Builder setupBuilder(Parameters params) {
-        HeroicCore.Builder builder = HeroicCore
-            .builder()
+        HeroicCore.Builder builder = HeroicModules.newCoreBuilder()
             .setupService(params.server)
             .disableBackends(params.disableBackends)
-            .modules(HeroicModules.ALL_MODULES)
             .oneshot(true);
 
         if (params.config() != null) {
