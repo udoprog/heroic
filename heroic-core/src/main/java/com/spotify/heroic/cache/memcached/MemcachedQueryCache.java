@@ -40,6 +40,7 @@ import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.common.Feature;
 import com.spotify.heroic.common.Features;
 import com.spotify.heroic.filter.Filter;
+import com.spotify.heroic.metric.CacheInfo;
 import com.spotify.heroic.metric.FullQuery;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.QueryResult;
@@ -141,10 +142,12 @@ public class MemcachedQueryCache implements QueryCache {
                         return;
                     }
 
+                    final CacheInfo cache = new CacheInfo(true, key);
+
                     final QueryResult queryResult =
                         new QueryResult(cachedResult.getRange(), cachedResult.getGroups(),
                             ImmutableList.of(), watch.end(), cachedResult.getLimits(),
-                            cachedResult.getPreAggregationSampleSize(), true);
+                            cachedResult.getPreAggregationSampleSize(), Optional.of(cache));
 
                     future.resolve(queryResult);
                 }
@@ -175,7 +178,7 @@ public class MemcachedQueryCache implements QueryCache {
 
             @Override
             public void resolved(final QueryResult result) throws Exception {
-                future.resolve(result);
+                future.resolve(result.withCache(new CacheInfo(false, key)));
 
                 // only store results if there are no errors
                 // TODO: partial result caching for successful shards?
