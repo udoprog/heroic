@@ -40,8 +40,8 @@ public class BottomKInstance extends FilterAggregation {
 
     @Override
     protected void filterHashTo(final ObjectHasher hasher) {
-        hasher.putObject(getClass(), h -> {
-            h.putLongField("k", k);
+        hasher.putObject(getClass(), () -> {
+            hasher.putField("k", k, hasher.longValue());
         });
     }
 }

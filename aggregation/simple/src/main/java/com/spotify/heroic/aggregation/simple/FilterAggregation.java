@@ -93,9 +93,9 @@ public abstract class FilterAggregation implements AggregationInstance {
 
     @Override
     public void hashTo(final ObjectHasher hasher) {
-        hasher.putObject(getClass(), h -> {
-            h.putField("filterStrategy", filterStrategy, FilterStrategy::hashTo);
-            filterHashTo(h);
+        hasher.putObject(getClass(), () -> {
+            hasher.putField("filterStrategy", filterStrategy, hasher.with(FilterStrategy::hashTo));
+            filterHashTo(hasher);
         });
     }
 

@@ -40,6 +40,6 @@ public class BelowKInstance extends FilterAggregation {
 
     @Override
     protected void filterHashTo(final ObjectHasher hasher) {
-        hasher.putDoubleField("k", k);
+        hasher.putField("k", k, hasher.doubleValue());
     }
 }

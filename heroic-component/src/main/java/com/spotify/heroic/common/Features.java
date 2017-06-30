@@ -101,8 +101,8 @@ public class Features {
     }
 
     public void hashTo(final ObjectHasher hasher) {
-        hasher.putObject(this.getClass(), h -> {
-            h.putField("features", features, (v, innerHasher) -> h.putSortedSet(v, h::putEnum));
+        hasher.putObject(this.getClass(), () -> {
+            hasher.putField("features", features, hasher.sortedSet(hasher.enumValue()));
         });
     }
 }

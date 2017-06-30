@@ -52,6 +52,6 @@ public class DistributedCardinalityInstance extends BucketAggregationInstance<Ca
 
     @Override
     protected void bucketHashTo(final ObjectHasher hasher) {
-        hasher.putField("method", method, CardinalityMethod::hashTo);
+        hasher.putField("method", method, hasher.with(CardinalityMethod::hashTo));
     }
 }

@@ -72,8 +72,7 @@ public class EmptyInstance implements AggregationInstance {
 
     @Override
     public void hashTo(final ObjectHasher hasher) {
-        hasher.putObject(getClass(), h -> {
-        });
+        hasher.putObject(getClass());
     }
 
     @Override

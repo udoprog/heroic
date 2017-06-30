@@ -75,8 +75,8 @@ public class RawFilter implements Filter {
 
     @Override
     public void hashTo(final ObjectHasher hasher) {
-        hasher.putObject(this.getClass(), h -> {
-            h.putStringField("filter", filter);
+        hasher.putObject(getClass(), () -> {
+            hasher.putField("filter", filter, hasher.string());
         });
     }
 }

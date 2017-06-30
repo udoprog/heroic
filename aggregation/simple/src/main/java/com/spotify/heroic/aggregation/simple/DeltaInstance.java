@@ -73,8 +73,7 @@ public class DeltaInstance implements AggregationInstance {
 
     @Override
     public void hashTo(final ObjectHasher hasher) {
-        hasher.putObject(getClass(), h -> {
-        });
+        hasher.putObject(getClass());
     }
 
     public List<Point> computeDiff(List<Point> points) {

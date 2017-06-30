@@ -21,7 +21,6 @@
 
 package com.spotify.heroic.aggregation.simple;
 
-import com.spotify.heroic.ObjectHasher;
 import java.util.Comparator;
 
 public enum FilterKAreaType {
@@ -38,9 +37,5 @@ public enum FilterKAreaType {
 
     public int compare(double a, double b) {
         return comparator.compare(a, b);
-    }
-
-    public void hashTo(final ObjectHasher hasher) {
-        hasher.putEnum(this);
     }
 }

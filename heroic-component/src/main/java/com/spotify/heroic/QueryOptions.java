@@ -90,15 +90,15 @@ public class QueryOptions {
     }
 
     public void hashTo(final ObjectHasher hasher) {
-        hasher.putObject(getClass(), h -> {
-            hasher.putOptionalField("bucketStrategy", bucketStrategy, BucketStrategy::hashTo);
-            hasher.putField("dataLimit", dataLimit, OptionalLimit::hashTo);
-            hasher.putField("aggregationLimit", aggregationLimit, OptionalLimit::hashTo);
-            hasher.putField("groupLimit", groupLimit, OptionalLimit::hashTo);
-            hasher.putField("seriesLimit", seriesLimit, OptionalLimit::hashTo);
-            hasher.putOptionalField("failOnLimits", failOnLimits, (val, innerHasher) -> {
-                innerHasher.putBoolean(val);
-            });
+        hasher.putObject(getClass(), () -> {
+            hasher.putField("bucketStrategy", bucketStrategy,
+                hasher.optional(hasher.with(BucketStrategy::hashTo)));
+            hasher.putField("dataLimit", dataLimit, hasher.with(OptionalLimit::hashTo));
+            hasher.putField("aggregationLimit", aggregationLimit,
+                hasher.with(OptionalLimit::hashTo));
+            hasher.putField("groupLimit", groupLimit, hasher.with(OptionalLimit::hashTo));
+            hasher.putField("seriesLimit", seriesLimit, hasher.with(OptionalLimit::hashTo));
+            hasher.putField("failOnLimits", failOnLimits, hasher.optional(hasher.bool()));
         });
     }
 

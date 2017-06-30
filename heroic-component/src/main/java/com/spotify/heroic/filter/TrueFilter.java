@@ -78,7 +78,6 @@ public class TrueFilter implements Filter {
 
     @Override
     public void hashTo(final ObjectHasher hasher) {
-        hasher.putObject(this.getClass(), h -> {
-        });
+        hasher.putObject(getClass());
     }
 }

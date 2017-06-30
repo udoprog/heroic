@@ -211,7 +211,11 @@ public abstract class BucketAggregationInstance<B extends Bucket> implements Agg
 
     @Override
     public void hashTo(final ObjectHasher hasher) {
-        hasher.putObject(this.getClass(), this::bucketHashTo);
+        hasher.putObject(getClass(), () -> {
+            hasher.putField("size", size, hasher.longValue());
+            hasher.putField("extent", extent, hasher.longValue());
+            bucketHashTo(hasher);
+        });
     }
 
     @Override

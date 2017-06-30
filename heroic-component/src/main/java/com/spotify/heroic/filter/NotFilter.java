@@ -84,8 +84,8 @@ public class NotFilter implements Filter {
 
     @Override
     public void hashTo(final ObjectHasher hasher) {
-        hasher.putObject(this.getClass(), h -> {
-            h.putField("filter", filter, Filter::hashTo);
+        hasher.putObject(getClass(), () -> {
+            hasher.putField("filter", filter, hasher.with(Filter::hashTo));
         });
     }
 

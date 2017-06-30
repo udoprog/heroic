@@ -30,10 +30,9 @@ import com.spotify.heroic.grammar.Expression;
 import com.spotify.heroic.grammar.FunctionExpression;
 import com.spotify.heroic.grammar.IntegerExpression;
 import com.spotify.heroic.grammar.StringExpression;
-import lombok.Data;
-
 import java.beans.ConstructorProperties;
 import java.util.Optional;
+import lombok.Data;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes({
@@ -68,8 +67,8 @@ public interface CardinalityMethod {
 
         @Override
         public void hashTo(final ObjectHasher hasher) {
-            hasher.putObject(this.getClass(), h -> {
-                h.putBooleanField("includeKey", includeKey);
+            hasher.putObject(getClass(), () -> {
+                hasher.putField("includeKey", includeKey, hasher.bool());
             });
         }
     }
@@ -103,9 +102,9 @@ public interface CardinalityMethod {
 
         @Override
         public void hashTo(final ObjectHasher hasher) {
-            hasher.putObject(this.getClass(), h -> {
-                h.putDoubleField("precision", precision);
-                h.putBooleanField("includeKey", includeKey);
+            hasher.putObject(this.getClass(), () -> {
+                hasher.putField("precision", precision, hasher.doubleValue());
+                hasher.putField("includeKey", includeKey, hasher.bool());
             });
         }
     }
@@ -139,9 +138,9 @@ public interface CardinalityMethod {
 
         @Override
         public void hashTo(final ObjectHasher hasher) {
-            hasher.putObject(this.getClass(), h -> {
-                h.putDoubleField("precision", precision);
-                h.putBooleanField("includeKey", includeKey);
+            hasher.putObject(this.getClass(), () -> {
+                hasher.putField("precision", precision, hasher.integer());
+                hasher.putField("includeKey", includeKey, hasher.bool());
             });
         }
     }
@@ -155,8 +154,7 @@ public interface CardinalityMethod {
 
         @Override
         public void hashTo(final ObjectHasher hasher) {
-            hasher.putObject(this.getClass(), h -> {
-            });
+            hasher.putObject(getClass());
         }
     }
 
@@ -169,8 +167,7 @@ public interface CardinalityMethod {
 
         @Override
         public void hashTo(final ObjectHasher hasher) {
-            hasher.putObject(this.getClass(), h -> {
-            });
+            hasher.putObject(getClass());
         }
     }
 

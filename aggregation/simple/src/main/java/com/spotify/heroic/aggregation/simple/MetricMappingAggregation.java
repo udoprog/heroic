@@ -71,8 +71,9 @@ public abstract class MetricMappingAggregation implements AggregationInstance {
 
     @Override
     public void hashTo(final ObjectHasher hasher) {
-        hasher.putObject(getClass(), h -> {
-            h.putField("metricMappingStrategy", metricMappingStrategy, MetricMappingStrategy::hashTo);
+        hasher.putObject(getClass(), () -> {
+            hasher.putField("metricMappingStrategy", metricMappingStrategy,
+                hasher.with(MetricMappingStrategy::hashTo));
         });
     }
 
@@ -126,11 +127,9 @@ public abstract class MetricMappingAggregation implements AggregationInstance {
             List<AggregationOutput> outputs = aggregationResult
                 .getResult()
                 .stream()
-                .map(aggregationOutput -> new AggregationOutput(
-                    aggregationOutput.getKey(),
+                .map(aggregationOutput -> new AggregationOutput(aggregationOutput.getKey(),
                     aggregationOutput.getSeries(),
-                    metricMappingStrategy.apply(aggregationOutput.getMetrics())
-                ))
+                    metricMappingStrategy.apply(aggregationOutput.getMetrics())))
                 .collect(toList());
             return new AggregationResult(outputs, aggregationResult.getStatistics());
         }

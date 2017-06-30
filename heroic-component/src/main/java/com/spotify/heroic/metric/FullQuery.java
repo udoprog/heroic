@@ -138,12 +138,15 @@ public final class FullQuery {
         }
 
         public void hashTo(final ObjectHasher hasher) {
-            hasher.putStringField("source", source.identifier());
-            hasher.putField("filter", filter, Filter::hashTo);
-            hasher.putField("range", range, DateRange::hashTo);
-            hasher.putField("aggregation", aggregation, AggregationInstance::hashTo);
-            hasher.putField("options", options, QueryOptions::hashTo);
-            hasher.putField("features", features, Features::hashTo);
+            hasher.putObject(getClass(), () -> {
+                hasher.putField("source", source, hasher.enumValue());
+                hasher.putField("filter", filter, hasher.with(Filter::hashTo));
+                hasher.putField("range", range, hasher.with(DateRange::hashTo));
+                hasher.putField("aggregation", aggregation,
+                    hasher.with(AggregationInstance::hashTo));
+                hasher.putField("options", options, hasher.with(QueryOptions::hashTo));
+                hasher.putField("features", features, hasher.with(Features::hashTo));
+            });
         }
 
         @Data

@@ -76,8 +76,8 @@ public class HasTagFilter implements Filter {
 
     @Override
     public void hashTo(final ObjectHasher hasher) {
-        hasher.putObject(this.getClass(), h -> {
-            h.putStringField("tag", tag);
+        hasher.putObject(getClass(), () -> {
+            hasher.putField("tag", tag, hasher.string());
         });
     }
 

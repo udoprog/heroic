@@ -27,11 +27,10 @@ import com.spotify.heroic.aggregation.BucketAggregationInstance;
 import com.spotify.heroic.metric.Metric;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.Point;
+import java.beans.ConstructorProperties;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
-
-import java.beans.ConstructorProperties;
 
 @Data
 @ToString(callSuper = true)
@@ -67,7 +66,7 @@ public class QuantileInstance extends BucketAggregationInstance<QuantileBucket> 
 
     @Override
     protected void bucketHashTo(final ObjectHasher hasher) {
-        hasher.putDoubleField("q", q);
-        hasher.putDoubleField("error", error);
+        hasher.putField("q", q, hasher.doubleValue());
+        hasher.putField("error", error, hasher.doubleValue());
     }
 }

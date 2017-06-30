@@ -32,77 +32,46 @@ import lombok.Data;
 
 @Data
 public class ObjectHasher {
-    private static final int STRING_FIELD = 1;
-    private static final int OBJECT_FIELD = 2;
-    private static final int LONG_FIELD = 3;
-    private static final int LIST_FIELD = 4;
-    private static final int DOUBLE_FIELD = 5;
-    private static final int BOOLEAN_FIELD = 6;
-    private static final int OPTIONAL_FIELD = 7;
-    private static final int SET_FIELD = 8;
+    private static final int START_OBJECT = 1;
+    private static final int END_OBJECT = 2;
 
-    private static final int START_OBJECT = 10;
-    private static final int END_OBJECT = 11;
-    private static final int START_LIST = 12;
-    private static final int END_LIST = 13;
-    private static final int START_SET = 14;
-    private static final int END_SET = 15;
+    private static final int START_LIST = 3;
+    private static final int END_LIST = 4;
 
+    private static final int START_SET = 5;
+    private static final int END_SET = 6;
+
+    private static final int FIELD = 99;
+
+    private static final int INTEGER = 100;
+    private static final int LONG = 101;
+    private static final int DOUBLE = 102;
+    private static final int STRING = 103;
+    private static final int BOOLEAN = 104;
+    private static final int ENUM = 105;
+
+    private static final int OPTIONAL = 90;
     private static final int OPTIONAL_PRESENT = 50;
     private static final int OPTIONAL_ABSENT = 51;
 
-    private static final int STRING = 80;
-    private static final int BOOLEAN = 81;
-    private static final int ENUM = 20;
-
     private final Hasher hasher;
 
-    public void putStringField(final String name, final String value) {
-        hasher.putInt(STRING_FIELD);
-        putString(name);
-        putString(value);
-    }
-
     public <T> void putField(
-        final String name, final T value, final BiConsumer<T, ObjectHasher> hashTo
+        final String name, final T value, final Consumer<T> hashTo
     ) {
-        hasher.putInt(OBJECT_FIELD);
+        hasher.putInt(FIELD);
         putString(name);
-        hashTo.accept(value, this);
+        hashTo.accept(value);
     }
 
-    public <T> void putListField(
-        final String name, final List<T> value, final BiConsumer<T, ObjectHasher> hashTo
-    ) {
-        hasher.putInt(LIST_FIELD);
-        putString(name);
-        hasher.putInt(value.size());
-        putList(value, v -> hashTo.accept(v, this));
+    public void putObject(final Class<?> cls) {
+        putObject(cls, () -> {
+        });
     }
 
-    public <T> void putList(final List<T> value, final Consumer<T> hashTo) {
-        hasher.putInt(START_LIST);
-
-        for (final T val : value) {
-            hashTo.accept(val);
-        }
-
-        hasher.putInt(END_LIST);
-    }
-
-    public <T> void putSortedSet(final SortedSet<T> value, final Consumer<T> hashTo) {
-        hasher.putInt(START_SET);
-
-        for (final T val : value) {
-            hashTo.accept(val);
-        }
-
-        hasher.putInt(END_SET);
-    }
-
-    public void putObject(final Class<?> cls, final Consumer<ObjectHasher> consumer) {
+    public void putObject(final Class<?> cls, final Runnable runnable) {
         startObject(cls);
-        consumer.accept(this);
+        runnable.run();
         endObject();
     }
 
@@ -121,22 +90,14 @@ public class ObjectHasher {
         hasher.putString(name, StandardCharsets.UTF_8);
     }
 
-    public void putLongField(final String name, final long value) {
-        hasher.putInt(LONG_FIELD);
-        putString(name);
+    public void putLong(final long value) {
+        hasher.putInt(LONG);
         hasher.putLong(value);
     }
 
-    public void putDoubleField(final String name, final double value) {
-        hasher.putInt(DOUBLE_FIELD);
-        putString(name);
+    public void putDouble(final double value) {
+        hasher.putInt(DOUBLE);
         hasher.putDouble(value);
-    }
-
-    public void putBooleanField(final String name, final boolean value) {
-        hasher.putInt(BOOLEAN_FIELD);
-        putString(name);
-        putBoolean(value);
     }
 
     public void putBoolean(final boolean value) {
@@ -144,11 +105,10 @@ public class ObjectHasher {
         hasher.putBoolean(value);
     }
 
-    public <T> void putOptionalField(
-        final String name, final Optional<T> optional, final BiConsumer<T, ObjectHasher> hashTo
+    public <T> void putOptional(
+        final Optional<T> optional, final BiConsumer<T, ObjectHasher> hashTo
     ) {
-        hasher.putInt(OPTIONAL_FIELD);
-        putString(name);
+        hasher.putInt(OPTIONAL);
 
         if (optional.isPresent()) {
             hasher.putInt(OPTIONAL_PRESENT);
@@ -158,9 +118,88 @@ public class ObjectHasher {
         }
     }
 
-    public <T extends Enum> void putEnum(final T value) {
-        hasher.putInt(ENUM);
-        putString(value.getClass().getCanonicalName());
-        putString(value.name());
+    public <T> Consumer<T> with(final BiConsumer<T, ObjectHasher> inner) {
+        return value -> inner.accept(value, this);
+    }
+
+    public <T extends Enum> Consumer<T> enumValue() {
+        return value -> {
+            hasher.putInt(ENUM);
+            putString(value.getClass().getCanonicalName());
+            putString(value.name());
+        };
+    }
+
+    public <T> Consumer<List<T>> list(final Consumer<T> hashTo) {
+        return list -> {
+            hasher.putInt(START_LIST);
+
+            for (final T val : list) {
+                hashTo.accept(val);
+            }
+
+            hasher.putInt(END_LIST);
+        };
+    }
+
+    public <T> Consumer<Optional<T>> optional(final Consumer<T> hashTo) {
+        return optional -> {
+            hasher.putInt(OPTIONAL);
+
+            if (optional.isPresent()) {
+                hasher.putInt(OPTIONAL_PRESENT);
+                hashTo.accept(optional.get());
+            } else {
+                hasher.putInt(OPTIONAL_ABSENT);
+            }
+        };
+    }
+
+    public Consumer<String> string() {
+        return string -> {
+            hasher.putInt(STRING);
+            hasher.putInt(string.length());
+            hasher.putString(string, StandardCharsets.UTF_8);
+        };
+    }
+
+    public Consumer<Double> doubleValue() {
+        return value -> {
+            hasher.putInt(DOUBLE);
+            hasher.putDouble(value);
+        };
+    }
+
+    public Consumer<Integer> integer() {
+        return value -> {
+            hasher.putInt(INTEGER);
+            hasher.putInt(value);
+        };
+    }
+
+    public Consumer<Long> longValue() {
+        return value -> {
+            hasher.putInt(LONG);
+            hasher.putLong(value);
+        };
+    }
+
+    public Consumer<Boolean> bool() {
+        return value -> {
+            hasher.putInt(BOOLEAN);
+            hasher.putBoolean(value);
+        };
+    }
+
+    public <T> Consumer<SortedSet<T>> sortedSet(final Consumer<T> inner) {
+        return values -> {
+            hasher.putInt(START_SET);
+
+            for (final T value : values) {
+                inner.accept(value);
+            }
+
+            hasher.putInt(END_SET);
+        };
     }
 }

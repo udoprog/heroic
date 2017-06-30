@@ -117,8 +117,7 @@ class EmptyOptionalLimit implements OptionalLimit {
 
     @Override
     public void hashTo(final ObjectHasher hasher) {
-        hasher.putObject(getClass(), h -> {
-        });
+        hasher.putObject(getClass());
     }
 
     @Override

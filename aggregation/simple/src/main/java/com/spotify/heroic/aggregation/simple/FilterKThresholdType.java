@@ -21,7 +21,6 @@
 
 package com.spotify.heroic.aggregation.simple;
 
-import com.spotify.heroic.ObjectHasher;
 import java.util.Comparator;
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -49,9 +48,4 @@ public enum FilterKThresholdType {
     public Optional<Double> findExtreme(Stream<Double> metrics) {
         return metrics.min(comparator);
     }
-
-    public void hashTo(final ObjectHasher hasher) {
-        hasher.putEnum(this);
-    }
 }
-

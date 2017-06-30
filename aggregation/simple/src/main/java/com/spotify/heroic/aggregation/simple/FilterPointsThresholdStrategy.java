@@ -21,15 +21,14 @@
 
 package com.spotify.heroic.aggregation.simple;
 
+import static java.util.stream.Collectors.toList;
+
 import com.spotify.heroic.ObjectHasher;
 import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.Point;
-import lombok.Data;
-
 import java.util.List;
-
-import static java.util.stream.Collectors.toList;
+import lombok.Data;
 
 @Data
 public class FilterPointsThresholdStrategy implements MetricMappingStrategy {
@@ -39,10 +38,8 @@ public class FilterPointsThresholdStrategy implements MetricMappingStrategy {
     @Override
     public MetricCollection apply(MetricCollection metrics) {
         if (metrics.getType() == MetricType.POINT) {
-            return MetricCollection.build(
-                MetricType.POINT,
-                filterWithThreshold(metrics.getDataAs(Point.class))
-            );
+            return MetricCollection.build(MetricType.POINT,
+                filterWithThreshold(metrics.getDataAs(Point.class)));
         } else {
             return metrics;
         }
@@ -50,14 +47,15 @@ public class FilterPointsThresholdStrategy implements MetricMappingStrategy {
 
     @Override
     public void hashTo(final ObjectHasher hasher) {
-        hasher.putObject(getClass(), h -> {
-            h.putField("filterType", filterType, FilterKThresholdType::hashTo);
-            h.putDoubleField("threshold", threshold);
+        hasher.putObject(getClass(), () -> {
+            hasher.putField("filterType", filterType, hasher.enumValue());
+            hasher.putField("threshold", threshold, hasher.doubleValue());
         });
     }
 
     private List<Point> filterWithThreshold(List<Point> points) {
-        return points.stream()
+        return points
+            .stream()
             .filter(point -> filterType.predicate(point.getValue(), threshold))
             .collect(toList());
     }

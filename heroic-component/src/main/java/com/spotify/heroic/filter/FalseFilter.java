@@ -74,8 +74,7 @@ public class FalseFilter implements Filter {
 
     @Override
     public void hashTo(final ObjectHasher hasher) {
-        hasher.putObject(this.getClass(), h -> {
-        });
+        hasher.putObject(getClass());
     }
 
     public static FalseFilter get() {

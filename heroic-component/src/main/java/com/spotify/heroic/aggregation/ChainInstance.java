@@ -161,8 +161,8 @@ public class ChainInstance implements AggregationInstance {
 
     @Override
     public void hashTo(final ObjectHasher hasher) {
-        hasher.putObject(getClass(), h -> {
-            h.putListField("chain", chain, AggregationInstance::hashTo);
+        hasher.putObject(getClass(), () -> {
+            hasher.putField("chain", chain, hasher.list(hasher.with(AggregationInstance::hashTo)));
         });
     }
 

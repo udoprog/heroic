@@ -40,6 +40,6 @@ public class TopKInstance extends FilterAggregation {
 
     @Override
     protected void filterHashTo(final ObjectHasher hasher) {
-        hasher.putLongField("k", k);
+        hasher.putField("k", k, hasher.longValue());
     }
 }

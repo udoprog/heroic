@@ -84,9 +84,9 @@ public class StartsWithFilter implements Filter {
 
     @Override
     public void hashTo(final ObjectHasher hasher) {
-        hasher.putObject(this.getClass(), h -> {
-            h.putStringField("tag", tag);
-            h.putStringField("value", value);
+        hasher.putObject(getClass(), () -> {
+            hasher.putField("tag", tag, hasher.string());
+            hasher.putField("value", value, hasher.string());
         });
     }
 }

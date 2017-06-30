@@ -24,16 +24,15 @@ package com.spotify.heroic.aggregation.simple;
 import com.spotify.heroic.ObjectHasher;
 import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.Point;
-import lombok.Data;
-
 import java.util.List;
 import java.util.stream.Collectors;
+import lombok.Data;
 
 /**
  * This filter strategy calculates the area under the graphs of the time series and
  * selects the time series with either the biggest (TopK) or smallest (BottomK) area.
- *
- *  Time series without any data points are disregarded and never part of the result.
+ * <p>
+ * Time series without any data points are disregarded and never part of the result.
  */
 @Data
 public class FilterKAreaStrategy implements FilterStrategy {
@@ -55,9 +54,9 @@ public class FilterKAreaStrategy implements FilterStrategy {
 
     @Override
     public void hashTo(final ObjectHasher hasher) {
-        hasher.putObject(getClass(), h -> {
-            h.putField("filterType", filterType, FilterKAreaType::hashTo);
-            h.putLongField("k", k);
+        hasher.putObject(getClass(), () -> {
+            hasher.putField("filterType", filterType, hasher.enumValue());
+            hasher.putField("k", k, hasher.longValue());
         });
     }
 

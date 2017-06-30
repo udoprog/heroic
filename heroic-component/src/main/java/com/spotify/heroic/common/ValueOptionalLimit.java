@@ -29,8 +29,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.spotify.heroic.ObjectHasher;
-import lombok.EqualsAndHashCode;
-
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Iterator;
@@ -42,6 +40,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.stream.Stream;
+import lombok.EqualsAndHashCode;
 
 @EqualsAndHashCode
 @JsonSerialize(using = ValueOptionalLimit.Serializer.class)
@@ -142,8 +141,8 @@ class ValueOptionalLimit implements OptionalLimit {
 
     @Override
     public void hashTo(final ObjectHasher hasher) {
-        hasher.putObject(getClass(), h -> {
-            h.putLongField("limit", limit);
+        hasher.putObject(getClass(), () -> {
+            hasher.putField("limit", limit, hasher.longValue());
         });
     }
 

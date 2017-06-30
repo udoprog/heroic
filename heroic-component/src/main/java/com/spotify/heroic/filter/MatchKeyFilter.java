@@ -76,8 +76,8 @@ public class MatchKeyFilter implements Filter {
 
     @Override
     public void hashTo(final ObjectHasher hasher) {
-        hasher.putObject(this.getClass(), h -> {
-            h.putStringField("value", value);
+        hasher.putObject(getClass(), () -> {
+            hasher.putField("value", value, hasher.string());
         });
     }
 }

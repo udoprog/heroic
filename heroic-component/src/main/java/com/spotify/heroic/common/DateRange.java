@@ -180,7 +180,9 @@ public class DateRange implements Comparable<DateRange> {
     }
 
     public void hashTo(final ObjectHasher hasher) {
-        hasher.putLongField("start", start);
-        hasher.putLongField("end", end);
+        hasher.putObject(getClass(), () -> {
+            hasher.putField("start", start, hasher.longValue());
+            hasher.putField("end", end, hasher.longValue());
+        });
     }
 }

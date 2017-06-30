@@ -104,10 +104,8 @@ public abstract class GroupingAggregation implements AggregationInstance {
 
     @Override
     public void hashTo(final ObjectHasher hasher) {
-        hasher.putObject(getClass(), h -> {
-            h.putOptionalField("of", of, (value, innerHasher) -> {
-                h.putList(value, hasher::putString);
-            });
+        hasher.putObject(getClass(), () -> {
+            hasher.putField("of", of, hasher.optional(hasher.list(hasher.string())));
         });
     }
 
