@@ -188,6 +188,8 @@ public class MemcachedQueryCache implements QueryCache {
                 // TODO: partial result caching for successful shards?
                 if (result.getErrors().isEmpty()) {
                     storeResult(key, ttl, result);
+                } else {
+                    log.warn("{}: not storing since response contains errors", key);
                 }
             }
 
@@ -207,6 +209,7 @@ public class MemcachedQueryCache implements QueryCache {
      */
     private void storeResult(final String key, final int ttl, final QueryResult queryResult) {
         if (ttl <= 0) {
+            log.warn("{}: not storing due to low ttl ({}s)", key, ttl);
             return;
         }
 
@@ -228,6 +231,8 @@ public class MemcachedQueryCache implements QueryCache {
         if (borrowed.isValid()) {
             log.debug("{}: storing with ttl ({}s)", key, ttl);
             borrowed.get().set(key, bytes, ttl);
+        } else {
+            log.warn("{}: client not available", key);
         }
     }
 
