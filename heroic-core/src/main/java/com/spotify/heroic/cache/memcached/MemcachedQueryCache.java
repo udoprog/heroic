@@ -143,7 +143,8 @@ public class MemcachedQueryCache implements QueryCache {
                         return;
                     }
 
-                    final CacheInfo cache = new CacheInfo(true, key);
+                    final int ttl = calculateTtl(cadence);
+                    final CacheInfo cache = new CacheInfo(true, ttl, key);
 
                     final QueryResult queryResult =
                         new QueryResult(cachedResult.getRange(), cachedResult.getGroups(),
@@ -179,12 +180,14 @@ public class MemcachedQueryCache implements QueryCache {
 
             @Override
             public void resolved(final QueryResult result) throws Exception {
-                future.resolve(result.withCache(new CacheInfo(false, key)));
+                final int ttl = calculateTtl(cadence);
+
+                future.resolve(result.withCache(new CacheInfo(false, ttl, key)));
 
                 // only store results if there are no errors
                 // TODO: partial result caching for successful shards?
                 if (result.getErrors().isEmpty()) {
-                    storeResult(key, cadence, result);
+                    storeResult(key, ttl, result);
                 }
             }
 
@@ -199,12 +202,10 @@ public class MemcachedQueryCache implements QueryCache {
      * Store the result.
      *
      * @param key key to store under
-     * @param cadence cadence of the queried data
+     * @param ttl cadence of the queried data
      * @param queryResult query results
      */
-    private void storeResult(final String key, final long cadence, final QueryResult queryResult) {
-        final int ttl = calculateTtl(cadence);
-
+    private void storeResult(final String key, final int ttl, final QueryResult queryResult) {
         if (ttl <= 0) {
             return;
         }
@@ -256,7 +257,8 @@ public class MemcachedQueryCache implements QueryCache {
 
     private void hashAsJson(final FullQuery.Request request, final Hasher hasher) {
         final CacheKey key =
-            new CacheKey(request.getSource(), request.getFilter(), request.getRange(), request.getAggregation(), request.getOptions(), request.getFeatures());
+            new CacheKey(request.getSource(), request.getFilter(), request.getRange(),
+                request.getAggregation(), request.getOptions(), request.getFeatures());
 
         final byte[] bytes;
 

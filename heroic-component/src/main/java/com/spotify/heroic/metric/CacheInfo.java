@@ -29,6 +29,12 @@ public class CacheInfo {
      * Indicated if the response was fetched from cache or not.
      */
     private final boolean cached;
+
+    /**
+     * TTL for which an item has been cached in seconds.
+     */
+    private final int ttl;
+
     /**
      * The key used for caching.
      */
