@@ -1,0 +1,8 @@
+modules = ['fasterxml', 'builder', 'grpc']
+presets = ['maven']
+
+[packages]
+heroic = "*"
+
+[publish.heroic]
+version = "1.0.0"

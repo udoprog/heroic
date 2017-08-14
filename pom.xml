@@ -11,6 +11,7 @@
   <name>Heroic: Parent Project</name>
 
   <modules>
+    <module>heroic-api</module>
     <module>heroic-component</module>
     <module>heroic-component-test</module>
     <module>heroic-elasticsearch-utils</module>

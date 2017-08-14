@@ -1,0 +1,216 @@
+field_naming lower_camel;
+
+type QueryMetrics {
+  filter?: Filter;
+  aggregation?: Aggregation;
+  range: Range;
+
+  type Response {
+    /// Common tags encountered in all response groups.
+    common_tags: {string: [string]};
+
+    /// Result groups of query.
+    result: [ResultGroup];
+
+    /// Range that the query used.
+    /// This does not always match the queried for range, since it might be modified to improve
+    /// caching.
+    range: ::Range;
+
+    /// Identifier of the query.
+    query_id: string;
+
+    /// Detailed trace information.
+    trace?: Trace;
+
+    /// Limits encountered
+    limits: [string];
+
+    /// If the response was cached or not.
+    cached: boolean;
+
+    /// Detailed cache information.
+    cache?: ::Cache;
+
+    /// The number of samples that were fetched from backends before aggregation.
+    pre_aggregation_sample_size: u64;
+
+    /// Errors encountered in query.
+    errors: [any];
+
+    type Cache {
+    }
+
+    type Range {
+      start: u64;
+      end: u64;
+    }
+  }
+}
+
+interface ResultGroup {
+  /// Key that this result group has.
+  key: string;
+
+  /// Unique hash for the result group.
+  hash: string;
+
+  /// Shards where this result group came from.
+  shard: {string: string};
+
+  /// Counts for each tag.
+  tag_counts: {string: u64};
+
+  /// Tags unique to this result group.
+  tags: {string: string};
+
+  /// The number of milliseconds between each sample.
+  ///
+  /// This permits the results to be sparse, since gaps can be detected by checking the distance
+  /// between each sample.
+  cadence: u64;
+
+  Points {
+    name "points";
+
+    values: [Point];
+  }
+
+  Events {
+    name "events";
+
+    values: [Event];
+  }
+}
+
+interface Filter {
+  MatchTag {
+    name "matchTag";
+
+    tag: string;
+    value: string;
+  }
+
+  Key {
+    name "key";
+
+    key: string;
+  }
+
+  HasTag {
+    name "hasTag";
+
+    tag: string;
+  }
+
+  StartsWith {
+    name "startsWith";
+
+    tag: string;
+    value: string;
+  }
+
+  Regex {
+    name "regex";
+
+    tag: string;
+    value: string;
+  }
+
+  Raw {
+    name "raw";
+
+    filter: string;
+  }
+
+  And {
+    name "and";
+
+    filters: [Filter];
+  }
+
+  Or {
+    name "or";
+
+    filters: [Filter];
+  }
+}
+
+interface Aggregation {
+  Sum {
+    name "sum";
+  }
+
+  Average {
+    name "average";
+  }
+
+  Min {
+    name "min";
+  }
+
+  Max {
+    name "max";
+  }
+}
+
+tuple Point {
+  timestamp: u64;
+  value: double;
+}
+
+tuple Event {
+  timestamp: u64;
+  payload: any;
+}
+
+enum Unit {
+  MILLISECONDS;
+  SECONDS;
+  MINUTES;
+  HOURS;
+  DAYS;
+}
+
+interface Range {
+  /// A range relative from now back in time.
+  Relative {
+    name "relative";
+
+    /// The unit of the range.
+    unit: Unit;
+    /// The size of the range.
+    value: u64;
+  }
+
+  /// An absolute range.
+  Absolute {
+    name "absolute";
+
+    /// Milliseconds since the start of the unix epoch for which the range starts.
+    start: u64;
+    /// Milliseconds since the start of the unix epoch for which the range ends.
+    end: u64;
+  }
+}
+
+type Identifier {
+  name: string;
+}
+
+type Trace {
+  children: [Trace];
+  what: Identifier;
+  elapsed: u64;
+}
+
+type BadRequest {
+  error: string;
+}
+
+service Heroic {
+  query_metrics(QueryMetrics) -> stream QueryMetrics::Response;
+
+  /// Another endpoint to query.
+  query_other();
+}
