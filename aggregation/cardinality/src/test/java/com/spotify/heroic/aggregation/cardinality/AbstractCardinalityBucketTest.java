@@ -26,7 +26,7 @@ public abstract class AbstractCardinalityBucketTest {
         bucket.update(t1, new Point(42, 2D));
         bucket.update(t2, new Point(42, 1D));
 
-        assertWithinVariance(3L, bucket.count());
+        assertWithinVariance(3L, bucket.asPoint().getValue());
     }
 
     @Test
@@ -38,12 +38,12 @@ public abstract class AbstractCardinalityBucketTest {
             bucket.update(t2, new Point(42, 1D * i));
         }
 
-        assertWithinVariance(200000L, bucket.count());
+        assertWithinVariance(200000L, bucket.asPoint().getValue());
     }
 
-    private void assertWithinVariance(final long expected, final long count) {
+    private void assertWithinVariance(final double expected, final double count) {
         final double allowedError = allowedError();
-        final double error = Math.abs(((double) expected / (double) count) - 1.0D);
+        final double error = Math.abs((expected / count) - 1.0D);
 
         assertTrue(String.format("Error (%f) not within (%f)", error, allowedError),
             error <= allowedError);

@@ -23,19 +23,14 @@ package com.spotify.heroic.metric;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
 import com.google.common.hash.Hasher;
+import java.util.List;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-
-import java.util.List;
 
 @Data
 @EqualsAndHashCode
 public class MetricGroup implements Metric {
-    static final List<MetricCollection> EMPTY_GROUPS = ImmutableList.of();
-
     private final long timestamp;
     private final List<MetricCollection> groups;
 
@@ -45,7 +40,7 @@ public class MetricGroup implements Metric {
         @JsonProperty("groups") List<MetricCollection> groups
     ) {
         this.timestamp = timestamp;
-        this.groups = Optional.fromNullable(groups).or(EMPTY_GROUPS);
+        this.groups = groups;
     }
 
     @Override
@@ -62,10 +57,5 @@ public class MetricGroup implements Metric {
                 m.hash(hasher);
             }
         }
-    }
-
-    @Override
-    public boolean valid() {
-        return true;
     }
 }

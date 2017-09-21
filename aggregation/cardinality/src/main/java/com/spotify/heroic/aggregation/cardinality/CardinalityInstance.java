@@ -25,10 +25,10 @@ import com.spotify.heroic.aggregation.AggregationInstance;
 import com.spotify.heroic.aggregation.BucketAggregationInstance;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.Point;
+import java.beans.ConstructorProperties;
+import java.util.Optional;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-
-import java.beans.ConstructorProperties;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -36,9 +36,11 @@ public class CardinalityInstance extends BucketAggregationInstance<CardinalityBu
     private final CardinalityMethod method;
 
     @ConstructorProperties({"size", "extent", "method"})
-    public CardinalityInstance(final long size, final long extent, CardinalityMethod method) {
+    public CardinalityInstance(
+        final long size, final long extent, final Optional<CardinalityMethod> method
+    ) {
         super(size, extent, ALL_TYPES, MetricType.POINT);
-        this.method = method;
+        this.method = method.orElseGet(CardinalityMethod::supplyDefault);
     }
 
     @Override
@@ -48,12 +50,12 @@ public class CardinalityInstance extends BucketAggregationInstance<CardinalityBu
 
     @Override
     public AggregationInstance reducer() {
-        return new CardinalityInstance(size, extent, method.reducer());
+        return new CardinalityInstance(size, extent, Optional.of(method.reducer()));
     }
 
     @Override
     public AggregationInstance distributed() {
-        return new DistributedCardinalityInstance(size, extent, method);
+        return new DistributedCardinalityInstance(size, extent, Optional.of(method));
     }
 
     @Override
@@ -63,6 +65,6 @@ public class CardinalityInstance extends BucketAggregationInstance<CardinalityBu
 
     @Override
     protected Point build(CardinalityBucket bucket) {
-        return new Point(bucket.timestamp(), bucket.count());
+        return bucket.asPoint();
     }
 }

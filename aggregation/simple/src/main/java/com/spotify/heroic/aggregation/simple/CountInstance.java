@@ -24,7 +24,6 @@ package com.spotify.heroic.aggregation.simple;
 import com.spotify.heroic.aggregation.AggregationInstance;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.Point;
-
 import java.beans.ConstructorProperties;
 
 public class CountInstance extends DistributedBucketInstance<StripedCountBucket> {
@@ -40,7 +39,7 @@ public class CountInstance extends DistributedBucketInstance<StripedCountBucket>
 
     @Override
     protected Point build(StripedCountBucket bucket) {
-        return new Point(bucket.timestamp(), bucket.count());
+        return bucket.asPoint();
     }
 
     @Override

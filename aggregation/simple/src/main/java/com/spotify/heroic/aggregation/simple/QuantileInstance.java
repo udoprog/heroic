@@ -24,7 +24,6 @@ package com.spotify.heroic.aggregation.simple;
 import com.google.common.collect.ImmutableSet;
 import com.spotify.heroic.ObjectHasher;
 import com.spotify.heroic.aggregation.BucketAggregationInstance;
-import com.spotify.heroic.metric.Metric;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.Point;
 import java.beans.ConstructorProperties;
@@ -54,14 +53,8 @@ public class QuantileInstance extends BucketAggregationInstance<QuantileBucket> 
     }
 
     @Override
-    protected Metric build(QuantileBucket bucket) {
-        final double value = bucket.value();
-
-        if (Double.isNaN(value)) {
-            return Metric.invalid();
-        }
-
-        return new Point(bucket.timestamp(), value);
+    protected Point build(QuantileBucket bucket) {
+        return bucket.asPoint();
     }
 
     @Override

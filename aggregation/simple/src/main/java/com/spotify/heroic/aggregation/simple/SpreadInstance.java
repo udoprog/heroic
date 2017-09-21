@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableSet;
 import com.spotify.heroic.aggregation.AggregationInstance;
 import com.spotify.heroic.metric.Metric;
 import com.spotify.heroic.metric.MetricType;
-
 import java.beans.ConstructorProperties;
 
 public class SpreadInstance extends DistributedBucketInstance<SpreadBucket> {
@@ -42,7 +41,7 @@ public class SpreadInstance extends DistributedBucketInstance<SpreadBucket> {
 
     @Override
     protected Metric build(SpreadBucket bucket) {
-        return bucket.newSpread();
+        return bucket.asSpread();
     }
 
     @Override

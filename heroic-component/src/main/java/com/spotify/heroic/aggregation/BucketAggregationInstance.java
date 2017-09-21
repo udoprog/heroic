@@ -136,10 +136,6 @@ public abstract class BucketAggregationInstance<B extends Bucket> implements Agg
             int sampleSize = 0;
 
             for (final T m : values) {
-                if (!m.valid()) {
-                    continue;
-                }
-
                 final BucketStrategy.StartEnd startEnd = mapping.map(m.getTimestamp());
 
                 for (int i = startEnd.getStart(); i < startEnd.getEnd(); i++) {
@@ -157,13 +153,11 @@ public abstract class BucketAggregationInstance<B extends Bucket> implements Agg
             final List<Metric> result = new ArrayList<>(buckets.size());
 
             for (final B bucket : buckets) {
-                final Metric d = build(bucket);
+                Metric m = build(bucket);
 
-                if (!d.valid()) {
-                    continue;
+                if (m != null) {
+                    result.add(m);
                 }
-
-                result.add(d);
             }
 
             final Set<Series> series = ImmutableSet.copyOf(Iterables.concat(this.series));

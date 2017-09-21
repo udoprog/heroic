@@ -28,13 +28,14 @@ import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.spotify.heroic.metric.Metric;
-import lombok.RequiredArgsConstructor;
-
+import com.spotify.heroic.metric.Payload;
+import com.spotify.heroic.metric.Point;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import lombok.RequiredArgsConstructor;
 
 /**
  * Bucket that counts the number of seen events.
@@ -51,10 +52,6 @@ public class ExactCardinalityBucket implements CardinalityBucket {
 
     private final AtomicInteger count = new AtomicInteger(0);
     private final Set<HashCode> seen = Collections.newSetFromMap(new ConcurrentHashMap<>());
-
-    public long timestamp() {
-        return timestamp;
-    }
 
     @Override
     public void update(final Map<String, String> key, final Metric d) {
@@ -74,12 +71,12 @@ public class ExactCardinalityBucket implements CardinalityBucket {
     }
 
     @Override
-    public long count() {
-        return count.get();
+    public Payload asPayload() {
+        throw new RuntimeException("can't be converted to payload");
     }
 
     @Override
-    public byte[] state() {
-        throw new RuntimeException("Bucket does not support state persisting");
+    public Point asPoint() {
+        return new Point(timestamp, count.get());
     }
 }

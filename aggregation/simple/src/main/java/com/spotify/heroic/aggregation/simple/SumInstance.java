@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableSet;
 import com.spotify.heroic.aggregation.AggregationInstance;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.Point;
-
 import java.beans.ConstructorProperties;
 
 public class SumInstance extends DistributedBucketInstance<StripedSumBucket> {
@@ -41,7 +40,7 @@ public class SumInstance extends DistributedBucketInstance<StripedSumBucket> {
 
     @Override
     protected Point build(StripedSumBucket bucket) {
-        return new Point(bucket.timestamp(), bucket.value());
+        return bucket.asPoint();
     }
 
     @Override

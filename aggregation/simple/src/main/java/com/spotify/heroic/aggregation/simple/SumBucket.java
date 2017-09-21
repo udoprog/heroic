@@ -23,12 +23,10 @@ package com.spotify.heroic.aggregation.simple;
 
 import com.google.common.util.concurrent.AtomicDouble;
 import com.spotify.heroic.aggregation.AbstractBucket;
-import com.spotify.heroic.aggregation.DoubleBucket;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
-import lombok.RequiredArgsConstructor;
-
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
 
 /**
  * Bucket that keeps track of the amount of data points seen, and there summed value.
@@ -40,17 +38,11 @@ import java.util.Map;
  * @author udoprog
  */
 @RequiredArgsConstructor
-public class SumBucket extends AbstractBucket implements DoubleBucket {
+public class SumBucket extends AbstractBucket implements PointBucket {
     private final long timestamp;
 
-    /* the sum of seen values */
     private final AtomicDouble sum = new AtomicDouble();
-    /* if the sum is valid (e.g. has at least one value) */
     private volatile boolean valid = false;
-
-    public long timestamp() {
-        return timestamp;
-    }
 
     @Override
     public void updatePoint(Map<String, String> key, Point d) {
@@ -65,11 +57,11 @@ public class SumBucket extends AbstractBucket implements DoubleBucket {
     }
 
     @Override
-    public double value() {
+    public Point asPoint() {
         if (!valid) {
-            return Double.NaN;
+            return null;
         }
 
-        return sum.get();
+        return new Point(timestamp, sum.get());
     }
 }

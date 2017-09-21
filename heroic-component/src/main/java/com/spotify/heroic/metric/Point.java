@@ -32,11 +32,6 @@ public class Point implements Metric {
     private final double value;
 
     @Override
-    public boolean valid() {
-        return Double.isFinite(value);
-    }
-
-    @Override
     public void hash(final Hasher hasher) {
         hasher.putInt(MetricType.POINT.ordinal());
         hasher.putDouble(value);

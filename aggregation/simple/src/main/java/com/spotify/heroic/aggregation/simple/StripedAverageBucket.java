@@ -22,14 +22,12 @@
 package com.spotify.heroic.aggregation.simple;
 
 import com.spotify.heroic.aggregation.AbstractBucket;
-import com.spotify.heroic.aggregation.DoubleBucket;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
-import lombok.RequiredArgsConstructor;
-
 import java.util.Map;
 import java.util.concurrent.atomic.DoubleAdder;
 import java.util.concurrent.atomic.LongAdder;
+import lombok.RequiredArgsConstructor;
 
 /**
  * Bucket that calculates the average of all samples seen.
@@ -37,15 +35,11 @@ import java.util.concurrent.atomic.LongAdder;
  * @author udoprog
  */
 @RequiredArgsConstructor
-public class StripedAverageBucket extends AbstractBucket implements DoubleBucket {
+public class StripedAverageBucket extends AbstractBucket implements PointBucket {
     private final long timestamp;
 
     private final DoubleAdder value = new DoubleAdder();
     private final LongAdder count = new LongAdder();
-
-    public long timestamp() {
-        return timestamp;
-    }
 
     @Override
     public void updatePoint(Map<String, String> key, Point d) {
@@ -60,13 +54,13 @@ public class StripedAverageBucket extends AbstractBucket implements DoubleBucket
     }
 
     @Override
-    public double value() {
+    public Point asPoint() {
         final long count = this.count.sum();
 
         if (count == 0) {
-            return Double.NaN;
+            return null;
         }
 
-        return value.sum() / count;
+        return new Point(timestamp, value.sum() / count);
     }
 }

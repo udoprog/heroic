@@ -28,10 +28,9 @@ import com.spotify.heroic.aggregation.SamplingAggregation;
 import com.spotify.heroic.aggregation.SamplingQuery;
 import com.spotify.heroic.common.Duration;
 import com.spotify.heroic.common.Optionals;
+import java.util.Optional;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-
-import java.util.Optional;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -50,15 +49,13 @@ public class CardinalityAggregation extends SamplingAggregation {
         super(Optionals.firstPresent(size, sampling.flatMap(SamplingQuery::getSize)),
             Optionals.firstPresent(extent, sampling.flatMap(SamplingQuery::getExtent)));
 
-        this.method = method.orElseGet(
-            () -> new CardinalityMethod.HyperLogLogPlusCardinalityMethod(Optional.empty(),
-                Optional.empty()));
+        this.method = method.orElseGet(CardinalityMethod::supplyDefault);
     }
 
     @Override
     public CardinalityInstance apply(
         final AggregationContext context, final long size, final long extent
     ) {
-        return new CardinalityInstance(size, extent, method);
+        return new CardinalityInstance(size, extent, Optional.of(method));
     }
 }

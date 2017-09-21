@@ -43,6 +43,6 @@ public class TemplateInstance extends BucketAggregationInstance<SumBucket> {
 
     @Override
     protected Point build(SumBucket bucket) {
-        return new Point(bucket.timestamp(), 0.0);
+        return bucket.asPoint();
     }
 }

@@ -26,6 +26,7 @@ import com.spotify.heroic.aggregation.BucketAggregationInstance;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.Payload;
 import java.beans.ConstructorProperties;
+import java.util.Optional;
 
 public class DistributedCardinalityInstance extends BucketAggregationInstance<CardinalityBucket> {
     public static final String NAME = "distributed-cardinality";
@@ -34,10 +35,10 @@ public class DistributedCardinalityInstance extends BucketAggregationInstance<Ca
 
     @ConstructorProperties({"size", "extent", "method"})
     public DistributedCardinalityInstance(
-        final long size, final long extent, final CardinalityMethod method
+        final long size, final long extent, final Optional<CardinalityMethod> method
     ) {
         super(size, extent, ALL_TYPES, MetricType.CARDINALITY);
-        this.method = method;
+        this.method = method.orElseGet(CardinalityMethod::supplyDefault);
     }
 
     @Override
@@ -47,7 +48,7 @@ public class DistributedCardinalityInstance extends BucketAggregationInstance<Ca
 
     @Override
     protected Payload build(CardinalityBucket bucket) {
-        return new Payload(bucket.timestamp(), bucket.state());
+        return bucket.asPayload();
     }
 
     @Override

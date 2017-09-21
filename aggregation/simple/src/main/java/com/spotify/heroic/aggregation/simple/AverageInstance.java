@@ -22,10 +22,8 @@
 package com.spotify.heroic.aggregation.simple;
 
 import com.google.common.collect.ImmutableSet;
-import com.spotify.heroic.metric.Metric;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.Point;
-
 import java.beans.ConstructorProperties;
 
 public class AverageInstance extends DistributedBucketInstance<StripedAverageBucket> {
@@ -40,13 +38,7 @@ public class AverageInstance extends DistributedBucketInstance<StripedAverageBuc
     }
 
     @Override
-    protected Metric build(final StripedAverageBucket bucket) {
-        final double value = bucket.value();
-
-        if (!Double.isFinite(value)) {
-            return Metric.invalid();
-        }
-
-        return new Point(bucket.timestamp(), bucket.value());
+    protected Point build(final StripedAverageBucket bucket) {
+        return bucket.asPoint();
     }
 }

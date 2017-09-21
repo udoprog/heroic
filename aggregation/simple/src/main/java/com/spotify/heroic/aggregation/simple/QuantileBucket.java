@@ -39,13 +39,12 @@ package com.spotify.heroic.aggregation.simple;
 
 import com.spotify.heroic.aggregation.AbstractBucket;
 import com.spotify.heroic.metric.Point;
-import lombok.AllArgsConstructor;
-import lombok.RequiredArgsConstructor;
-
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.ListIterator;
 import java.util.Map;
+import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 
 /**
  * Implementation of the Cormode, Korn, Muthukrishnan, and Srivastava algorithm for streaming
@@ -61,7 +60,7 @@ import java.util.Map;
  * Greenwald and Khanna, "Space-efficient online computation of quantile summaries" in SIGMOD 2001
  */
 @RequiredArgsConstructor
-public class QuantileBucket extends AbstractBucket {
+public class QuantileBucket extends AbstractBucket implements PointBucket {
     private final long timestamp;
     private final double quantile;
     private final double error;
@@ -99,11 +98,11 @@ public class QuantileBucket extends AbstractBucket {
     }
 
     @Override
-    public long timestamp() {
-        return timestamp;
+    public Point asPoint() {
+        return new Point(timestamp, calculateValue());
     }
 
-    public synchronized double value() {
+    private synchronized double calculateValue() {
         if (index > 0) {
             compact();
         }

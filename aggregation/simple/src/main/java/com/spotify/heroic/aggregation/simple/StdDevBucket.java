@@ -22,12 +22,10 @@
 package com.spotify.heroic.aggregation.simple;
 
 import com.spotify.heroic.aggregation.AbstractBucket;
-import com.spotify.heroic.aggregation.DoubleBucket;
 import com.spotify.heroic.metric.Point;
-import lombok.RequiredArgsConstructor;
-
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import lombok.RequiredArgsConstructor;
 
 /**
  * Bucket that calculates the standard deviation of all buckets seen.
@@ -37,7 +35,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * @author udoprog
  */
 @RequiredArgsConstructor
-public class StdDevBucket extends AbstractBucket implements DoubleBucket {
+public class StdDevBucket extends AbstractBucket implements PointBucket {
     private static final Cell ZERO = new Cell(0.0, 0.0, 0);
 
     private final long timestamp;
@@ -64,19 +62,14 @@ public class StdDevBucket extends AbstractBucket implements DoubleBucket {
     }
 
     @Override
-    public long timestamp() {
-        return timestamp;
-    }
-
-    @Override
-    public double value() {
+    public Point asPoint() {
         final Cell c = cell.get();
 
         if (c.count <= 1) {
-            return Double.NaN;
+            return null;
         }
 
-        return Math.sqrt(c.s / (c.count - 1));
+        return new Point(timestamp, Math.sqrt(c.s / (c.count - 1)));
     }
 
     @RequiredArgsConstructor

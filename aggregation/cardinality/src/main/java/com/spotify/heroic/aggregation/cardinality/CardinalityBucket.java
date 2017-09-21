@@ -22,11 +22,19 @@
 package com.spotify.heroic.aggregation.cardinality;
 
 import com.spotify.heroic.aggregation.AnyBucket;
+import com.spotify.heroic.metric.Payload;
+import com.spotify.heroic.metric.Point;
 
 public interface CardinalityBucket extends AnyBucket {
-    long count();
+    /**
+     * Convert into a payload representing the partial state of this bucket.
+     *
+     * @return a payload that can be sent over the network.
+     */
+    Payload asPayload();
 
-    default byte[] state() {
-        throw new RuntimeException("persisting state not supported");
-    }
+    /**
+     * Convert into a point.
+     */
+    Point asPoint();
 }

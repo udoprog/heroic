@@ -283,7 +283,7 @@ public abstract class AbstractClusterQueryIT extends AbstractLocalClusterIT {
         assumeTrue(cardinalitySupport);
 
         // TODO: support native booleans in expressions
-        final QueryResult result = query("cardinality(10ms, method=hllp(includeKey=\"true\"))");
+        final QueryResult result = query("cardinality(10ms, method=hllp(key=\"true\"))");
 
         final Set<MetricCollection> m = getResults(result);
         final List<Long> cadences = getCadences(result);

@@ -2,7 +2,6 @@ package com.spotify.heroic.aggregation.simple;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.spotify.heroic.aggregation.DoubleBucket;
 import com.spotify.heroic.metric.Point;
 import org.junit.Test;
 
@@ -14,8 +13,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class StdDevBucketTest {
-    public Collection<? extends DoubleBucket> buckets() {
-        return ImmutableList.<DoubleBucket>of(new StdDevBucket(0L), new StripedStdDevBucket(0L));
+    public Collection<? extends PointBucket> buckets() {
+        return ImmutableList.<PointBucket>of(new StdDevBucket(0L), new StripedStdDevBucket(0L));
     }
 
     @Test
@@ -24,7 +23,7 @@ public class StdDevBucketTest {
 
         final Map<String, String> tags = ImmutableMap.of();
 
-        for (final DoubleBucket bucket : buckets()) {
+        for (final PointBucket bucket : buckets()) {
             for (int i = 0; i < 1000; i++) {
                 bucket.updatePoint(tags, new Point(0L, rnd.nextDouble()));
             }
@@ -38,11 +37,11 @@ public class StdDevBucketTest {
     public void testNaNOnZero() {
         final Map<String, String> tags = ImmutableMap.of();
 
-        for (final DoubleBucket bucket : buckets()) {
+        for (final PointBucket bucket : buckets()) {
             assertTrue(Double.isNaN(bucket.value()));
         }
 
-        for (final DoubleBucket bucket : buckets()) {
+        for (final PointBucket bucket : buckets()) {
             bucket.updatePoint(tags, new Point(0L, 0.0d));
             bucket.updatePoint(tags, new Point(0L, 0.0d));
             assertFalse(bucket.getClass().getSimpleName(), Double.isNaN(bucket.value()));

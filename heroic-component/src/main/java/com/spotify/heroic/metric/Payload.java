@@ -21,22 +21,14 @@
 
 package com.spotify.heroic.metric;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.common.hash.Hasher;
-import java.util.Map;
 import lombok.Data;
 
 @Data
 public class Payload implements Metric {
-    private static final Map<String, String> EMPTY_PAYLOAD = ImmutableMap.of();
-
     private final long timestamp;
     private final byte[] state;
-
-    public boolean valid() {
-        return true;
-    }
 
     private static final Ordering<String> KEY_ORDER = Ordering.from(String::compareTo);
 

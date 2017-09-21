@@ -22,14 +22,12 @@
 package com.spotify.heroic.aggregation.simple;
 
 import com.spotify.heroic.aggregation.AbstractBucket;
-import com.spotify.heroic.aggregation.DoubleBucket;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
-import lombok.RequiredArgsConstructor;
-
 import java.util.Map;
 import java.util.concurrent.atomic.DoubleAdder;
 import java.util.concurrent.atomic.LongAdder;
+import lombok.RequiredArgsConstructor;
 
 /**
  * A lock-free implementation for calculating the standard deviation over many values.
@@ -39,7 +37,7 @@ import java.util.concurrent.atomic.LongAdder;
  * @author udoprog
  */
 @RequiredArgsConstructor
-public class StripedStdDevBucket extends AbstractBucket implements DoubleBucket {
+public class StripedStdDevBucket extends AbstractBucket implements PointBucket {
     private final DoubleAdder sum = new DoubleAdder();
     private final DoubleAdder sum2 = new DoubleAdder();
     private final LongAdder count = new LongAdder();
@@ -63,20 +61,17 @@ public class StripedStdDevBucket extends AbstractBucket implements DoubleBucket 
     }
 
     @Override
-    public long timestamp() {
-        return timestamp;
-    }
-
-    public double value() {
+    public Point asPoint() {
         final long count = this.count.sum();
 
         if (count == 0) {
-            return Double.NaN;
+            return null;
         }
 
         final double sum = this.sum.sum(), sum2 = this.sum2.sum();
         final double mean = sum / count;
+        final double value = Math.sqrt((sum2 / count) - (mean * mean));
 
-        return Math.sqrt((sum2 / count) - (mean * mean));
+        return new Point(timestamp, value);
     }
 }

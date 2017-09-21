@@ -28,7 +28,8 @@ import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.spotify.heroic.metric.Metric;
-
+import com.spotify.heroic.metric.Payload;
+import com.spotify.heroic.metric.Point;
 import java.io.IOException;
 import java.util.Map;
 
@@ -45,16 +46,12 @@ public class HyperLogLogPlusCardinalityBucket implements CardinalityBucket {
     private final boolean includeKey;
     private final HyperLogLogPlus seen;
 
-    public HyperLogLogPlusCardinalityBucket(
+    HyperLogLogPlusCardinalityBucket(
         final long timestamp, final boolean includeKey, final int precision
     ) {
         this.timestamp = timestamp;
         this.includeKey = includeKey;
         this.seen = new HyperLogLogPlus(precision);
-    }
-
-    public long timestamp() {
-        return timestamp;
     }
 
     @Override
@@ -74,15 +71,20 @@ public class HyperLogLogPlusCardinalityBucket implements CardinalityBucket {
     }
 
     @Override
-    public long count() {
-        return seen.cardinality();
-    }
+    public Payload asPayload() {
+        final byte[] state;
 
-    public byte[] state() {
         try {
-            return seen.getBytes();
+            state = seen.getBytes();
         } catch (final IOException e) {
             throw new RuntimeException("Could not persist state", e);
         }
+
+        return new Payload(timestamp, state);
+    }
+
+    @Override
+    public Point asPoint() {
+        return new Point(timestamp, seen.cardinality());
     }
 }

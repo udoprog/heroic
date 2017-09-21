@@ -12,6 +12,6 @@ public class GrpcClusterQueryIT extends AbstractClusterQueryIT {
 
         // TODO: over GRPC something goes wrong with the distributed cardinality support, or it's an
         // error.
-        cardinalitySupport = false;
+        // cardinalitySupport = false;
     }
 }

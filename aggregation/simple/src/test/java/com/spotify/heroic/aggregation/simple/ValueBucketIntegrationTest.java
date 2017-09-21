@@ -1,13 +1,9 @@
 package com.spotify.heroic.aggregation.simple;
 
-import com.google.common.collect.ImmutableMap;
-import com.spotify.heroic.aggregation.DoubleBucket;
-import com.spotify.heroic.metric.Point;
-import lombok.RequiredArgsConstructor;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import static org.junit.Assert.assertEquals;
 
+import com.google.common.collect.ImmutableMap;
+import com.spotify.heroic.metric.Point;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -19,8 +15,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.function.DoubleBinaryOperator;
-
-import static org.junit.Assert.assertEquals;
+import lombok.RequiredArgsConstructor;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 @RequiredArgsConstructor
 public abstract class ValueBucketIntegrationTest {
@@ -51,13 +49,13 @@ public abstract class ValueBucketIntegrationTest {
         service.shutdownNow();
     }
 
-    public abstract Collection<? extends DoubleBucket> buckets();
+    public abstract Collection<? extends PointBucket> buckets();
 
     @Test(timeout = 10000)
     public void testExpectedValue() throws InterruptedException, ExecutionException {
         final Random rnd = new Random();
 
-        for (final DoubleBucket bucket : buckets()) {
+        for (final PointBucket bucket : buckets()) {
             final List<Future<Void>> futures = new ArrayList<>();
 
             double expected = initial;

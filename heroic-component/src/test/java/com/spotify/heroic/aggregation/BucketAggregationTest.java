@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.spotify.heroic.common.DateRange;
 import com.spotify.heroic.common.Series;
+import com.spotify.heroic.metric.Metric;
 import com.spotify.heroic.metric.MetricType;
 import com.spotify.heroic.metric.Point;
 import java.util.ArrayList;
@@ -44,11 +45,6 @@ public class BucketAggregationTest {
         public void updatePoint(Map<String, String> key, Point d) {
             sum += d.getValue();
         }
-
-        @Override
-        public long timestamp() {
-            return timestamp;
-        }
     }
 
     public BucketAggregationInstance<TestBucket> setup(long sampling, long extent) {
@@ -60,7 +56,7 @@ public class BucketAggregationTest {
             }
 
             @Override
-            protected Point build(TestBucket bucket) {
+            protected Metric build(TestBucket bucket) {
                 return new Point(bucket.timestamp, bucket.sum);
             }
 

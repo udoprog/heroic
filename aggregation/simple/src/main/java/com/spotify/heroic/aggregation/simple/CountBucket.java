@@ -23,10 +23,10 @@ package com.spotify.heroic.aggregation.simple;
 
 import com.spotify.heroic.aggregation.AnyBucket;
 import com.spotify.heroic.metric.Metric;
-import lombok.RequiredArgsConstructor;
-
+import com.spotify.heroic.metric.Point;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
+import lombok.RequiredArgsConstructor;
 
 /**
  * Bucket that counts the number of seen samples.
@@ -34,21 +34,18 @@ import java.util.concurrent.atomic.AtomicLong;
  * @author udoprog
  */
 @RequiredArgsConstructor
-public class CountBucket implements AnyBucket {
+public class CountBucket implements AnyBucket, PointBucket {
     private final long timestamp;
 
     private final AtomicLong count = new AtomicLong();
-
-    public long timestamp() {
-        return timestamp;
-    }
 
     @Override
     public void update(Map<String, String> key, Metric d) {
         count.incrementAndGet();
     }
 
-    public long count() {
-        return count.get();
+    @Override
+    public Point asPoint() {
+        return new Point(timestamp, count.get());
     }
 }

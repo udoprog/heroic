@@ -22,14 +22,10 @@
 package com.spotify.heroic.aggregation.simple;
 
 import com.spotify.heroic.aggregation.BucketAggregationInstance;
-import com.spotify.heroic.metric.Metric;
-import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.MetricGroup;
 import com.spotify.heroic.metric.MetricType;
-import lombok.ToString;
-
 import java.beans.ConstructorProperties;
-import java.util.List;
+import lombok.ToString;
 
 @ToString(callSuper = true)
 public class GroupUniqueInstance extends BucketAggregationInstance<GroupUniqueBucket> {
@@ -44,13 +40,7 @@ public class GroupUniqueInstance extends BucketAggregationInstance<GroupUniqueBu
     }
 
     @Override
-    protected Metric build(final GroupUniqueBucket bucket) {
-        final List<MetricCollection> groups = bucket.groups();
-
-        if (groups.isEmpty()) {
-            return Metric.invalid();
-        }
-
-        return new MetricGroup(bucket.timestamp(), groups);
+    protected MetricGroup build(final GroupUniqueBucket bucket) {
+        return bucket.asMetricGroup();
     }
 }

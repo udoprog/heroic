@@ -22,34 +22,23 @@
 package com.spotify.heroic.metric;
 
 import com.google.common.base.Charsets;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.common.hash.Hasher;
+import java.util.Map;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-
-import java.util.Map;
+import lombok.RequiredArgsConstructor;
 
 @Data
 @EqualsAndHashCode
+@RequiredArgsConstructor
 public class Event implements Metric {
-    private static final Map<String, String> EMPTY_PAYLOAD = ImmutableMap.of();
-
     private final long timestamp;
     private final Map<String, String> payload;
 
     public Event(final long timestamp) {
-        this(timestamp, EMPTY_PAYLOAD);
-    }
-
-    public Event(final long timestamp, final Map<String, String> payload) {
-        this.timestamp = timestamp;
-        this.payload = Optional.fromNullable(payload).or(EMPTY_PAYLOAD);
-    }
-
-    public boolean valid() {
-        return true;
+        this(timestamp, ImmutableMap.of());
     }
 
     private static final Ordering<String> KEY_ORDER = Ordering.from(String::compareTo);

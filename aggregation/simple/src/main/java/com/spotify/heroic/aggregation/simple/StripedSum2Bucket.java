@@ -22,13 +22,11 @@
 package com.spotify.heroic.aggregation.simple;
 
 import com.spotify.heroic.aggregation.AbstractBucket;
-import com.spotify.heroic.aggregation.DoubleBucket;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
-import lombok.RequiredArgsConstructor;
-
 import java.util.Map;
 import java.util.concurrent.atomic.DoubleAdder;
+import lombok.RequiredArgsConstructor;
 
 /**
  * Bucket that keeps track of the amount of data points seen, and there summed value.
@@ -38,17 +36,11 @@ import java.util.concurrent.atomic.DoubleAdder;
  * @author udoprog
  */
 @RequiredArgsConstructor
-public class StripedSum2Bucket extends AbstractBucket implements DoubleBucket {
+public class StripedSum2Bucket extends AbstractBucket implements PointBucket {
     private final long timestamp;
 
-    /* the sum of all seen values */
     private final DoubleAdder sum2 = new DoubleAdder();
-    /* if the sum is valid (e.g. has at least one value) */
     private volatile boolean valid = false;
-
-    public long timestamp() {
-        return timestamp;
-    }
 
     @Override
     public void updatePoint(Map<String, String> key, Point d) {
@@ -63,11 +55,11 @@ public class StripedSum2Bucket extends AbstractBucket implements DoubleBucket {
     }
 
     @Override
-    public double value() {
+    public Point asPoint() {
         if (!valid) {
-            return Double.NaN;
+            return null;
         }
 
-        return sum2.sum();
+        return new Point(timestamp, sum2.sum());
     }
 }

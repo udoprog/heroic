@@ -48,6 +48,10 @@ public interface CardinalityMethod {
 
     void hashTo(ObjectHasher hasher);
 
+    static CardinalityMethod supplyDefault() {
+        return new HyperLogLogPlusCardinalityMethod(Optional.empty(), Optional.empty());
+    }
+
     @Data
     @JsonTypeName("exact")
     class ExactCardinalityMethod implements CardinalityMethod {
@@ -210,7 +214,7 @@ public interface CardinalityMethod {
                     e.keyword("precision").map(i -> i.cast(DoubleExpression.class).getValue());
 
                 final Optional<Boolean> includeKey = e
-                    .keyword("includeKey")
+                    .keyword("key")
                     .map(i -> "true".equals(i.cast(StringExpression.class).getString()));
 
                 return new HyperLogLogCardinalityMethod(precision, includeKey);
@@ -222,7 +226,7 @@ public interface CardinalityMethod {
                     .map(i -> i.cast(IntegerExpression.class).getValueAsInteger());
 
                 final Optional<Boolean> includeKey = e
-                    .keyword("includeKey")
+                    .keyword("key")
                     .map(i -> "true".equals(i.cast(StringExpression.class).getString()));
 
                 return new HyperLogLogPlusCardinalityMethod(precision, includeKey);

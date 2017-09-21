@@ -30,12 +30,11 @@ import com.spotify.heroic.metric.MetricCollection;
 import com.spotify.heroic.metric.MetricGroup;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
-import lombok.RequiredArgsConstructor;
-
 import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.concurrent.ConcurrentSkipListSet;
+import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public class GroupUniqueBucket extends AbstractBucket implements Bucket {
@@ -88,8 +87,13 @@ public class GroupUniqueBucket extends AbstractBucket implements Bucket {
         groups.add(sample);
     }
 
-    @Override
-    public long timestamp() {
-        return timestamp;
+    public MetricGroup asMetricGroup() {
+        final List<MetricCollection> groups = groups();
+
+        if (groups.isEmpty()) {
+            return null;
+        }
+
+        return new MetricGroup(timestamp, groups);
     }
 }

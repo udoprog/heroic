@@ -23,34 +23,22 @@ package com.spotify.heroic.aggregation.simple;
 
 import com.google.common.util.concurrent.AtomicDouble;
 import com.spotify.heroic.aggregation.AbstractBucket;
-import com.spotify.heroic.aggregation.DoubleBucket;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 
-import java.util.Map;
-
 /**
- * Bucket that keeps track of the amount of data points seen, and their squared values summed.
- * <p>
- * Take care to not blindly trust {@link #value()} since it is initialized to 0 for simplicity.
- * Always check {@link #count()}, which if zero indicates that the {@link #value()} is undefined
- * (e.g. NaN).
- *
- * @author udoprog
+ * Bucket that calculates the sum of squares.
  */
 @RequiredArgsConstructor
-public class Sum2Bucket extends AbstractBucket implements DoubleBucket {
+public class Sum2Bucket extends AbstractBucket implements PointBucket {
     private final long timestamp;
 
     /* the sum of seen values */
     private final AtomicDouble sum2 = new AtomicDouble();
     /* if the sum is valid (e.g. has at least one value) */
     private volatile boolean valid = false;
-
-    public long timestamp() {
-        return timestamp;
-    }
 
     @Override
     public void updatePoint(Map<String, String> key, Point d) {
@@ -65,10 +53,11 @@ public class Sum2Bucket extends AbstractBucket implements DoubleBucket {
     }
 
     @Override
-    public double value() {
+    public Point asPoint() {
         if (!valid) {
-            return Double.NaN;
+            return null;
         }
-        return sum2.get();
+
+        return new Point(timestamp, sum2.get());
     }
 }

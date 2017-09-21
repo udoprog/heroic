@@ -22,14 +22,12 @@
 package com.spotify.heroic.aggregation.simple;
 
 import com.spotify.heroic.aggregation.AbstractBucket;
-import com.spotify.heroic.aggregation.DoubleBucket;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
-import lombok.RequiredArgsConstructor;
-
 import java.util.Map;
 import java.util.concurrent.atomic.DoubleAccumulator;
 import java.util.function.DoubleBinaryOperator;
+import lombok.RequiredArgsConstructor;
 
 /**
  * A bucket implementation that retains the largest (max) value seen.
@@ -39,16 +37,12 @@ import java.util.function.DoubleBinaryOperator;
  * @author udoprog
  */
 @RequiredArgsConstructor
-public class StripedMaxBucket extends AbstractBucket implements DoubleBucket {
+public class StripedMaxBucket extends AbstractBucket implements PointBucket {
     private static final DoubleBinaryOperator maxFn = (left, right) -> Math.max(left, right);
 
     private final long timestamp;
 
     private final DoubleAccumulator max = new DoubleAccumulator(maxFn, Double.NEGATIVE_INFINITY);
-
-    public long timestamp() {
-        return timestamp;
-    }
 
     @Override
     public void updatePoint(Map<String, String> key, Point d) {
@@ -61,13 +55,13 @@ public class StripedMaxBucket extends AbstractBucket implements DoubleBucket {
     }
 
     @Override
-    public double value() {
+    public Point asPoint() {
         final double result = max.doubleValue();
 
         if (!Double.isFinite(result)) {
-            return Double.NaN;
+            return null;
         }
 
-        return result;
+        return new Point(timestamp, result);
     }
 }

@@ -22,14 +22,12 @@
 package com.spotify.heroic.aggregation.simple;
 
 import com.spotify.heroic.aggregation.AbstractBucket;
-import com.spotify.heroic.aggregation.DoubleBucket;
 import com.spotify.heroic.metric.Point;
 import com.spotify.heroic.metric.Spread;
-import lombok.RequiredArgsConstructor;
-
 import java.util.Map;
 import java.util.concurrent.atomic.DoubleAccumulator;
 import java.util.function.DoubleBinaryOperator;
+import lombok.RequiredArgsConstructor;
 
 /**
  * A min-bucket implementation intended to reduce cross-thread contention.
@@ -39,16 +37,12 @@ import java.util.function.DoubleBinaryOperator;
  * @author udoprog
  */
 @RequiredArgsConstructor
-public class StripedMinBucket extends AbstractBucket implements DoubleBucket {
-    private static final DoubleBinaryOperator minFn = (left, right) -> Math.min(left, right);
+public class StripedMinBucket extends AbstractBucket implements PointBucket {
+    private static final DoubleBinaryOperator minFn = Math::min;
 
     private final long timestamp;
 
     private final DoubleAccumulator min = new DoubleAccumulator(minFn, Double.POSITIVE_INFINITY);
-
-    public long timestamp() {
-        return timestamp;
-    }
 
     @Override
     public void updateSpread(Map<String, String> key, Spread d) {
@@ -61,13 +55,13 @@ public class StripedMinBucket extends AbstractBucket implements DoubleBucket {
     }
 
     @Override
-    public double value() {
+    public Point asPoint() {
         final double result = min.doubleValue();
 
         if (!Double.isFinite(result)) {
-            return Double.NaN;
+            return null;
         }
 
-        return result;
+        return new Point(timestamp, result);
     }
 }

@@ -22,13 +22,10 @@
 package com.spotify.heroic.metric;
 
 import com.google.common.hash.Hasher;
-
 import java.util.Comparator;
 
 public interface Metric {
     long getTimestamp();
-
-    boolean valid();
 
     void hash(Hasher hasher);
 
@@ -36,25 +33,5 @@ public interface Metric {
         return comparator;
     }
 
-    static Metric invalid() {
-        return invalid;
-    }
-
-    Comparator<Metric> comparator = (a, b) -> Long.compare(a.getTimestamp(), b.getTimestamp());
-
-    Metric invalid = new Metric() {
-        @Override
-        public long getTimestamp() {
-            throw new IllegalStateException("invalid has not timestamp");
-        }
-
-        @Override
-        public boolean valid() {
-            return false;
-        }
-
-        @Override
-        public void hash(final Hasher hasher) {
-        }
-    };
+    Comparator<Metric> comparator = Comparator.comparingLong(Metric::getTimestamp);
 }

@@ -23,9 +23,9 @@ package com.spotify.heroic.aggregation.cardinality;
 
 import com.clearspring.analytics.stream.cardinality.CardinalityMergeException;
 import com.clearspring.analytics.stream.cardinality.HyperLogLog;
-import com.spotify.heroic.metric.Payload;
 import com.spotify.heroic.metric.Metric;
-
+import com.spotify.heroic.metric.Payload;
+import com.spotify.heroic.metric.Point;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
@@ -33,20 +33,14 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Bucket that counts the number of seen events.
- *
- * @author udoprog
  */
 public class ReduceHyperLogLogCardinalityBucket implements CardinalityBucket {
     private final long timestamp;
 
     private final ConcurrentLinkedQueue<HyperLogLog> states = new ConcurrentLinkedQueue<>();
 
-    public ReduceHyperLogLogCardinalityBucket(final long timestamp) {
+    ReduceHyperLogLogCardinalityBucket(final long timestamp) {
         this.timestamp = timestamp;
-    }
-
-    public long timestamp() {
-        return timestamp;
     }
 
     @Override
@@ -65,11 +59,11 @@ public class ReduceHyperLogLogCardinalityBucket implements CardinalityBucket {
     }
 
     @Override
-    public long count() {
+    public Payload asPayload() {
         final Iterator<HyperLogLog> it = states.iterator();
 
         if (!it.hasNext()) {
-            return 0L;
+            return null;
         }
 
         HyperLogLog current = it.next();
@@ -82,6 +76,31 @@ public class ReduceHyperLogLogCardinalityBucket implements CardinalityBucket {
             }
         }
 
-        return current.cardinality();
+        try {
+            return new Payload(timestamp, current.getBytes());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public Point asPoint() {
+        final Iterator<HyperLogLog> it = states.iterator();
+
+        if (!it.hasNext()) {
+            return null;
+        }
+
+        HyperLogLog current = it.next();
+
+        while (it.hasNext()) {
+            try {
+                current.addAll(it.next());
+            } catch (CardinalityMergeException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        return new Point(timestamp, current.cardinality());
     }
 }

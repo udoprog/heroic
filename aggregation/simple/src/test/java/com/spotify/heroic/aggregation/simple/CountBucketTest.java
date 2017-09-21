@@ -1,13 +1,12 @@
 package com.spotify.heroic.aggregation.simple;
 
-import com.google.common.collect.ImmutableMap;
-import com.spotify.heroic.metric.Metric;
-import org.junit.Test;
-
-import java.util.Map;
-
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.mock;
+
+import com.google.common.collect.ImmutableMap;
+import com.spotify.heroic.metric.Metric;
+import java.util.Map;
+import org.junit.Test;
 
 public class CountBucketTest {
     @Test
@@ -15,8 +14,8 @@ public class CountBucketTest {
         final Map<String, String> tags = ImmutableMap.of();
         final CountBucket b = new CountBucket(0);
         final Metric m = mock(Metric.class);
-        assertEquals(0L, b.count());
+        assertEquals(0D, b.value(), 0.1D);
         b.update(tags, m);
-        assertEquals(1L, b.count());
+        assertEquals(1D, b.value(), 0.1D);
     }
 }
